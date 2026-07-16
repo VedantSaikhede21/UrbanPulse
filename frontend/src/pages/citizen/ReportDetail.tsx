@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Loader, MapPin, Calendar, AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 interface Ticket {
   id: string;
@@ -23,19 +24,14 @@ export const ReportDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/tickets')
+    if (!id) return;
+    apiFetch(`/api/tickets/${id}`)
       .then(res => {
-        if (!res.ok) throw new Error('Failed to load tickets');
+        if (!res.ok) throw new Error('Failed to load ticket');
         return res.json();
       })
-      .then((data: Ticket[]) => {
-        const found = data.find(t => t.id === id);
-        if (found) {
-          setTicket(found);
-        } else {
-          // Fallback look inside static seeds if not matched
-          setTicket(data[0] || null);
-        }
+      .then((data: Ticket) => {
+        setTicket(data);
         setLoading(false);
       })
       .catch(err => {

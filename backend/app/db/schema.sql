@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS wards_boundary_gidx ON wards USING GIST (boundary);
 -- 2. Citizens Table
 CREATE TABLE IF NOT EXISTS citizens (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    phone VARCHAR(20) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
     reputation_score INT DEFAULT 100 CHECK (reputation_score BETWEEN 0 AND 200),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

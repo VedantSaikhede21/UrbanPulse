@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Loader, MapPin, Mic, Sparkles } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 type Step = 1 | 2 | 3;
 
@@ -80,36 +81,31 @@ export const ReportIssue: React.FC = () => {
     setSubmitting(true);
 
     const ticketPayload = {
-      category,
+      category: aiPreviewData?.category || category,
       severity: aiPreviewData?.severity || 'medium',
       description,
       latitude,
       longitude,
+      original_media_url: photo,
       status: 'reported',
       priority_score: aiPreviewData?.priorityScore || 2,
-      priority_reason: aiPreviewData?.reasoning || ''
+      priority_reason: aiPreviewData?.reasoning || '',
     };
 
     try {
-      const res = await fetch('http://localhost:8000/api/tickets', {
+      const res = await apiFetch('/api/tickets', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ticketPayload)
+        body: JSON.stringify(ticketPayload),
       });
-      // Simple backend ticket creation API handler check
       if (res.ok) {
-        navigate('/citizen/dashboard');
+        const created = await res.json();
+        navigate(`/citizen/reports/${created.id}`);
       } else {
-        // Fallback simulate create success if DB is not configured locally
-        setTimeout(() => {
-          navigate('/citizen/dashboard');
-        }, 1000);
+        navigate('/citizen/dashboard');
       }
     } catch (err) {
-      console.warn("Could not POST, saving locally for mock visualization:", err);
-      setTimeout(() => {
-        navigate('/citizen/dashboard');
-      }, 1000);
+      console.warn('Could not POST ticket:', err);
+      navigate('/citizen/dashboard');
     }
   };
 

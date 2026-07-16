@@ -82,9 +82,9 @@ def seed_db():
 
         # 5. Seed Citizens
         print("Seeding Citizens...")
-        citizen_alice = Citizen(phone="+919876543210", name="Alice Sharma", reputation_score=110)
-        citizen_bob = Citizen(phone="+919876543211", name="Bob Fernandes", reputation_score=85)
-        citizen_charlie = Citizen(phone="+919876543212", name="Charlie Patel", reputation_score=150)
+        citizen_alice = Citizen(email="alice@example.com", name="Alice Sharma", reputation_score=110)
+        citizen_bob = Citizen(email="bob@example.com", name="Bob Fernandes", reputation_score=85)
+        citizen_charlie = Citizen(email="charlie@example.com", name="Charlie Patel", reputation_score=150)
         
         db.add_all([citizen_alice, citizen_bob, citizen_charlie])
         db.commit()

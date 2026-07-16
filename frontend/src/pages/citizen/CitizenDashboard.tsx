@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, CheckCircle2, User, AlertTriangle, Plus, Loader, MapPin, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { apiFetch } from '../../lib/api';
 
 interface Ticket {
   id: string;
@@ -21,7 +22,7 @@ export const CitizenDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/tickets')
+    apiFetch('/api/tickets')
       .then(res => {
         if (!res.ok) throw new Error('Failed to load tickets');
         return res.json();

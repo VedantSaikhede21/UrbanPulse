@@ -6,25 +6,19 @@ export type UserRole = 'citizen' | 'officer' | 'dept_head' | 'admin' | 'super_ad
 export interface AppUser {
   id: string;
   email?: string;
-  phone?: string;
   role: UserRole;
   name?: string;
 }
 
-// Send OTP to phone (citizen login)
-export async function sendOTP(phone: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.auth.signInWithOtp({ phone });
-  return { error: error?.message ?? null };
-}
-
-// Verify OTP token (citizen login step 2)
-export async function verifyOTP(phone: string, token: string): Promise<{ user: User | null; error: string | null }> {
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone,
-    token,
-    type: 'sms',
+// Sign in with Google (citizen login)
+export async function signInWithGoogle(): Promise<{ error: string | null }> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/citizen/dashboard`
+    }
   });
-  return { user: data.user ?? null, error: error?.message ?? null };
+  return { error: error?.message ?? null };
 }
 
 // Email + password login (staff)
@@ -48,8 +42,12 @@ export async function getSession(): Promise<Session | null> {
 export function getRoleFromUser(user: User): UserRole {
   const meta = user.user_metadata;
   if (meta?.role) return meta.role as UserRole;
+  
+  // If the user signed in via Google OAuth, they are a citizen
+  if (user.app_metadata?.provider === 'google') return 'citizen';
+  
   // Staff emails default to officer role; refine via admin panel later
   if (user.email) return 'officer';
-  // Phone-based users are citizens
+  
   return 'citizen';
 }

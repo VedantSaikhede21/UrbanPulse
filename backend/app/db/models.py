@@ -18,7 +18,7 @@ class Citizen(Base):
     __tablename__ = "citizens"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    phone = Column(String(20), unique=True, nullable=False)
+    email = Column(String(255), unique=True, nullable=False)
     name = Column(String(100), nullable=False)
     reputation_score = Column(Integer, default=100)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -102,6 +102,8 @@ const App: React.FC = () => {
 
             {/* Shared routes */}
             <Route path="/trace" element={<LiveAgentTrace />} />
+            <Route path="/trace/:ticketId" element={<LiveAgentTrace />} />
+            <Route path="/shared/trace/:ticketId" element={<LiveAgentTrace />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/support" element={<Support />} />
 

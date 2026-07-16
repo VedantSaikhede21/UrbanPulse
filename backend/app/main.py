@@ -1,24 +1,42 @@
 import asyncio
 import json as _json
+import uuid
+from typing import Optional, List
+
 from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 import jwt
+
 from app.config import settings
 from app.db.session import get_db
-from app.db.models import Ticket, Citizen, Officer
-from app.agents.graph import app_graph, TicketState
+from app.db.models import Ticket, Citizen, Officer, Ward
 
 app = FastAPI(
     title="UrbanPulse AI Backend",
     description="Multi-agent civic infrastructure triage and routing platform backend",
-    version="0.1.0"
+    version="0.2.0",
 )
 
-# JWT Secret config fallback
-JWT_SECRET = getattr(settings, "SUPABASE_JWT_SECRET", "placeholder-secret")
+_triage_graph = None
+_verification_graph = None
+TicketState = None
+
+
+@app.on_event("startup")
+async def load_graphs():
+    global _triage_graph, _verification_graph, TicketState
+    from app.agents.graph import triage_graph, verification_graph, TicketState as TS
+    _triage_graph = triage_graph
+    _verification_graph = verification_graph
+    TicketState = TS
+
+
+JWT_SECRET = settings.SUPABASE_JWT_SECRET or "placeholder-secret"
+
 
 class AuthUser:
     def __init__(self, id: str, role: str, email: str = None, phone: str = None, name: str = None):
@@ -28,26 +46,29 @@ class AuthUser:
         self.phone = phone
         self.name = name
 
+
 def get_current_user(
     authorization: str = Header(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> AuthUser:
     if not authorization:
-        # Development override fallback when no headers are supplied
-        return AuthUser(
-            id="00000000-0000-0000-0000-000000000000",
-            role="super_admin",
-            email="admin@urbanpulse.ai",
-            name="Developer Admin"
-        )
+        if settings.ENV == "development" and settings.DEV_ALLOW_ANONYMOUS:
+            return AuthUser(
+                id="00000000-0000-0000-0000-000000000000",
+                role="super_admin",
+                email="admin@urbanpulse.ai",
+                name="Developer Admin",
+            )
+        raise HTTPException(status_code=401, detail="Authorization header required")
+
     try:
         scheme, token = authorization.split()
         if scheme.lower() != "bearer":
             raise HTTPException(status_code=401, detail="Invalid authentication scheme")
-        options = {}
-        if JWT_SECRET == "placeholder-secret":
-            options = {"verify_signature": False}
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"], options=options)
+        decode_options = {}
+        if not settings.SUPABASE_JWT_SECRET:
+            decode_options = {"verify_signature": False}
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"], options=decode_options)
         user_id = payload.get("sub")
         email = payload.get("email")
         phone = payload.get("phone")
@@ -65,17 +86,74 @@ def get_current_user(
             if officer:
                 name = officer.name
         return AuthUser(id=user_id, role=role, email=email, phone=phone, name=name)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Could not validate credentials: {str(e)}")
 
-# Configure CORS for local development with our React client
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Serializers ──────────────────────────────────────────
+
+def serialize_ticket(t: Ticket) -> dict:
+    return {
+        "id": str(t.id),
+        "citizen_id": str(t.citizen_id) if t.citizen_id else None,
+        "latitude": t.latitude,
+        "longitude": t.longitude,
+        "category": t.category,
+        "severity": t.severity,
+        "description": t.description,
+        "status": t.status,
+        "is_spam": t.is_spam,
+        "is_duplicate": t.is_duplicate,
+        "duplicate_of_id": str(t.duplicate_of_id) if t.duplicate_of_id else None,
+        "priority_score": t.priority_score,
+        "priority_reason": t.priority_reason,
+        "assigned_officer_id": str(t.assigned_officer_id) if t.assigned_officer_id else None,
+        "verification_status": t.verification_status,
+        "verification_reason": t.verification_reason,
+        "original_media_url": t.original_media_url,
+        "closure_media_url": t.closure_media_url,
+        "voice_note_url": t.voice_note_url,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+    }
+
+
+# ── Request models ───────────────────────────────────────
+
+class CreateTicketRequest(BaseModel):
+    category: str
+    severity: str = "medium"
+    description: Optional[str] = None
+    latitude: float
+    longitude: float
+    original_media_url: Optional[str] = None
+    voice_note_url: Optional[str] = None
+    status: str = "reported"
+    priority_score: int = Field(default=2, ge=1, le=3)
+    priority_reason: Optional[str] = None
+
+
+class ResolveTicketRequest(BaseModel):
+    closure_media_url: str
+    notes: Optional[str] = None
+
+
+class UpdateTicketStatusRequest(BaseModel):
+    status: str
+
+
+# ── Health ───────────────────────────────────────────────
 
 @app.get("/api/health")
 def health_check(db: Session = Depends(get_db)):
@@ -92,38 +170,21 @@ def health_check(db: Session = Depends(get_db)):
         "database_connected": db_connected,
         "supabase_configured": settings.SUPABASE_ANON_KEY != "placeholder-anon-key",
         "gemini_configured": settings.GEMINI_API_KEY is not None,
-        "twilio_configured": settings.TWILIO_ACCOUNT_SID is not None
+        "twilio_configured": settings.TWILIO_ACCOUNT_SID is not None,
+        "graphs_loaded": _triage_graph is not None,
     }
 
+
+# ── Tickets CRUD ─────────────────────────────────────────
+
 @app.get("/api/tickets")
-def list_tickets(db: Session = Depends(get_db)):
+def list_tickets(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
     try:
-        tickets = db.query(Ticket).all()
-        # Manually serialize to avoid GeoAlchemy geometry JSON serialization issues
-        return [
-            {
-                "id": str(t.id),
-                "citizen_id": str(t.citizen_id) if t.citizen_id else None,
-                "latitude": t.latitude,
-                "longitude": t.longitude,
-                "category": t.category,
-                "severity": t.severity,
-                "description": t.description,
-                "status": t.status,
-                "is_spam": t.is_spam,
-                "is_duplicate": t.is_duplicate,
-                "priority_score": t.priority_score,
-                "priority_reason": t.priority_reason,
-                "assigned_officer_id": str(t.assigned_officer_id) if t.assigned_officer_id else None,
-                "verification_status": t.verification_status,
-                "verification_reason": t.verification_reason,
-                "original_media_url": t.original_media_url,
-                "closure_media_url": t.closure_media_url,
-                "created_at": t.created_at.isoformat() if t.created_at else None,
-                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-            }
-            for t in tickets
-        ]
+        query = db.query(Ticket)
+        if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
+            query = query.filter(Ticket.citizen_id == current_user.id)
+        tickets = query.order_by(Ticket.created_at.desc()).all()
+        return [serialize_ticket(t) for t in tickets]
     except Exception as e:
         print(f"Database error, falling back to mock: {e}")
         return [
@@ -136,100 +197,290 @@ def list_tickets(db: Session = Depends(get_db)):
                 "longitude": 77.5945,
                 "status": "assigned",
                 "priority_score": 2,
-                "created_at": "2026-07-14T18:00:00Z"
+                "created_at": "2026-07-14T18:00:00Z",
             },
-            {
-                "id": "a9e21bf4-c24d-45db-9c3f-c3f2d2b51201",
-                "category": "Water Leak",
-                "severity": "high",
-                "description": "Main pipe line burst, water is spraying over the sidewalk.",
-                "latitude": 12.9730,
-                "longitude": 77.6120,
-                "status": "reported",
-                "priority_score": 3,
-                "created_at": "2026-07-14T18:05:00Z"
-            }
         ]
 
+
+@app.get("/api/tickets/{ticket_id}")
+def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return serialize_ticket(ticket)
+
+
+@app.post("/api/tickets", status_code=201)
+def create_ticket(
+    body: CreateTicketRequest,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    citizen_id = None
+    if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
+        citizen_id = uuid.UUID(current_user.id)
+    else:
+        # Dev fallback: attach to first seeded citizen if available
+        first_citizen = db.query(Citizen).first()
+        if first_citizen:
+            citizen_id = first_citizen.id
+
+    ticket = Ticket(
+        citizen_id=citizen_id,
+        latitude=body.latitude,
+        longitude=body.longitude,
+        category=body.category,
+        severity=body.severity,
+        description=body.description,
+        original_media_url=body.original_media_url,
+        voice_note_url=body.voice_note_url,
+        status=body.status,
+        priority_score=body.priority_score,
+        priority_reason=body.priority_reason,
+    )
+    db.add(ticket)
+    db.commit()
+    db.refresh(ticket)
+    return serialize_ticket(ticket)
+
+
 @app.get("/api/tickets/near")
-def find_nearby_tickets(latitude: float, longitude: float, radius_meters: float = 1000.0, db: Session = Depends(get_db)):
+def find_nearby_tickets(
+    latitude: float,
+    longitude: float,
+    radius_meters: float = 1000.0,
+    db: Session = Depends(get_db),
+):
     try:
-        # Spatial search using GeoAlchemy2/PostGIS
-        from sqlalchemy import func
-        point = func.ST_SetSRID(func.ST_MakePoint(longitude, latitude), 4326)
-        tickets = db.query(Ticket).filter(
-            func.ST_DWithin(Ticket.location_geom, point, radius_meters)
-        ).all()
-        return tickets
+        rows = db.execute(
+            text("""
+                SELECT id FROM tickets
+                WHERE ST_DWithin(
+                    location_geom,
+                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                    :radius
+                )
+            """),
+            {"lng": longitude, "lat": latitude, "radius": radius_meters},
+        ).fetchall()
+        ids = [str(r[0]) for r in rows]
+        if not ids:
+            return []
+        tickets = db.query(Ticket).filter(Ticket.id.in_(ids)).all()
+        return [serialize_ticket(t) for t in tickets]
     except Exception as e:
-        print(f"Spatial query error, falling back to mock: {e}")
+        print(f"Spatial query error: {e}")
         return []
+
+
+# ── Officer endpoints ────────────────────────────────────
+
+@app.get("/api/officers/queue")
+def officer_queue(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
+    if current_user.role not in ("officer", "dept_head", "admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Officer access required")
+
+    query = db.query(Ticket).filter(Ticket.status.in_(["assigned", "in_progress", "reported"]))
+    # If a real officer UUID matches, filter to their assignments
+    try:
+        officer_uuid = uuid.UUID(current_user.id)
+        officer = db.query(Officer).filter(Officer.id == officer_uuid).first()
+        if officer:
+            query = query.filter(Ticket.assigned_officer_id == officer.id)
+    except ValueError:
+        pass
+
+    tickets = query.order_by(Ticket.priority_score.desc(), Ticket.created_at.asc()).all()
+    return [serialize_ticket(t) for t in tickets]
+
+
+@app.patch("/api/tickets/{ticket_id}/status")
+def update_ticket_status(
+    ticket_id: str,
+    body: UpdateTicketStatusRequest,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    ticket.status = body.status
+    db.commit()
+    db.refresh(ticket)
+    return serialize_ticket(ticket)
+
+
+@app.post("/api/tickets/{ticket_id}/resolve")
+async def resolve_ticket(
+    ticket_id: str,
+    body: ResolveTicketRequest,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    if _verification_graph is None:
+        raise HTTPException(status_code=503, detail="Agent graphs not loaded")
+
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    ticket.closure_media_url = body.closure_media_url
+    ticket.status = "resolved"
+    db.commit()
+
+    state = TicketState(
+        ticket_id=ticket_id,
+        citizen_text=ticket.description or "",
+        original_media_url=ticket.original_media_url,
+        closure_media_url=body.closure_media_url,
+        category=ticket.category,
+        latitude=ticket.latitude,
+        longitude=ticket.longitude,
+        status="resolved",
+    )
+
+    final = _verification_graph.invoke(state)
+
+    ticket.verification_status = final.get("verification_status")
+    ticket.verification_reason = final.get("verification_reason")
+    ticket.status = final.get("status", "verified")
+    db.commit()
+    db.refresh(ticket)
+    return serialize_ticket(ticket)
+
+
+# ── Analytics ────────────────────────────────────────────
+
+@app.get("/api/analytics/wards")
+def ward_analytics(db: Session = Depends(get_db)):
+    wards = db.query(Ward).all()
+    return [
+        {
+            "id": w.id,
+            "name": w.name,
+            "uhs_score": float(w.uhs_score),
+        }
+        for w in wards
+    ]
+
+
+@app.get("/api/analytics/city-pulse")
+def city_pulse(db: Session = Depends(get_db)):
+    """AI City Pulse — ward health summary with trending issues."""
+    wards = db.query(Ward).order_by(Ward.uhs_score.asc()).all()
+    critical = [w for w in wards if float(w.uhs_score) < 50]
+
+    trending = (
+        db.query(Ticket.category, func.count(Ticket.id).label("count"))
+        .filter(Ticket.status.in_(["reported", "assigned", "in_progress"]))
+        .group_by(Ticket.category)
+        .order_by(func.count(Ticket.id).desc())
+        .limit(3)
+        .all()
+    )
+
+    alerts = []
+    for w in critical[:3]:
+        ward_tickets = (
+            db.query(Ticket)
+            .filter(Ticket.status.in_(["reported", "assigned", "in_progress"]))
+            .count()
+        )
+        alerts.append(
+            f"{w.name} (Critical): UHS {float(w.uhs_score):.0f}. "
+            f"Review open incidents and dispatch field teams."
+        )
+
+    if not alerts and wards:
+        lowest = wards[0]
+        alerts.append(
+            f"Pulse Alert: {lowest.name} — UHS {float(lowest.uhs_score):.0f}. "
+            f"Monitor for emerging infrastructure issues."
+        )
+
+    return {
+        "wards": [{"name": w.name, "uhs_score": float(w.uhs_score)} for w in wards],
+        "critical_wards": len(critical),
+        "trending_categories": [{"category": c, "count": n} for c, n in trending],
+        "pulse_alerts": alerts,
+    }
+
+
+# ── SSE pipeline ─────────────────────────────────────────
 
 @app.get("/api/tickets/{ticket_id}/process")
 async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
-    """
-    Server-Sent Events endpoint: runs the LangGraph pipeline for a ticket
-    and streams each agent step to the client as it executes.
-    On completion, writes results back to Supabase.
-    """
-    # (imports moved to top-level)
+    if _triage_graph is None:
+        raise HTTPException(status_code=503, detail="Agent graphs not loaded")
 
-    # Load ticket from DB
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
-        return {"error": "Ticket not found"}
+        raise HTTPException(status_code=404, detail="Ticket not found")
 
     async def event_stream():
-        # Build initial state from DB ticket
         state = TicketState(
             ticket_id=ticket_id,
+            citizen_id=str(ticket.citizen_id) if ticket.citizen_id else None,
             citizen_text=ticket.description or "",
             original_media_url=ticket.original_media_url,
+            voice_note_url=ticket.voice_note_url,
+            latitude=ticket.latitude,
+            longitude=ticket.longitude,
+            category=ticket.category,
+            severity=ticket.severity,
         )
 
-        # We stream step-by-step by running the graph with stream=True
+        final_state_dict = state.model_dump()
+
         try:
-            # LangGraph streams node-by-node via .stream()
-            for step in app_graph.stream(state):
-                # step is a dict: {node_name: updated_state_dict}
+            seen_logs = 0
+            for step in _triage_graph.stream(state):
                 for node_name, node_output in step.items():
-                    # Extract latest trace log entry
-                    logs = node_output.get("trace_logs", [])
-                    latest = logs[-1] if logs else {}
-                    event_data = _json.dumps({
-                        "agent": latest.get("agent", node_name),
-                        "action": latest.get("action", "Processing..."),
-                        "reasoning": latest.get("reasoning", ""),
-                        "node": node_name,
-                        "status": "running"
-                    })
-                    yield f"data: {event_data}\n\n"
-                    await asyncio.sleep(0)  # yield control to event loop
+                    if isinstance(node_output, dict):
+                        final_state_dict.update(node_output)
 
-            # Get final state
-            final_state_dict = app_graph.invoke(state)
+                    logs = node_output.get("trace_logs", []) if isinstance(node_output, dict) else []
+                    new_logs = logs[seen_logs:]
+                    seen_logs = len(logs)
 
-            # Write results back to Supabase ticket
+                    for log_entry in new_logs:
+                        event_data = _json.dumps({
+                            "agent": log_entry.get("agent", node_name),
+                            "action": log_entry.get("action", "Processing..."),
+                            "reasoning": log_entry.get("reasoning", ""),
+                            "node": node_name,
+                            "status": "running",
+                        })
+                        yield f"data: {event_data}\n\n"
+                        await asyncio.sleep(0)
+
             try:
                 ticket.category = final_state_dict.get("category") or ticket.category
                 ticket.severity = final_state_dict.get("severity") or ticket.severity
                 ticket.is_spam = final_state_dict.get("is_spam", False)
                 ticket.is_duplicate = final_state_dict.get("is_duplicate", False)
+                dup_id = final_state_dict.get("duplicate_of_id")
+                if dup_id:
+                    ticket.duplicate_of_id = uuid.UUID(dup_id)
                 ticket.priority_score = final_state_dict.get("priority_score", ticket.priority_score)
                 ticket.priority_reason = final_state_dict.get("priority_reason")
                 ticket.status = final_state_dict.get("status", "assigned")
-                ticket.verification_status = final_state_dict.get("verification_status")
-                ticket.verification_reason = final_state_dict.get("verification_reason")
+                officer_id = final_state_dict.get("assigned_officer_id")
+                if officer_id:
+                    ticket.assigned_officer_id = uuid.UUID(officer_id)
                 db.commit()
             except Exception as db_err:
                 print(f"DB commit error: {db_err}")
                 db.rollback()
 
-            # Send done event
             done_data = _json.dumps({
                 "agent": "Pipeline",
                 "action": "Complete",
-                "reasoning": f"Ticket {ticket_id} fully processed. Category: {final_state_dict.get('category')}, Priority: {final_state_dict.get('priority_score')}.",
+                "reasoning": (
+                    f"Ticket {ticket_id} fully processed. "
+                    f"Category: {final_state_dict.get('category')}, "
+                    f"Priority: {final_state_dict.get('priority_score')}."
+                ),
                 "node": "END",
                 "status": "done",
                 "result": {
@@ -237,8 +488,10 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
                     "severity": final_state_dict.get("severity"),
                     "priority_score": final_state_dict.get("priority_score"),
                     "assigned_department": final_state_dict.get("assigned_department"),
+                    "assigned_officer_id": final_state_dict.get("assigned_officer_id"),
                     "status": final_state_dict.get("status"),
-                }
+                    "is_duplicate": final_state_dict.get("is_duplicate"),
+                },
             })
             yield f"data: {done_data}\n\n"
 
@@ -249,16 +502,12 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        }
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
 @app.get("/api/trace/{ticket_id}")
 async def get_agent_trace(ticket_id: str):
-    """Legacy stub — use /api/tickets/{ticket_id}/process for live SSE streaming."""
     return {"ticket_id": ticket_id, "steps": [], "note": "Use /api/tickets/{id}/process for live SSE"}
 
 
@@ -269,6 +518,5 @@ def get_me(current_user: AuthUser = Depends(get_current_user)):
         "role": current_user.role,
         "email": current_user.email,
         "phone": current_user.phone,
-        "name": current_user.name
+        "name": current_user.name,
     }
-

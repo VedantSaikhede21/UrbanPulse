@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { Activity, Sparkles, CheckCircle2, AlertCircle, Loader, Play } from 'lucide-react';
+import { apiUrl } from '../../lib/api';
 
 interface AgentStep {
   agent: string;
@@ -24,7 +26,8 @@ const AGENT_ICONS: Record<string, string> = {
 };
 
 export const LiveAgentTrace: React.FC = () => {
-  const [ticketId, setTicketId] = useState('');
+  const { ticketId: routeTicketId } = useParams<{ ticketId?: string }>();
+  const [ticketId, setTicketId] = useState(routeTicketId || '');
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
@@ -49,7 +52,7 @@ export const LiveAgentTrace: React.FC = () => {
     // Close any existing connection
     esRef.current?.close();
 
-    const es = new EventSource(`http://localhost:8000/api/tickets/${ticketId.trim()}/process`);
+    const es = new EventSource(apiUrl(`/api/tickets/${ticketId.trim()}/process`));
     esRef.current = es;
 
     es.onmessage = (event) => {
