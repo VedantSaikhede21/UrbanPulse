@@ -1,0 +1,10 @@
+{
+  "name": "urbanpulse-qa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automated QA tests for UrbanPulse AI",
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.52.0"
+  }
+}

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Loader, MapPin, Mic, Sparkles } from 'lucide-react';
+import { Camera, Loader, Mic, Sparkles } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import { MapPicker, type LocationData } from '../../components/ui/MapPicker';
+import { useMediaRecorder } from '../../hooks/useMediaRecorder';
 
 type Step = 1 | 2 | 3;
 
@@ -23,9 +25,9 @@ export const ReportIssue: React.FC = () => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [category, setCategory] = useState('Roads & Potholes');
   const [description, setDescription] = useState('');
-  const [voiceRecorded, setVoiceRecorded] = useState(false);
   const [latitude, setLatitude] = useState(12.9715);
   const [longitude, setLongitude] = useState(77.5945);
+  const voice = useMediaRecorder();
 
   // AI Pipeline Preview Modal State
   const [showAIPreview, setShowAIPreview] = useState(false);
@@ -208,23 +210,63 @@ export const ReportIssue: React.FC = () => {
             />
           </div>
 
-          {/* Voice Note Simulation */}
+          {/* Voice Note */}
           <div className="flex items-center justify-between p-4 bg-panel-card border border-panel-border rounded">
             <div className="flex items-center space-x-3">
-              <Mic className={voiceRecorded ? "text-brand-lime" : "text-gray-500"} size={18} />
+              <Mic className={voice.recording ? "text-status-escalated animate-pulse" : (voice.blobUrl ? "text-brand-lime" : "text-gray-500")} size={18} />
               <div className="flex flex-col">
-                <span className="text-xs font-semibold">Voice Intake Helper</span>
-                <span className="text-[10px] text-gray-500 font-mono">Record in Hindi, Tamil, or English</span>
+                <span className="text-xs font-semibold">Voice Note</span>
+                <span className="text-[10px] text-gray-500 font-mono">
+                  {!voice.supported
+                    ? 'Not supported in this browser'
+                    : voice.recording
+                      ? `Recording... ${voice.duration}s`
+                      : voice.blobUrl
+                        ? `Recorded (${voice.duration}s)`
+                        : 'Describe the issue verbally'}
+                </span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setVoiceRecorded(!voiceRecorded)}
-              className={`px-4 py-1.5 rounded text-[10px] font-mono border ${voiceRecorded ? 'bg-brand-soft border-brand-lime text-brand-lime' : 'bg-background border-panel-border text-gray-400'}`}
-            >
-              {voiceRecorded ? 'Recorded ✓' : 'Record Voice'}
-            </button>
+            <div className="flex items-center gap-1.5">
+              {voice.blobUrl && (
+                <>
+                  <button
+                    type="button"
+                    onClick={voice.playing ? voice.stopPlayback : voice.playRecording}
+                    className={`px-2 py-1.5 rounded text-[10px] font-mono border ${
+                      voice.playing
+                        ? 'bg-brand-soft border-brand-lime text-brand-lime'
+                        : 'bg-background border-panel-border text-gray-400'
+                    }`}
+                  >
+                    {voice.playing ? '⏹' : '▶'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={voice.clearRecording}
+                    className="px-2 py-1.5 rounded text-[10px] font-mono bg-background border border-panel-border text-gray-500 hover:text-foreground"
+                  >
+                    ✕
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={voice.recording ? voice.stopRecording : voice.startRecording}
+                disabled={!voice.supported}
+                className={`px-3 py-1.5 rounded text-[10px] font-mono border ${
+                  voice.recording
+                    ? 'bg-status-escalated/10 border-status-escalated text-status-escalated'
+                    : voice.blobUrl
+                      ? 'bg-brand-soft border-brand-lime text-brand-lime'
+                      : 'bg-background border-panel-border text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                {voice.recording ? 'Stop' : voice.blobUrl ? 'Re-record' : 'Record'}
+              </button>
+            </div>
           </div>
+          {voice.error && <p className="text-status-escalated text-[10px] font-mono">{voice.error}</p>}
 
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-panel-border">
             <button
@@ -247,41 +289,18 @@ export const ReportIssue: React.FC = () => {
 
       {step === 3 && (
         <div className="space-y-6">
-          <div className="space-y-2">
-            <label className="block text-xs font-mono uppercase tracking-wider text-gray-400">Geolocation Parameters</label>
-            <div className="bg-panel-card border border-panel-border p-4 rounded grid grid-cols-2 gap-4 font-mono text-xs">
-              <div>
-                <span className="text-gray-500 block">Latitude</span>
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={latitude}
-                  onChange={e => setLatitude(parseFloat(e.target.value))}
-                  className="w-full bg-background border border-panel-border rounded p-1.5 mt-1 text-foreground"
-                />
-              </div>
-              <div>
-                <span className="text-gray-500 block">Longitude</span>
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={longitude}
-                  onChange={e => setLongitude(parseFloat(e.target.value))}
-                  className="w-full bg-background border border-panel-border rounded p-1.5 mt-1 text-foreground"
-                />
-              </div>
-            </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-mono uppercase tracking-wider text-gray-400">Pin Location</label>
+            <p className="text-[10px] text-gray-500">Click the map, drag the marker, or use GPS to select the exact location.</p>
           </div>
 
-          {/* Interactive Mock Map */}
-          <div className="h-64 rounded bg-panel-card border border-panel-border/80 relative flex items-center justify-center overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
-            <div className="text-center space-y-2 z-10 p-6">
-              <MapPin className="mx-auto text-brand-lime animate-bounce" size={32} />
-              <span className="block font-serif italic font-bold text-sm">Interactive Grid Map Selector</span>
-              <p className="text-[10px] text-gray-500 font-mono">Location automatically pinned to Market Square Ward 1 coordinates.</p>
-            </div>
-          </div>
+          <MapPicker
+            value={{ latitude, longitude }}
+            onChange={(loc: LocationData) => {
+              setLatitude(loc.latitude);
+              setLongitude(loc.longitude);
+            }}
+          />
 
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-panel-border">
             <button

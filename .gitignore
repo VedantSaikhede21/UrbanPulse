@@ -26,3 +26,8 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Root-level package files (created by dev tooling)
+/package.json
+/package-lock.json
+/env
