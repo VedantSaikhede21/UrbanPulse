@@ -16,7 +16,7 @@ const StaffLogin = lazy(() => import('./pages/auth/StaffLogin'));
 const CitizenDashboard = lazy(() => import('./pages/citizen/CitizenDashboard').then(m => ({ default: m.CitizenDashboard })));
 const ReportIssue = lazy(() => import('./pages/citizen/ReportIssue').then(m => ({ default: m.ReportIssue })));
 const ReportDetail = lazy(() => import('./pages/citizen/ReportDetail').then(m => ({ default: m.ReportDetail })));
-const ProcessingPage = lazy(() => import('./pages/citizen/ProcessingPage').then(m => ({ default: m.ProcessingPage })));
+// ProcessingPage was removed as it's not used in routes
 const WardHealth = lazy(() => import('./pages/citizen/WardHealth').then(m => ({ default: m.WardHealth })));
 const Profile = lazy(() => import('./pages/citizen/Profile').then(m => ({ default: m.Profile })));
 const Notifications = lazy(() => import('./pages/citizen/Notifications').then(m => ({ default: m.Notifications })));
