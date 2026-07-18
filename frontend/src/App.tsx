@@ -4,6 +4,9 @@ import { RoleLayout } from './components/layout/RoleLayout';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './components/ui/Toast';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import StaffRegister from './pages/auth/StaffRegister';
+import { RoleGuard } from './components/layout/RoleGuard';
+import PostLogin from './pages/auth/PostLogin';
 
 const Landing = lazy(() => import('./pages/public/Landing').then(m => ({ default: m.Landing })));
 const About = lazy(() => import('./pages/public/About').then(m => ({ default: m.About })));
@@ -51,46 +54,50 @@ const App: React.FC = () => {
                 {/* Auth routes */}
                 <Route path="/auth/citizen-login" element={<CitizenLogin />} />
                 <Route path="/auth/staff-login" element={<StaffLogin />} />
-                
+                <Route path="/auth/staff-register" element={<StaffRegister />} />
+
                 {/* Deprecated redirects */}
                 <Route path="/auth/login" element={<Navigate to="/auth/citizen-login" replace />} />
                 <Route path="/auth/register" element={<Navigate to="/auth/citizen-login" replace />} />
                 <Route path="/auth/admin-login" element={<Navigate to="/auth/staff-login" replace />} />
 
                 {/* Citizen routes */}
-                <Route path="/citizen" element={<CitizenDashboard />} />
-                <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
-                <Route path="/citizen/report" element={<ReportIssue />} />
-                <Route path="/citizen/report/:id" element={<ReportDetail />} />
-                <Route path="/citizen/processing/:ticketId" element={<ProcessingPage />} />
-                <Route path="/citizen/ward-health" element={<WardHealth />} />
-                <Route path="/citizen/profile" element={<Profile />} />
-                <Route path="/citizen/notifications" element={<Notifications />} />
+                <Route path="/citizen" element={<RoleGuard allow={['citizen']}><CitizenDashboard /></RoleGuard>} />
+                <Route path="/citizen/dashboard"      element={<RoleGuard allow={['citizen']}><CitizenDashboard /></RoleGuard>} />
+                <Route path="/citizen/report"         element={<RoleGuard allow={['citizen']}><ReportIssue /></RoleGuard>} />
+                <Route path="/citizen/report/:id"     element={<RoleGuard allow={['citizen']}><ReportDetail /></RoleGuard>} />
+                <Route path="/citizen/ward-health"    element={<RoleGuard allow={['citizen']}><WardHealth /></RoleGuard>} />
+                <Route path="/citizen/profile"        element={<RoleGuard allow={['citizen']}><Profile /></RoleGuard>} />
+                <Route path="/citizen/notifications"  element={<RoleGuard allow={['citizen']}><Notifications /></RoleGuard>} />
 
                 {/* Officer routes */}
-                <Route path="/officer" element={<OfficerQueue />} />
-                <Route path="/officer/queue" element={<OfficerQueue />} />
-                <Route path="/officer/profile" element={<OfficerProfile />} />
+                <Route path="/officer"                element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerQueue /></RoleGuard>} />
+                <Route path="/officer/queue"          element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerQueue /></RoleGuard>} />
+                <Route path="/officer/profile"        element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerProfile /></RoleGuard>} />
+
+                <Route path="/auth/post-login" element={<PostLogin />} />
 
                 {/* Department Head routes */}
-                <Route path="/dept" element={<DepartmentDashboard />} />
-                <Route path="/dept/inbox" element={<DepartmentDashboard />} />
-                <Route path="/dept/analytics" element={<DepartmentAnalytics />} />
-                <Route path="/dept/officers" element={<OfficerManagement />} />
-
+                <Route path="/dept"                   element={<RoleGuard allow={['dept_head','admin','super_admin']}><DepartmentDashboard /></RoleGuard>} />
+                <Route path="/dept/inbox"             element={<RoleGuard allow={['dept_head','admin','super_admin']}><DepartmentDashboard /></RoleGuard>} />
+                <Route path="/dept/analytics"         element={<RoleGuard allow={['dept_head','admin','super_admin']}><DepartmentAnalytics /></RoleGuard>} />
+                <Route path="/dept/officers"          element={<RoleGuard allow={['dept_head','admin','super_admin']}><OfficerManagement /></RoleGuard>} /> 
+                
                 {/* City Admin routes */}
-                <Route path="/admin/city-analytics" element={<CityAnalytics />} />
-                <Route path="/admin/dashboard" element={<CityAnalytics />} />
-                <Route path="/admin/heatmap" element={<IncidentMap />} />
-                <Route path="/admin/escalation" element={<EscalationMonitor />} />
+                <Route path="/admin/city-analytics"   element={<RoleGuard allow={['admin','super_admin']}><CityAnalytics /></RoleGuard>} />
+                <Route path="/admin/dashboard"        element={<RoleGuard allow={['admin','super_admin']}><CityAnalytics /></RoleGuard>} />
+                <Route path="/admin/heatmap"          element={<RoleGuard allow={['admin','super_admin']}><Heatmap /></RoleGuard>} />
+                <Route path="/admin/escalation"       element={<RoleGuard allow={['admin','super_admin']}><EscalationMonitor /></RoleGuard>} />
+
+{/* Super Admin routes */}  
 
                 {/* Super Admin routes */}
-                <Route path="/super-admin" element={<AdminDashboard />} />
-                <Route path="/super-admin/dashboard" element={<AdminDashboard />} />
-                <Route path="/super-admin/users" element={<UserManagement />} />
-                <Route path="/super-admin/routing" element={<RoutingConfig />} />
-                <Route path="/super-admin/audit" element={<AuditLog />} />
-                <Route path="/super-admin/monitoring" element={<AgentMonitoring />} />
+                <Route path="/super-admin"            element={<RoleGuard allow={['super_admin']}><AdminDashboard /></RoleGuard>} />
+                <Route path="/super-admin/dashboard"  element={<RoleGuard allow={['super_admin']}><AdminDashboard /></RoleGuard>} />
+                <Route path="/super-admin/users"      element={<RoleGuard allow={['super_admin']}><UserManagement /></RoleGuard>} />
+                <Route path="/super-admin/routing"    element={<RoleGuard allow={['super_admin']}><RoutingConfig /></RoleGuard>} />
+                <Route path="/super-admin/audit"      element={<RoleGuard allow={['super_admin']}><AuditLog /></RoleGuard>} />
+                <Route path="/super-admin/monitoring" element={<RoleGuard allow={['super_admin']}><AgentMonitoring /></RoleGuard>} />
 
                 {/* Shared routes */}
                 <Route path="/trace" element={<LiveAgentTrace />} />

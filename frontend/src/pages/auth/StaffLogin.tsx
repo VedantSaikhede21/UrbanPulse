@@ -27,17 +27,7 @@ export default function StaffLogin() {
     setLoading(false);
     
     // Route staff to their respective dashboards based on role
-    if (role === 'officer') {
-      navigate('/officer/queue');
-    } else if (role === 'dept_head') {
-      navigate('/dept/inbox');
-    } else if (role === 'admin') {
-      navigate('/admin/dashboard');
-    } else if (role === 'super_admin') {
-      navigate('/super-admin/dashboard');
-    } else {
-      navigate('/');
-    }
+   navigate('/auth/post-login');
   }
 
   return (
@@ -124,7 +114,12 @@ export default function StaffLogin() {
             </button>
           </form>
         </div>
-
+        <p style={{ textAlign:'center', color:'#4b5563', fontSize:'0.85rem', marginTop:'1rem' }}>
+          New staff member?{' '}
+          <Link to="/auth/staff-register" style={{ color:'#60a5fa', fontWeight:500 }}>
+            Register →
+          </Link>
+        </p>
         {/* Citizen link */}
         <p style={{ textAlign: 'center', color: '#4b5563', fontSize: '0.85rem', marginTop: '1.5rem' }}>
           Are you a citizen?{' '}

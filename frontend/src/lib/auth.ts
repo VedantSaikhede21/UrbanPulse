@@ -15,7 +15,7 @@ export async function signInWithGoogle(): Promise<{ error: string | null }> {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/citizen/dashboard`
+      redirectTo: `${window.location.origin}/auth/post-login`
     }
   });
   return { error: error?.message ?? null };
@@ -40,14 +40,5 @@ export async function getSession(): Promise<Session | null> {
 
 // Determine role from user metadata or email domain
 export function getRoleFromUser(user: User): UserRole {
-  const meta = user.user_metadata;
-  if (meta?.role) return meta.role as UserRole;
-  
-  // If the user signed in via Google OAuth, they are a citizen
-  if (user.app_metadata?.provider === 'google') return 'citizen';
-  
-  // Staff emails default to officer role; refine via admin panel later
-  if (user.email) return 'officer';
-  
-  return 'citizen';
+  return (user.user_metadata?.role as UserRole) || 'citizen';
 }
