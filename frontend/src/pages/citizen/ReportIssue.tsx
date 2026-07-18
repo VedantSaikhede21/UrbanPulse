@@ -5,12 +5,14 @@ import { apiFetch, apiUpload } from '../../lib/api';
 import { MapPicker, type LocationData } from '../../components/ui/MapPicker';
 import { FileUpload, type FileData } from '../../components/ui/FileUpload';
 import { StepIndicator } from '../../components/ui/StepIndicator';
+import { useToast } from '../../components/ui/Toast';
 import { useMediaRecorder } from '../../hooks/useMediaRecorder';
 
 type Step = 1 | 2 | 3;
 
 export const ReportIssue: React.FC = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
 
@@ -37,8 +39,8 @@ export const ReportIssue: React.FC = () => {
           const upData = await upRes.json();
           mediaUrl = upData.url;
         }
-      } catch (err) {
-        console.warn('Media upload failed:', err);
+      } catch {
+        toast({ type: 'warning', title: 'Media upload failed', message: 'Continuing without photo attachment' });
       }
     }
 
@@ -52,8 +54,8 @@ export const ReportIssue: React.FC = () => {
           const upData = await upRes.json();
           voiceUrl = upData.url;
         }
-      } catch (err) {
-        console.warn('Voice upload failed:', err);
+      } catch {
+        toast({ type: 'warning', title: 'Voice upload failed', message: 'Continuing without voice note' });
       }
     }
 
@@ -77,13 +79,16 @@ export const ReportIssue: React.FC = () => {
       });
       if (res.ok) {
         const created = await res.json();
+        toast({ type: 'success', title: 'Report submitted', message: 'AI agents are analyzing your issue' });
         navigate(`/citizen/processing/${created.id}`);
       } else {
-        navigate('/citizen/dashboard');
+        const body = await res.text().catch(() => '');
+        toast({ type: 'error', title: 'Submission failed', message: body || `Server returned ${res.status}` });
+        setSubmitting(false);
       }
-    } catch (err) {
-      console.warn('Could not POST ticket:', err);
-      navigate('/citizen/dashboard');
+    } catch {
+      toast({ type: 'error', title: 'Network error', message: 'Could not reach server. Please check your connection.' });
+      setSubmitting(false);
     }
   };
 
@@ -292,9 +297,13 @@ export const ReportIssue: React.FC = () => {
             <button
               type="button"
               aria-label="Submit report"
-              disabled={submitting}
+              disabled={submitting || !description.trim()}
               onClick={handleSubmit}
-              className="bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs flex items-center gap-1.5"
+              className={`font-semibold px-6 py-2 rounded text-xs flex items-center gap-1.5 ${
+                submitting || !description.trim()
+                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                  : 'bg-brand-lime text-background hover:bg-brand-lime-hover'
+              }`}
             >
               {submitting ? (
                 <>

@@ -86,7 +86,7 @@ export const UserManagement: React.FC = () => {
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load user data</h3>
           <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
-          <p className="text-xs text-gray-500 mb-5">Auth and user management is owned by Vedant — this is a view-only page.</p>
+          <p className="text-xs text-gray-500 mb-5">View-only user directory. Full CRUD available after auth module integration.</p>
           <button type="button" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
             Retry
           </button>
@@ -101,7 +101,7 @@ export const UserManagement: React.FC = () => {
       <div className="border-b border-panel-border pb-6">
         <h1 className="text-2xl font-serif italic font-bold">User Management</h1>
         <p className="text-gray-500 text-xs mt-1">
-          View-only directory derived from ticket data. Full CRUD managed by Vedant.
+          View-only directory derived from ticket data. Full CRUD requires auth module integration.
         </p>
       </div>
 

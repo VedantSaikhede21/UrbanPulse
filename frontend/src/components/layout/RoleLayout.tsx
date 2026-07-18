@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { apiFetch } from '../../lib/api';
 import {
@@ -284,7 +285,14 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
 
         {/* Page Content */}
         <main aria-label="Page content" className="flex-1 overflow-y-auto bg-background">
-          {children}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            {children}
+          </motion.div>
         </main>
       </div>
 

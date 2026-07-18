@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { apiFetch } from '../../lib/api';
+import { useToast } from '../../components/ui/Toast';
 
 interface Ticket {
   id: string;
@@ -46,6 +47,7 @@ const FILTERS: { key: StatusFilter; label: string }[] = [
 ];
 
 export const OfficerQueue: React.FC = () => {
+  const { toast } = useToast();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -63,8 +65,7 @@ export const OfficerQueue: React.FC = () => {
         setTickets(data);
         setLoading(false);
       })
-      .catch(err => {
-        console.error(err);
+      .catch(() => {
         if (!tickets.length) {
           setError('Could not load officer queue. Is the backend running?');
         }
@@ -99,11 +100,12 @@ export const OfficerQueue: React.FC = () => {
         body: JSON.stringify({ closure_media_url: closureUrl }),
       });
       if (!res.ok) throw new Error('Resolve failed');
+      toast({ type: 'success', title: 'Ticket resolved', message: 'Verification process initiated' });
       setClosureUrl('');
       setResolvingId(null);
       loadQueue();
     } catch {
-      setError('Resolution submission failed.');
+      toast({ type: 'error', title: 'Resolution failed', message: 'Could not submit resolution. Try again.' });
       setResolvingId(null);
     }
   };
@@ -273,12 +275,13 @@ export const OfficerQueue: React.FC = () => {
                         })
                           .then(res => {
                             if (!res.ok) throw new Error('Resolve failed');
+                            toast({ type: 'success', title: 'Ticket resolved (sample)' });
                             setClosureUrl('');
                             setResolvingId(null);
                             loadQueue();
                           })
                           .catch(() => {
-                            setError('Resolution submission failed.');
+                            toast({ type: 'error', title: 'Resolution failed' });
                             setResolvingId(null);
                           });
                       }}

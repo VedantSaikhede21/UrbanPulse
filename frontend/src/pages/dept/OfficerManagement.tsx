@@ -91,6 +91,7 @@ export const OfficerManagement: React.FC = () => {
         <h1 className="text-2xl font-serif italic font-bold">Officer Management</h1>
         <p className="text-gray-500 text-xs mt-1">
           View field officers, their departments, and current assignment counts.
+          <span className="ml-3 inline-block px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400 text-[9px] font-mono border border-yellow-700/30">Demo Configuration</span>
         </p>
       </div>
 

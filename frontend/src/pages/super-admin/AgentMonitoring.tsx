@@ -84,6 +84,7 @@ export const AgentMonitoring: React.FC = () => {
         <h1 className="text-2xl font-serif italic font-bold">AI Agent Monitoring Console</h1>
         <p className="text-gray-500 text-xs mt-1">
           Real-time status of all 9 AI agents powering the UrbanPulse pipeline.
+          <span className="ml-3 inline-block px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400 text-[9px] font-mono border border-yellow-700/30">Demo Configuration</span>
         </p>
       </div>
 

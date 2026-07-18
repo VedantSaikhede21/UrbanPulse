@@ -4,6 +4,7 @@ import { Loader, MapPin, Calendar, AlertTriangle, CheckCircle2, ChevronRight, Im
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import { apiFetch } from '../../lib/api';
+import { useToast } from '../../components/ui/Toast';
 
 const STATIC_MARKER = divIcon({
   className: 'custom-map-marker',
@@ -30,6 +31,7 @@ interface Ticket {
 }
 
 export const ReportDetail: React.FC = () => {
+  const { toast } = useToast();
   const { id } = useParams<{ id: string }>();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,9 +50,9 @@ export const ReportDetail: React.FC = () => {
         setTicket(data);
         setLoading(false);
       })
-      .catch(err => {
+      .catch(() => {
         if (cancelled) return;
-        console.error(err);
+        toast({ type: 'error', title: 'Failed to load report' });
         setLoading(false);
       });
     return () => { cancelled = true; controller.abort(); };

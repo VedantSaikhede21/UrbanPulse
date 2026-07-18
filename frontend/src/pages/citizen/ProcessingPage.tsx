@@ -31,6 +31,7 @@ export const ProcessingPage: React.FC = () => {
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [parseErrors, setParseErrors] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export const ProcessingPage: React.FC = () => {
 
         setSteps(prev => [...prev, data]);
       } catch {
-        // ignore parse errors
+        setParseErrors(prev => prev + 1);
       }
     };
 
@@ -137,6 +138,9 @@ export const ProcessingPage: React.FC = () => {
             <div className="flex items-center gap-3 text-gray-400 py-2">
               <Loader size={16} className="animate-spin text-brand-lime" />
               <span className="text-xs font-mono">AI agents analyzing your report...</span>
+              {parseErrors > 0 && (
+                <span className="text-[9px] text-yellow-500 font-mono ml-auto">{parseErrors} parse warnings</span>
+              )}
             </div>
           )}
 

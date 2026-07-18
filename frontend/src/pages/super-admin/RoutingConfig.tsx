@@ -59,6 +59,7 @@ export const RoutingConfig: React.FC = () => {
         <h1 className="text-2xl font-serif italic font-bold">Department Routing Rules</h1>
         <p className="text-gray-500 text-xs mt-1">
           Category-to-department mapping rules. Changes require backend deployment.
+          <span className="ml-3 inline-block px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400 text-[9px] font-mono border border-yellow-700/30">Demo Configuration</span>
         </p>
       </div>
 

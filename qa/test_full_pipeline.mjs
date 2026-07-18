@@ -105,12 +105,12 @@ async function main() {
 
   // ── 4. Admin: Incident Map (CircleMarker) ───────────
   console.log('\n=== 4. Admin: Incident Map ===');
-  if (await nav(`${BASE}/admin/heatmap`)) {
-    const body = await page.textContent('body') || '';
-    if (body.includes('Incident Map') || body.includes('incident')) {
+  if (await nav(`${BASE}/admin/incident-map`)) {
+    try {
+      await page.waitForFunction(() => document.body.innerText.includes('Incident Map'), { timeout: 15000 });
       console.log('  ✓ Incident Map loaded');
-    } else {
-      errors.push('Incident map: missing heading');
+    } catch {
+      errors.push('Incident map: heading not rendered within 15s');
     }
   }
 
