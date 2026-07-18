@@ -3,8 +3,7 @@ import json as _json
 import os
 import secrets
 import uuid
-from typing import Optional, List
-
+from typing import Optional, List, Any, cast
 from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -13,10 +12,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, load_only
 from sqlalchemy import text, func
 import jwt
-
+from app.agents.graph import TicketState
 from app.config import settings
 from app.db.session import get_db
 from app.db.models import Ticket, Citizen, Officer, Ward
+from app.agents.graph import CATEGORY_TO_DEPT  
 
 app = FastAPI(
     title="UrbanPulse AI Backend",
@@ -35,7 +35,7 @@ async def global_exception_handler(request, exc):
 
 _triage_graph = None
 _verification_graph = None
-TicketState = None
+TicketState: Any = None
 
 
 @app.on_event("startup")
@@ -51,7 +51,7 @@ JWT_SECRET = settings.SUPABASE_JWT_SECRET or "placeholder-secret"
 
 
 class AuthUser:
-    def __init__(self, id: str, role: str, email: str = None, phone: str = None, name: str = None):
+    def __init__(self, id: str, role: str, email: str | None = None, phone: str | None = None, name: str | None = None):
         self.id = id
         self.role = role
         self.email = email
@@ -77,11 +77,16 @@ def get_current_user(
         scheme, token = authorization.split()
         if scheme.lower() != "bearer":
             raise HTTPException(status_code=401, detail="Invalid authentication scheme")
-        decode_options = {}
+        # PyJWT expects an options dict; avoid using DecodeOptions attribute which may not exist
+        options = {"verify_signature": True}
         if not settings.SUPABASE_JWT_SECRET:
-            decode_options = {"verify_signature": False}
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"], options=decode_options)
+            options = {"verify_signature": False}
+        # PyJWT's type stubs may expect a specific Options type; cast to Any to satisfy type checkers
+        from typing import Any, cast
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"], options=cast(Any, options))
         user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token: missing user ID")
         email = payload.get("email")
         phone = payload.get("phone")
         user_metadata = payload.get("user_metadata", {})
@@ -92,11 +97,13 @@ def get_current_user(
         if role == "citizen":
             citizen = db.query(Citizen).filter(Citizen.id == user_id).first()
             if citizen:
-                name = citizen.name
+                # ensure we pass a plain string (SQLAlchemy may type as Column)
+                name = str(getattr(citizen, "name", "Unknown User"))
         else:
             officer = db.query(Officer).filter(Officer.id == user_id).first()
             if officer:
-                name = officer.name
+                # ensure we pass a plain string (SQLAlchemy may type as Column)
+                name = str(getattr(officer, "name", "Unknown User"))
         return AuthUser(id=user_id, role=role, email=email, phone=phone, name=name)
     except HTTPException:
         raise
@@ -124,7 +131,7 @@ app.add_middleware(
 def serialize_ticket(t: Ticket) -> dict:
     return {
         "id": str(t.id),
-        "citizen_id": str(t.citizen_id) if t.citizen_id else None,
+        "citizen_id": str(t.citizen_id) if t.citizen_id is not None else None,
         "latitude": t.latitude,
         "longitude": t.longitude,
         "category": t.category,
@@ -133,17 +140,16 @@ def serialize_ticket(t: Ticket) -> dict:
         "status": t.status,
         "is_spam": t.is_spam,
         "is_duplicate": t.is_duplicate,
-        "duplicate_of_id": str(t.duplicate_of_id) if t.duplicate_of_id else None,
         "priority_score": t.priority_score,
         "priority_reason": t.priority_reason,
-        "assigned_officer_id": str(t.assigned_officer_id) if t.assigned_officer_id else None,
+        "duplicate_of_id": str(t.duplicate_of_id) if t.duplicate_of_id is not None else None,
         "verification_status": t.verification_status,
         "verification_reason": t.verification_reason,
         "original_media_url": t.original_media_url,
         "closure_media_url": t.closure_media_url,
         "voice_note_url": t.voice_note_url,
-        "created_at": t.created_at.isoformat() if t.created_at else None,
-        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+        "created_at": t.created_at.isoformat() if t.created_at is not None else None,
+        "updated_at": t.updated_at.isoformat() if t.updated_at is not None else None,
     }
 
 
@@ -214,6 +220,42 @@ async def upload_file(file: UploadFile = File(...)):
 
 # ── Tickets CRUD ─────────────────────────────────────────
 
+@app.get("/api/notifications")
+def list_notifications(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
+    try:
+        query = db.query(Ticket)
+        if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
+            query = query.filter(Ticket.citizen_id == current_user.id)
+        tickets = query.order_by(Ticket.updated_at.desc()).limit(30).all()
+
+        STATUS_MESSAGES = {
+            "reported": "Your report was received and is being triaged by AI.",
+            "assigned": "Your report has been assigned to the {dept} department.",
+            "in_progress": "An officer has started work on your report.",
+            "resolved": "Your report has been marked resolved — please confirm.",
+            "verified": "Resolution verified — thank you for reporting this issue.",
+        }
+
+        notifications = []
+        for t in tickets:
+            category_key = t.category if isinstance(t.category, str) else ""
+            dept = CATEGORY_TO_DEPT.get(category_key, "the relevant")
+            status = t.status if isinstance(t.status, str) else str(t.status)
+            message = STATUS_MESSAGES.get(status, f"Status updated to {status}.")
+            message = message.format(dept=dept)
+            notifications.append({
+                "id": str(t.id),
+                "ticket_id": str(t.id),
+                "category": t.category,
+                "status": status,
+                "message": message,
+                "timestamp": t.updated_at.isoformat() if t.updated_at is not None else None,
+            })
+        return notifications
+    except Exception as e:
+        print(f"Notifications query failed: {e}")
+        return []
+    
 @app.get("/api/tickets")
 def list_tickets(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
     try:
@@ -346,7 +388,7 @@ def update_ticket_status(
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
-    ticket.status = body.status
+    setattr(ticket, "status", body.status)
     db.commit()
     db.refresh(ticket)
     return serialize_ticket(ticket)
@@ -366,26 +408,37 @@ async def resolve_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    ticket.closure_media_url = body.closure_media_url
-    ticket.status = "resolved"
+    setattr(ticket, "closure_media_url", body.closure_media_url)
+    setattr(ticket, "status", "resolved")
     db.commit()
+
+    from typing import cast
 
     state = TicketState(
         ticket_id=ticket_id,
-        citizen_text=ticket.description or "",
-        original_media_url=ticket.original_media_url,
+        citizen_text=str(cast(Any, ticket.description)) if ticket.description is not None else "",
+        original_media_url=str(cast(Any, ticket.original_media_url)) if ticket.original_media_url is not None else None,
         closure_media_url=body.closure_media_url,
-        category=ticket.category,
-        latitude=ticket.latitude,
-        longitude=ticket.longitude,
+        category=str(cast(Any, ticket.category)) if ticket.category is not None else None,
+        latitude=float(cast(Any, ticket.latitude)) if ticket.latitude is not None else None,
+        longitude=float(cast(Any, ticket.longitude)) if ticket.longitude is not None else None,
         status="resolved",
     )
 
+    assert _verification_graph is not None
     final = _verification_graph.invoke(state)
 
-    ticket.verification_status = final.get("verification_status")
-    ticket.verification_reason = final.get("verification_reason")
-    ticket.status = final.get("status", "verified")
+    # ensure we assign plain python strings (type-checkers may treat ORM columns specially)
+    v_status = final.get("verification_status")
+    v_reason = final.get("verification_reason")
+    new_status = final.get("status", "verified")
+
+    if v_status is not None:
+        setattr(ticket, "verification_status", str(v_status))
+    if v_reason is not None:
+        setattr(ticket, "verification_reason", str(v_reason))
+    if new_status is not None:
+        setattr(ticket, "status", str(new_status))
     db.commit()
     db.refresh(ticket)
     return serialize_ticket(ticket)
@@ -400,7 +453,7 @@ def ward_analytics(db: Session = Depends(get_db)):
         {
             "id": w.id,
             "name": w.name,
-            "uhs_score": float(w.uhs_score),
+            "uhs_score": float(cast(Any, w.uhs_score)),
         }
         for w in wards
     ]
@@ -410,7 +463,7 @@ def ward_analytics(db: Session = Depends(get_db)):
 def city_pulse(db: Session = Depends(get_db)):
     """AI City Pulse — ward health summary with trending issues."""
     wards = db.query(Ward).options(load_only(Ward.id, Ward.name, Ward.uhs_score)).order_by(Ward.uhs_score.asc()).all()
-    critical = [w for w in wards if float(w.uhs_score) < 50]
+    critical = [w for w in wards if float(cast(Any, w.uhs_score)) < 50]
 
     trending = (
         db.query(Ticket.category, func.count(Ticket.id).label("count"))
@@ -429,19 +482,19 @@ def city_pulse(db: Session = Depends(get_db)):
             .count()
         )
         alerts.append(
-            f"{w.name} (Critical): UHS {float(w.uhs_score):.0f}. "
+            f"{w.name} (Critical): UHS {float(cast(Any, w.uhs_score)):.0f}. "
             f"Review open incidents and dispatch field teams."
         )
 
     if not alerts and wards:
         lowest = wards[0]
         alerts.append(
-            f"Pulse Alert: {lowest.name} — UHS {float(lowest.uhs_score):.0f}. "
+            f"Pulse Alert: {lowest.name} — UHS {float(cast(Any, lowest.uhs_score)):.0f}. "
             f"Monitor for emerging infrastructure issues."
         )
 
     return {
-        "wards": [{"name": w.name, "uhs_score": float(w.uhs_score)} for w in wards],
+        "wards": [{"name": w.name, "uhs_score": float(cast(Any, w.uhs_score))} for w in wards],
         "critical_wards": len(critical),
         "trending_categories": [{"category": c, "count": n} for c, n in trending],
         "pulse_alerts": alerts,
@@ -460,23 +513,29 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     async def event_stream():
+        # Avoid using truthiness on SQLAlchemy Column attributes (mypy issues).
+        from typing import cast
+
         state = TicketState(
             ticket_id=ticket_id,
-            citizen_id=str(ticket.citizen_id) if ticket.citizen_id else None,
-            citizen_text=ticket.description or "",
-            original_media_url=ticket.original_media_url,
-            voice_note_url=ticket.voice_note_url,
-            latitude=ticket.latitude,
-            longitude=ticket.longitude,
-            category=ticket.category,
-            severity=ticket.severity,
+            citizen_id=str(cast(Any, ticket.citizen_id)) if ticket.citizen_id is not None else None,
+            citizen_text=str(cast(Any, ticket.description)) if ticket.description is not None else "",
+            original_media_url=str(cast(Any, ticket.original_media_url)) if ticket.original_media_url is not None else None,
+            voice_note_url=str(cast(Any, ticket.voice_note_url)) if ticket.voice_note_url is not None else None,
+            latitude=float(cast(Any, ticket.latitude)) if ticket.latitude is not None else None,
+            longitude=float(cast(Any, ticket.longitude)) if ticket.longitude is not None else None,
+            category=str(cast(Any, ticket.category)) if ticket.category is not None else None,
+            severity=str(cast(Any, ticket.severity)) if ticket.severity is not None else None,
         )
 
         final_state_dict = state.model_dump()
 
         try:
             seen_logs = 0
-            for step in _triage_graph.stream(state):
+            # mypy/linters may treat _triage_graph as Optional; guard and bind to local variable
+            triage_graph = _triage_graph
+            assert triage_graph is not None
+            for step in triage_graph.stream(state):
                 for node_name, node_output in step.items():
                     if isinstance(node_output, dict):
                         final_state_dict.update(node_output)
@@ -503,13 +562,17 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
                 ticket.is_duplicate = final_state_dict.get("is_duplicate", False)
                 dup_id = final_state_dict.get("duplicate_of_id")
                 if dup_id:
-                    ticket.duplicate_of_id = uuid.UUID(dup_id)
+                    # store the raw UUID string to avoid typing issues with the ORM column attribute
+                    ticket.duplicate_of_id = dup_id
                 ticket.priority_score = final_state_dict.get("priority_score", ticket.priority_score)
-                ticket.priority_reason = final_state_dict.get("priority_reason")
+                priority_reason = final_state_dict.get("priority_reason")
+                if priority_reason is not None:
+                    ticket.priority_reason = priority_reason
                 ticket.status = final_state_dict.get("status", "assigned")
                 officer_id = final_state_dict.get("assigned_officer_id")
                 if officer_id:
-                    ticket.assigned_officer_id = uuid.UUID(officer_id)
+                    # store the raw UUID string to avoid typing issues with the ORM column attribute
+                    ticket.assigned_officer_id = officer_id
                 db.commit()
             except Exception as db_err:
                 print(f"DB commit error: {db_err}")
