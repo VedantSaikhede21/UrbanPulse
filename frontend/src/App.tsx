@@ -74,7 +74,7 @@ const AnimatedRoutes: React.FC = () => {
         <Route path="/officer"                element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerQueue /></RoleGuard>} />
         <Route path="/officer/queue"          element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerQueue /></RoleGuard>} />
         <Route path="/officer/profile"        element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerProfile /></RoleGuard>} />
-        <Route path="/citizen/processing/:id" element={<ProcessingPage />} />
+        <Route path="/citizen/processing/:ticketId" element={<ProcessingPage />} />
         <Route path="/auth/post-login" element={<PostLogin />} />
 
         {/* Department Head routes */}
