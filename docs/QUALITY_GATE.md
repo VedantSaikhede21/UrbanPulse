@@ -20,6 +20,15 @@
 | 10 | ✅ **Lint passes** | `npm run lint` (or equivalent) |
 | 11 | ✅ **Formatting passes** | `npm run format` (or equivalent) |
 | 12 | ✅ **Build passes** | `npm run build` (or equivalent) |
+| 13 | ✅ **Automated QA script** covers core interactions | `node qa/test_*.mjs` |
+
+## End-to-End QA Suite (19 routes)
+
+The individual component QA scripts have been consolidated into a single pipeline:
+
+| QA Script | Coverage | Tests | Status |
+|-----------|----------|-------|--------|
+| `qa/test_full_pipeline.mjs` | 19 routes: report flow, processing, 5 citizen, 2 officer, 3 dept, 3 admin, 5 super admin, 3 public/shared | 19 interactions | ✅ All pass, 0 errors |
 
 ---
 

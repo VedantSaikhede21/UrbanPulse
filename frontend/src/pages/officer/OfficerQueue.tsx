@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  AlertTriangle, Calendar, CheckCircle2, Loader, MapPin,
-  PlayCircle, Upload, Wrench,
+  AlertTriangle, Calendar, CheckCircle2, MapPin,
+  PlayCircle, Upload, Wrench, Filter,
 } from 'lucide-react';
+import { Badge } from '../../components/ui/Badge';
+import { SkeletonCard } from '../../components/ui/Skeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -20,15 +23,37 @@ interface Ticket {
   created_at: string;
 }
 
+type StatusFilter = 'all' | 'assigned' | 'in_progress';
+
+const POLL_INTERVAL = 15_000;
+
+function statusBadgeValue(status: string): string {
+  if (status === 'reported') return 'new';
+  if (status === 'in_progress') return 'in progress';
+  return status;
+}
+
+function priorityBadgeValue(score: number): string {
+  if (score >= 3) return 'high';
+  if (score === 2) return 'medium';
+  return 'low';
+}
+
+const FILTERS: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'assigned', label: 'Assigned' },
+  { key: 'in_progress', label: 'In Progress' },
+];
+
 export const OfficerQueue: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [closureUrl, setClosureUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  const loadQueue = () => {
-    setLoading(true);
+  const loadQueue = useCallback(() => {
     apiFetch('/api/officers/queue')
       .then(res => {
         if (!res.ok) throw new Error('Failed to load queue');
@@ -40,14 +65,18 @@ export const OfficerQueue: React.FC = () => {
       })
       .catch(err => {
         console.error(err);
-        setError('Could not load officer queue. Is the backend running?');
+        if (!tickets.length) {
+          setError('Could not load officer queue. Is the backend running?');
+        }
         setLoading(false);
       });
-  };
+  }, [tickets.length]);
 
   useEffect(() => {
     loadQueue();
-  }, []);
+    const interval = setInterval(loadQueue, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [loadQueue]);
 
   const handleStartWork = async (ticketId: string) => {
     await apiFetch(`/api/tickets/${ticketId}/status`, {
@@ -79,19 +108,22 @@ export const OfficerQueue: React.FC = () => {
     }
   };
 
-  const severityColors: Record<string, string> = {
-    high: 'text-red-400 bg-red-950/40 border-red-800/40',
-    medium: 'text-yellow-400 bg-yellow-950/40 border-yellow-800/40',
-    low: 'text-blue-400 bg-blue-950/40 border-blue-800/40',
-  };
-
-  const priorityLabel = (score: number) => (score >= 3 ? 'P1 Critical' : score >= 2 ? 'P2 Medium' : 'P3 Low');
+  const filteredTickets = statusFilter === 'all'
+    ? tickets
+    : tickets.filter(t => t.status === statusFilter);
 
   if (loading) {
     return (
-      <div className="py-20 flex flex-col items-center justify-center space-y-3 text-gray-400">
-        <Loader className="animate-spin text-brand-lime" size={24} />
-        <span className="text-xs font-mono">Loading assigned work queue...</span>
+      <div className="p-6 max-w-6xl mx-auto min-h-screen">
+        <div className="border-b border-panel-border pb-6 mb-6">
+          <div className="h-7 w-64 animate-pulse bg-panel-border rounded mb-2" />
+          <div className="h-4 w-80 animate-pulse bg-panel-border rounded" />
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -106,19 +138,54 @@ export const OfficerQueue: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-red-950/30 border border-red-800/40 text-red-300 text-sm px-4 py-3 rounded">
+        <div className="bg-red-950/30 border border-red-800/40 text-red-300 text-sm px-4 py-3 rounded flex items-center gap-2">
+          <AlertTriangle size={14} />
           {error}
+          <button
+            type="button"
+            aria-label="Dismiss error"
+            onClick={() => setError(null)}
+            className="ml-auto text-red-400 hover:text-red-200 text-xs"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {tickets.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
-          <CheckCircle2 className="mx-auto mb-3 text-brand-lime" size={32} />
-          <p className="text-sm">No open tickets in your queue.</p>
+      {/* Status filter tabs */}
+      {tickets.length > 0 && (
+        <div className="flex items-center gap-1.5 border-b border-panel-border pb-3">
+          <Filter size={14} className="text-gray-500" />
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              type="button"
+              aria-label={`Filter: ${f.label}`}
+              onClick={() => setStatusFilter(f.key)}
+              className={`text-xs font-mono px-3 py-1 rounded transition-colors ${
+                statusFilter === f.key
+                  ? 'bg-brand-lime text-background font-semibold'
+                  : 'text-gray-400 hover:text-foreground'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+          <span className="text-[10px] text-gray-600 ml-auto font-mono">
+            Polling every {POLL_INTERVAL / 1000}s
+          </span>
         </div>
+      )}
+
+      {filteredTickets.length === 0 ? (
+        <EmptyState
+          icon={CheckCircle2}
+          title={statusFilter === 'all' ? 'No open tickets in your queue' : `No ${statusFilter.replace('_', ' ')} tickets`}
+          message="New tickets will appear here once the AI pipeline assigns them."
+        />
       ) : (
         <div className="space-y-4">
-          {tickets.map(ticket => (
+          {filteredTickets.map(ticket => (
             <div
               key={ticket.id}
               className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-4"
@@ -127,15 +194,8 @@ export const OfficerQueue: React.FC = () => {
                 <div className="space-y-2 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-mono text-gray-500">#{ticket.id.slice(0, 8)}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded border ${severityColors[ticket.severity] || severityColors.medium}`}>
-                      {ticket.severity}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded border text-purple-400 bg-purple-950/40 border-purple-800/40">
-                      {priorityLabel(ticket.priority_score)}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded border text-gray-400 bg-gray-900 border-gray-800 capitalize">
-                      {ticket.status.replace('_', ' ')}
-                    </span>
+                    <Badge type="priority" value={priorityBadgeValue(ticket.priority_score)} />
+                    <Badge type="status" value={statusBadgeValue(ticket.status)} />
                   </div>
                   <h3 className="font-semibold text-foreground">{ticket.category}</h3>
                   <p className="text-sm text-gray-400">{ticket.description}</p>
@@ -156,7 +216,7 @@ export const OfficerQueue: React.FC = () => {
                   <img
                     src={ticket.original_media_url}
                     alt="Issue"
-                    className="w-24 h-24 object-cover rounded border border-panel-border"
+                    className="w-24 h-24 object-cover rounded border border-panel-border shrink-0"
                   />
                 )}
               </div>
@@ -165,6 +225,7 @@ export const OfficerQueue: React.FC = () => {
                 {ticket.status === 'assigned' && (
                   <button
                     onClick={() => handleStartWork(ticket.id)}
+                    aria-label={`Start work on ticket ${ticket.id.slice(0, 8)}`}
                     className="inline-flex items-center gap-1.5 text-xs bg-orange-950/40 text-orange-300 border border-orange-800/40 px-3 py-1.5 rounded hover:bg-orange-950/60"
                   >
                     <Wrench size={14} /> Start Work
@@ -177,7 +238,7 @@ export const OfficerQueue: React.FC = () => {
                   <PlayCircle size={14} /> Agent Trace
                 </Link>
                 <Link
-                  to={`/citizen/reports/${ticket.id}`}
+                  to={`/citizen/report/${ticket.id}`}
                   className="inline-flex items-center gap-1.5 text-xs text-gray-400 border border-panel-border px-3 py-1.5 rounded hover:text-foreground"
                 >
                   View Details
@@ -200,6 +261,8 @@ export const OfficerQueue: React.FC = () => {
                       className="flex-1 bg-background border border-panel-border rounded px-3 py-2 text-sm text-foreground placeholder:text-gray-600"
                     />
                     <button
+                      type="button"
+                      aria-label={`Resolve ticket ${ticket.id.slice(0, 8)} with sample photo`}
                       onClick={() => {
                         const sampleUrl = 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=600';
                         setClosureUrl(sampleUrl);
@@ -225,6 +288,8 @@ export const OfficerQueue: React.FC = () => {
                       Use Sample & Resolve
                     </button>
                     <button
+                      type="button"
+                      aria-label={`Submit closure for ticket ${ticket.id.slice(0, 8)}`}
                       onClick={() => handleResolve(ticket.id)}
                       disabled={resolvingId === ticket.id && !closureUrl}
                       className="inline-flex items-center justify-center gap-1.5 text-xs border border-panel-border text-gray-300 px-4 py-2 rounded hover:text-foreground disabled:opacity-50"

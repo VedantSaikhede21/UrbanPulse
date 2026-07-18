@@ -1,13 +1,16 @@
 import asyncio
 import json as _json
+import os
+import secrets
 import uuid
 from typing import Optional, List
 
-from fastapi import FastAPI, Depends, Header, HTTPException
+from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 from sqlalchemy import text, func
 import jwt
 
@@ -20,6 +23,15 @@ app = FastAPI(
     description="Multi-agent civic infrastructure triage and routing platform backend",
     version="0.2.0",
 )
+
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    import traceback
+    traceback.print_exc()
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 _triage_graph = None
 _verification_graph = None
@@ -91,6 +103,12 @@ def get_current_user(
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Could not validate credentials: {str(e)}")
 
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
@@ -175,6 +193,25 @@ def health_check(db: Session = Depends(get_db)):
     }
 
 
+# ── File Upload ───────────────────────────────────────────
+
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".webm", ".mp3", ".wav", ".m4a", ".pdf"}
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    ext = (os.path.splitext(file.filename or "file")[1] or ".bin").lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"File type {ext} not allowed")
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail=f"File exceeds maximum size of {MAX_UPLOAD_SIZE // (1024*1024)} MB")
+    filename = f"{secrets.token_hex(12)}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(content)
+    return {"url": f"/uploads/{filename}"}
+
+
 # ── Tickets CRUD ─────────────────────────────────────────
 
 @app.get("/api/tickets")
@@ -204,7 +241,10 @@ def list_tickets(db: Session = Depends(get_db), current_user: AuthUser = Depends
 
 @app.get("/api/tickets/{ticket_id}")
 def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    try:
+        ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Ticket not found")
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     return serialize_ticket(ticket)
@@ -220,10 +260,12 @@ def create_ticket(
     if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
         citizen_id = uuid.UUID(current_user.id)
     else:
-        # Dev fallback: attach to first seeded citizen if available
-        first_citizen = db.query(Citizen).first()
-        if first_citizen:
-            citizen_id = first_citizen.id
+        try:
+            first_citizen = db.query(Citizen).first()
+            if first_citizen:
+                citizen_id = first_citizen.id
+        except Exception:
+            db.rollback()
 
     ticket = Ticket(
         citizen_id=citizen_id,
@@ -353,7 +395,7 @@ async def resolve_ticket(
 
 @app.get("/api/analytics/wards")
 def ward_analytics(db: Session = Depends(get_db)):
-    wards = db.query(Ward).all()
+    wards = db.query(Ward).options(load_only(Ward.id, Ward.name, Ward.uhs_score)).all()
     return [
         {
             "id": w.id,
@@ -367,7 +409,7 @@ def ward_analytics(db: Session = Depends(get_db)):
 @app.get("/api/analytics/city-pulse")
 def city_pulse(db: Session = Depends(get_db)):
     """AI City Pulse — ward health summary with trending issues."""
-    wards = db.query(Ward).order_by(Ward.uhs_score.asc()).all()
+    wards = db.query(Ward).options(load_only(Ward.id, Ward.name, Ward.uhs_score)).order_by(Ward.uhs_score.asc()).all()
     critical = [w for w in wards if float(w.uhs_score) < 50]
 
     trending = (
@@ -509,6 +551,24 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
 @app.get("/api/trace/{ticket_id}")
 async def get_agent_trace(ticket_id: str):
     return {"ticket_id": ticket_id, "steps": [], "note": "Use /api/tickets/{id}/process for live SSE"}
+
+
+@app.delete("/api/tickets/{ticket_id}")
+def delete_ticket(
+    ticket_id: str,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    if not settings.DEV_ALLOW_DELETE:
+        raise HTTPException(status_code=403, detail="DELETE endpoint is disabled outside development")
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Admin or super_admin role required")
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    db.delete(ticket)
+    db.commit()
+    return {"deleted": ticket_id}
 
 
 @app.get("/api/me")

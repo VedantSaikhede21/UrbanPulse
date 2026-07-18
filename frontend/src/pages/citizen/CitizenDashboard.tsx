@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, CheckCircle2, User, AlertTriangle, Plus, Loader, MapPin, Calendar } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { FileText, CheckCircle2, AlertTriangle, Plus, MapPin, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { Badge } from '../../components/ui/Badge';
+import { SkeletonCard } from '../../components/ui/Skeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -16,50 +18,91 @@ interface Ticket {
   created_at: string;
 }
 
+const OPEN_STATUSES = ['reported', 'assigned', 'in_progress'];
+const RESOLVED_STATUSES = ['resolved', 'verified'];
+
+function statusBadgeValue(status: string): string {
+  if (status === 'reported') return 'new';
+  if (status === 'in_progress') return 'in progress';
+  return status;
+}
+
+function priorityBadgeValue(score: number): string {
+  if (score >= 3) return 'high';
+  if (score === 2) return 'medium';
+  return 'low';
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export const CitizenDashboard: React.FC = () => {
-  const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
     apiFetch('/api/tickets')
       .then(res => {
-        if (!res.ok) throw new Error('Failed to load tickets');
+        if (!res.ok) throw new Error(`Failed to load tickets (${res.status})`);
         return res.json();
       })
       .then(data => {
-        setTickets(data);
-        setLoading(false);
+        if (!cancelled) {
+          setTickets(data);
+          setLoading(false);
+        }
       })
       .catch(err => {
-        console.error(err);
-        setLoading(false);
+        if (!cancelled) {
+          setError(err.message || 'Could not load tickets');
+          setLoading(false);
+        }
       });
+    return () => { cancelled = true; };
   }, []);
 
   const totalReports = tickets.length;
-  const resolvedReports = tickets.filter(t => t.status === 'resolved' || t.status === 'verified').length;
-  // Trust rating is displayed dynamically based on authenticated citizen reputation, defaults to 110 for demo Alice profile
-  const userReputation = user ? 110 : 100;
+  const openReports = tickets.filter(t => OPEN_STATUSES.includes(t.status)).length;
+  const resolvedReports = tickets.filter(t => RESOLVED_STATUSES.includes(t.status)).length;
+  const recentTickets = tickets.slice(0, 6);
 
-  const severityColors: Record<string, string> = {
-    high: 'text-red-400 bg-red-950/40 border-red-800/40',
-    medium: 'text-yellow-400 bg-yellow-950/40 border-yellow-800/40',
-    low: 'text-blue-400 bg-blue-950/40 border-blue-800/40',
-  };
-
-  const statusColors: Record<string, string> = {
-    reported: 'text-gray-400 bg-gray-900 border-gray-800',
-    assigned: 'text-purple-400 bg-purple-950/40 border-purple-800/40',
-    in_progress: 'text-orange-400 bg-orange-950/40 border-orange-800/40',
-    resolved: 'text-brand-lime bg-brand-soft border-brand-lime/20',
-    verified: 'text-brand-lime bg-brand-soft border-brand-lime/30',
-  };
+  if (error) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto min-h-screen text-foreground font-sans">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
+            <AlertCircle size={24} className="text-red-400" />
+          </div>
+          <h3 className="text-base font-semibold text-foreground mb-1.5">Failed to load dashboard</h3>
+          <p className="text-sm text-gray-400 max-w-xs mb-5 leading-relaxed">{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim transition-all duration-200"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8 min-h-screen text-foreground relative font-sans">
-      
-      {/* Upper Welcome Banner */}
+
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-panel-border pb-6">
         <div>
           <h1 className="text-2xl font-serif italic font-bold">Welcome back, Citizen</h1>
@@ -74,72 +117,78 @@ export const CitizenDashboard: React.FC = () => {
         </Link>
       </div>
 
-      {/* Metrics Row */}
+      {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1 */}
         <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
           <div className="space-y-1.5">
             <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">My Total Reports</span>
-            <span className="text-3xl font-serif italic font-bold block">{totalReports}</span>
+            {loading ? (
+              <div className="h-8 w-16 animate-pulse bg-panel-border rounded" />
+            ) : (
+              <span className="text-3xl font-serif italic font-bold block">{totalReports}</span>
+            )}
           </div>
           <div className="w-12 h-12 rounded bg-panel-bg flex items-center justify-center text-gray-400 border border-panel-border">
             <FileText size={20} />
           </div>
         </div>
 
-        {/* Card 2 */}
+        <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
+          <div className="space-y-1.5">
+            <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">Open Reports</span>
+            {loading ? (
+              <div className="h-8 w-16 animate-pulse bg-panel-border rounded" />
+            ) : (
+              <span className="text-3xl font-serif italic font-bold block">{openReports}</span>
+            )}
+          </div>
+          <div className="w-12 h-12 rounded bg-orange-950/40 flex items-center justify-center text-orange-400 border border-orange-800/30">
+            <Clock size={20} />
+          </div>
+        </div>
+
         <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
           <div className="space-y-1.5">
             <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">Issues Resolved</span>
-            <span className="text-3xl font-serif italic font-bold block">{resolvedReports}</span>
+            {loading ? (
+              <div className="h-8 w-16 animate-pulse bg-panel-border rounded" />
+            ) : (
+              <span className="text-3xl font-serif italic font-bold text-brand-lime block">{resolvedReports}</span>
+            )}
           </div>
           <div className="w-12 h-12 rounded bg-brand-soft flex items-center justify-center text-brand-lime border border-brand-lime/10">
             <CheckCircle2 size={20} />
           </div>
         </div>
-
-        {/* Card 3 */}
-        <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
-          <div className="space-y-1.5">
-            <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">Reputation trust score</span>
-            <span className="text-3xl font-serif italic font-bold text-brand-lime block">{userReputation} <span className="text-xs text-gray-500 font-mono">/ 200</span></span>
-          </div>
-          <div className="w-12 h-12 rounded bg-panel-bg flex items-center justify-center text-gray-400 border border-panel-border">
-            <User size={20} />
-          </div>
-        </div>
       </div>
 
-      {/* Ticket List Header */}
+      {/* Recent Reports */}
       <div className="space-y-4">
         <h2 className="text-lg font-serif italic font-bold flex items-center gap-2">
-          <span>Active & Historic Issues</span>
-          <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-panel-card border border-panel-border text-gray-400 font-normal">
-            {totalReports} total
-          </span>
+          <span>Recent Reports</span>
+          {!loading && (
+            <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-panel-card border border-panel-border text-gray-400 font-normal">
+              {totalReports} total
+            </span>
+          )}
         </h2>
 
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center space-y-3 text-gray-400">
-            <Loader className="animate-spin text-brand-lime" size={24} />
-            <span className="text-xs font-mono">Connecting to live Supabase client...</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
         ) : tickets.length === 0 ? (
-          <div className="border border-dashed border-panel-border rounded-lg py-16 text-center max-w-md mx-auto px-6">
-            <AlertTriangle className="mx-auto text-gray-600 mb-4" size={32} />
-            <h3 className="font-serif italic font-bold text-base mb-1">No reports filed yet</h3>
-            <p className="text-gray-500 text-xs mb-6">Your filed tickets will show up here. Report an issue to begin.</p>
-            <Link
-              to="/citizen/report"
-              className="inline-flex items-center space-x-2 bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-4 py-2 rounded text-xs"
-            >
-              <Plus size={14} />
-              <span>Report Infrastructure Pothole</span>
-            </Link>
-          </div>
+          <EmptyState
+            icon={AlertTriangle}
+            title="No reports filed yet"
+            message="Your filed tickets will show up here. Report an issue to begin."
+            action={{ label: 'Report Infrastructure Issue', onClick: () => window.location.href = '/citizen/report' }}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {tickets.map(ticket => (
+            {recentTickets.map(ticket => (
               <Link
                 key={ticket.id}
                 to={`/citizen/report/${ticket.id}`}
@@ -151,12 +200,8 @@ export const CitizenDashboard: React.FC = () => {
                       {ticket.category}
                     </span>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 border rounded-full ${severityColors[ticket.severity] || severityColors.low}`}>
-                        {ticket.severity}
-                      </span>
-                      <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 border rounded-full ${statusColors[ticket.status] || statusColors.reported}`}>
-                        {ticket.status.replace('_', ' ')}
-                      </span>
+                      <Badge type="priority" value={priorityBadgeValue(ticket.priority_score)} />
+                      <Badge type="status" value={statusBadgeValue(ticket.status)} />
                     </div>
                   </div>
 
@@ -172,7 +217,7 @@ export const CitizenDashboard: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Calendar size={12} />
-                    <span>{ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'Today'}</span>
+                    <span>{ticket.created_at ? timeAgo(ticket.created_at) : 'Today'}</span>
                   </div>
                 </div>
               </Link>
@@ -181,14 +226,14 @@ export const CitizenDashboard: React.FC = () => {
         )}
       </div>
 
-      {/* Floating Action Button (FAB) for quick access */}
+      {/* FAB */}
       <Link
         to="/citizen/report"
         className="fixed bottom-6 right-6 w-14 h-14 bg-brand-lime hover:bg-brand-lime-hover text-background rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 md:hidden z-40 border border-brand-lime/20"
       >
         <Plus size={24} />
       </Link>
-      
+
     </div>
   );
 };

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     ENV: str = "development"
     # Only allow unauthenticated super_admin fallback when explicitly enabled in dev
     DEV_ALLOW_ANONYMOUS: bool = True
+    DEV_ALLOW_DELETE: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

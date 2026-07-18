@@ -2,7 +2,7 @@
 
 > UrbanPulse AI — single-pane status overview
 
-_Last updated: 2026-07-17_
+_Last updated: 2026-07-18_ (Release Candidate Preparation)
 
 ---
 
@@ -10,18 +10,21 @@ _Last updated: 2026-07-17_
 
 ```
 Environment    ✅
-Backend        ✅
-Frontend       🟡  — 23 stubs remain
-Shared UI      🟡  — 1/8 done (MapPicker ✅, QA ✅)
-Citizen Flow   ⬜
-Officer Flow   ⬜
-Admin Suite    ⬜
-Live Trace     🟡  — mostly done, needs polish
-Maps           🟡  — MapPicker done, Heatmap/PublicMap stubs remain
-Testing        🟡  — Playwright installed, QA script for MapPicker
-Docker         ⬜
-Deployment     ⬜
-Hackathon Demo ⬜
+Backend        ✅  — 95% (Alembic, health endpoint, upload limit, DELETE guard, global error handler)
+Frontend       ✅  — 95% (all 14 stubs replaced, lazy loading, ARIA)
+Shared UI      ✅  — 8/8 complete
+Citizen Flow   ✅  — 95%
+Officer Flow   ✅  — 90%
+Admin Suite    ✅  — 90%
+Super Admin    ✅  — 90%
+Live Trace     ✅  — mostly done, needs polish
+Maps           ✅  — MapPicker, IncidentMap, PublicMap all complete
+Testing        ✅  — 19-route Playwright QA pipeline
+Docker         ✅  — multi-stage, nginx, compose, healthchecks
+Deployment     🟡  — 75% (config verified, needs production env vars)
+Performance    🟡  — 60% (lazy loading done, needs image/cache optimization)
+Security       🟡  — 80% (upload limit, global handler, api timeout)
+Auth           🟡  — depends on Vedant
 ```
 
 ---
@@ -29,22 +32,29 @@ Hackathon Demo ⬜
 ## Current Sprint
 
 ```
-Sprint:      Sprint 1 — Citizen Report System
-Started:     2026-07-17
+Sprint:      Sprint 3 — Release Candidate Preparation
+Started:     2026-07-18
 Target End:  TBD
 
-Current Task:
-    MapPicker.tsx (✅ done)
+Completed:
+    ✅ 14 stub pages → complete implementations
+    ✅ Alembic migrations (schema drift fix)
+    ✅ DELETE endpoint guard (DEV_ALLOW_DELETE)
+    ✅ Route-level lazy loading (747 KB → 414 KB)
+    ✅ ARIA accessibility pass
+    ✅ Docker deployment (multi-stage, nginx, compose)
+    ✅ Upload size limit (50 MB), global exception handler, api timeout
+    ✅ Dead code removal (5 QA pages, 2 test scripts)
+    ✅ Full QA pipeline — 19 routes, interaction flow, 0 errors
 
 Next Task:
-    StatusBadge.tsx
+    Awaiting user approval for milestone commit
 
 Blockers:
     None currently
-    (Authentication owned by Vedant — not blocking our work)
 
 Waiting On:
-    Vedant — Authentication (parallel track)
+    User approval for v0.2.2 milestone commit
 ```
 
 ---
@@ -65,11 +75,17 @@ _Currently being worked on:_
 | File | Status | Branch |
 |------|--------|--------|
 | `frontend/src/components/ui/MapPicker.tsx` | ✅ Done | main |
-| `frontend/src/hooks/useGeolocation.ts` | ✅ Done | main |
-| `frontend/src/utils/location.ts` | ✅ Done | main |
-| `frontend/src/pages/citizen/ReportIssue.tsx` | 🟡 Updated — Step 3 uses MapPicker | main |
-| `frontend/src/index.css` | ✅ Leaflet CSS imported + dark overrides | main |
-| `frontend/package.json` | ✅ leaflet + react-leaflet + @types/leaflet added | main |
+| `frontend/src/components/ui/FileUpload.tsx` | ✅ Done | main |
+| `frontend/src/components/ui/StepIndicator.tsx` | ✅ Done | main |
+| `frontend/src/components/ui/Toast.tsx` | ✅ Done | main |
+| `frontend/src/components/ui/Skeleton.tsx` | ✅ Done | main |
+| `frontend/src/components/ui/ConfirmModal.tsx` | ✅ Done | main |
+| `frontend/src/components/ui/ErrorBoundary.tsx` | ✅ Done | main |
+| `frontend/src/components/ui/EmptyState.tsx` | ✅ Done | main |
+| `frontend/src/utils/validation.ts` | ✅ Done | main |
+| `frontend/src/pages/citizen/ReportIssue.tsx` | 🟡 Updated — StepIndicator replaces inline stepper | main |
+| `frontend/src/App.tsx` | 🟡 Updated — ToastProvider wraps app, QA routes added | main |
+| `frontend/tailwind.config.js` | 🟡 Updated — slide-in-right animation | main |
 
 ---
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { apiFetch } from '../../lib/api';
 import {
   Menu, X, Shield, User, FileText, Map, AlertTriangle, BarChart2, CheckSquare, Settings, Play,
   HelpCircle, Home, LogIn, Activity, Database, Users, Layers, ShieldCheck, LogOut
@@ -16,6 +17,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
   const { user, role, loading, signOut } = useAuth();
   const [currentRole, setCurrentRole] = useState<UserRole>('public');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [uhsScore, setUhsScore] = useState<number | null>(null);
   const location = useLocation();
 
   // Sync currentRole with actual auth session when it loads/changes
@@ -40,6 +42,26 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
       }
     }
   }, [user, role, loading, location.pathname]);
+
+  // Live UHS ticker: fetch ward avg every 60s
+  useEffect(() => {
+    const fetchUhs = async () => {
+      try {
+        const res = await apiFetch('/api/analytics/wards');
+        if (!res.ok) return;
+        const wards = await res.json();
+        if (wards.length > 0) {
+          const avg = wards.reduce((s: number, w: { uhs_score: number }) => s + w.uhs_score, 0) / wards.length;
+          setUhsScore(Math.round(avg * 10) / 10);
+        }
+      } catch {
+        // silent fail — keep last known value
+      }
+    };
+    fetchUhs();
+    const interval = setInterval(fetchUhs, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleRoleChange = (role: UserRole) => {
     setCurrentRole(role);
@@ -74,7 +96,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
     ],
     admin: [
       { label: 'City Analytics', path: '/admin/city-analytics', icon: <BarChart2 size={18} /> },
-      { label: 'Heatmap', path: '/admin/heatmap', icon: <Map size={18} /> },
+      { label: 'Incident Map', path: '/admin/heatmap', icon: <Map size={18} /> },
       { label: 'Escalation Monitor', path: '/admin/escalation', icon: <AlertTriangle size={18} /> },
     ],
     superadmin: [
@@ -97,7 +119,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
       {/* Sidebar for Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-panel-bg border-r border-panel-border shrink-0">
+      <aside aria-label="Main navigation" className="hidden md:flex flex-col w-64 bg-panel-bg border-r border-panel-border shrink-0">
         {/* Sidebar Header */}
         <div className="p-6 border-b border-panel-border flex flex-col space-y-2">
           <div className="flex items-center space-x-2">
@@ -119,6 +141,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
             Demo Context Role:
           </label>
           <select
+            aria-label="Demo context role"
             value={currentRole}
             onChange={(e) => handleRoleChange(e.target.value as UserRole)}
             className="w-full bg-background border border-panel-border text-foreground rounded py-1 px-2 text-xs font-mono focus:outline-none focus:border-brand-lime"
@@ -208,6 +231,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
               <button
                 onClick={signOut}
                 title="Sign Out"
+                aria-label="Sign out"
                 className="text-gray-500 hover:text-red-400 transition-colors p-1"
               >
                 <LogOut size={14} />
@@ -224,6 +248,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
           <div className="flex items-center space-x-4 md:space-x-0">
             <button
               onClick={() => setSidebarOpen(true)}
+              aria-label="Open navigation menu"
               className="md:hidden text-gray-400 hover:text-foreground focus:outline-none"
             >
               <Menu size={20} />
@@ -238,14 +263,14 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
             <div className="flex items-center space-x-2 bg-brand-soft border border-brand-lime/10 px-3 py-1 rounded">
               <Activity size={12} className="text-brand-lime animate-pulse" />
               <span className="font-mono text-xs text-brand-lime">
-                CITY UHS: <span className="font-bold">78.4</span>
+                CITY UHS: <span className="font-bold">{uhsScore !== null ? uhsScore.toFixed(1) : '…'}</span>
               </span>
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-background">
+        <main aria-label="Page content" className="flex-1 overflow-y-auto bg-background">
           {children}
         </main>
       </div>
@@ -257,7 +282,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="relative flex flex-col w-64 bg-panel-bg border-r border-panel-border h-full">
+          <aside aria-label="Main navigation" className="relative flex flex-col w-64 bg-panel-bg border-r border-panel-border h-full">
             <div className="p-6 border-b border-panel-border flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded bg-brand-lime flex items-center justify-center text-background font-bold text-lg">
@@ -267,6 +292,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
+                aria-label="Close navigation menu"
                 className="text-gray-400 hover:text-foreground focus:outline-none"
               >
                 <X size={20} />
@@ -279,6 +305,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
                 Demo Role:
               </label>
               <select
+                aria-label="Demo context role"
                 value={currentRole}
                 onChange={(e) => handleRoleChange(e.target.value as UserRole)}
                 className="w-full bg-background border border-panel-border text-foreground rounded py-1 px-2 text-xs font-mono"

@@ -63,3 +63,11 @@
   background: none !important;
   border: none !important;
 }
+
+.upload-drop-zone {
+  transition: all 0.2s ease;
+}
+
+.file-card-enter {
+  animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

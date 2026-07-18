@@ -1,97 +1,73 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Loader, Mic, Sparkles } from 'lucide-react';
-import { apiFetch } from '../../lib/api';
+import { Loader, Mic } from 'lucide-react';
+import { apiFetch, apiUpload } from '../../lib/api';
 import { MapPicker, type LocationData } from '../../components/ui/MapPicker';
+import { FileUpload, type FileData } from '../../components/ui/FileUpload';
+import { StepIndicator } from '../../components/ui/StepIndicator';
 import { useMediaRecorder } from '../../hooks/useMediaRecorder';
 
 type Step = 1 | 2 | 3;
 
-interface AIPreviewData {
-  category: string;
-  severity: string;
-  isDuplicate: boolean;
-  priorityScore: number;
-  reasoning: string;
-}
-
 export const ReportIssue: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>(1);
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Form State
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [files, setFiles] = useState<FileData[]>([]);
   const [category, setCategory] = useState('Roads & Potholes');
   const [description, setDescription] = useState('');
   const [latitude, setLatitude] = useState(12.9715);
   const [longitude, setLongitude] = useState(77.5945);
   const voice = useMediaRecorder();
 
-  // AI Pipeline Preview Modal State
-  const [showAIPreview, setShowAIPreview] = useState(false);
-  const [aiPreviewData, setAiPreviewData] = useState<AIPreviewData | null>(null);
+  const firstFileUrl = files.length > 0 ? files[0].preview : null;
 
-  // Triggered when simulating camera upload or attachment
-  const handlePhotoUpload = () => {
-    // Inject a realistic pothole test photo URL
-    setPhoto('https://images.unsplash.com/photo-1515162305285-0293e4767cc2?q=80&w=600');
-    setStep(2);
-  };
-
-  // Triggers the initial AI Agent Ingestion analysis simulation
-  const handleTriggerAIPreview = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    // Simulate multi-agent processing response delay
-    setTimeout(() => {
-      // Create a mock AI classification based on details entered
-      let predictedCategory = category;
-      let predictedSeverity = 'medium';
-      let priority = 2;
-      let reason = 'Ingested image confirms road infrastructure failure near bus stop. Location coordinates indicate proximity to public schools, elevating priority index to 2.';
-
-      if (description.toLowerCase().includes('leak') || description.toLowerCase().includes('water')) {
-        predictedCategory = 'Water Leak';
-        predictedSeverity = 'high';
-        priority = 3;
-        reason = 'Acoustic voice signature and description matches high-priority water main burst classification. High probability of neighborhood roadway flooding.';
-      } else if (description.toLowerCase().includes('garbage') || description.toLowerCase().includes('dump')) {
-        predictedCategory = 'Garbage & Sanitation';
-        predictedSeverity = 'low';
-        priority = 1;
-        reason = 'Image detects residential dumpster pile-up. Low immediate hazard, assigned to regular morning garbage collection dispatch cycle.';
-      }
-
-      setAiPreviewData({
-        category: predictedCategory,
-        severity: predictedSeverity,
-        isDuplicate: false,
-        priorityScore: priority,
-        reasoning: reason
-      });
-
-      setLoading(false);
-      setShowAIPreview(true);
-    }, 1500);
-  };
-
-  // Submit the ticket write to Supabase
-  const handleFinalSubmit = async () => {
+  const handleSubmit = async () => {
     setSubmitting(true);
 
+    let mediaUrl = '';
+    let voiceUrl = '';
+
+    if (files.length > 0) {
+      try {
+        const upRes = await apiUpload('/api/upload', files[0].file);
+        if (upRes.ok) {
+          const upData = await upRes.json();
+          mediaUrl = upData.url;
+        }
+      } catch (err) {
+        console.warn('Media upload failed:', err);
+      }
+    }
+
+    if (voice.blobUrl) {
+      try {
+        const blobRes = await fetch(voice.blobUrl);
+        const blob = await blobRes.blob();
+        const voiceFile = new File([blob], `voice-${Date.now()}.webm`, { type: blob.type });
+        const upRes = await apiUpload('/api/upload', voiceFile);
+        if (upRes.ok) {
+          const upData = await upRes.json();
+          voiceUrl = upData.url;
+        }
+      } catch (err) {
+        console.warn('Voice upload failed:', err);
+      }
+    }
+
     const ticketPayload = {
-      category: aiPreviewData?.category || category,
-      severity: aiPreviewData?.severity || 'medium',
+      category,
+      severity: 'medium',
       description,
       latitude,
       longitude,
-      original_media_url: photo,
+      original_media_url: mediaUrl || null,
+      voice_note_url: voiceUrl || null,
       status: 'reported',
-      priority_score: aiPreviewData?.priorityScore || 2,
-      priority_reason: aiPreviewData?.reasoning || '',
+      priority_score: 2,
+      priority_reason: '',
     };
 
     try {
@@ -101,7 +77,7 @@ export const ReportIssue: React.FC = () => {
       });
       if (res.ok) {
         const created = await res.json();
-        navigate(`/citizen/reports/${created.id}`);
+        navigate(`/citizen/processing/${created.id}`);
       } else {
         navigate('/citizen/dashboard');
       }
@@ -123,58 +99,56 @@ export const ReportIssue: React.FC = () => {
     <div className="p-6 max-w-2xl mx-auto space-y-8 min-h-screen text-foreground font-sans">
       
       {/* Header */}
-      <div className="border-b border-panel-border pb-6 flex items-center justify-between">
+      <div className="border-b border-panel-border pb-6">
         <div>
           <h1 className="text-xl font-serif italic font-bold">Report New Infrastructure Issue</h1>
           <p className="text-gray-500 text-xs mt-1">Submit civic complaints with active geolocated triggers.</p>
         </div>
-        <div className="font-mono text-xs text-gray-500 bg-panel-card border border-panel-border px-3 py-1 rounded">
-          Step {step} of 3
-        </div>
       </div>
 
-      {/* Stepper Progress Bar */}
-      <div className="flex items-center space-x-2">
-        <div className={`h-1 flex-1 rounded ${step >= 1 ? 'bg-brand-lime' : 'bg-gray-800'}`} />
-        <div className={`h-1 flex-1 rounded ${step >= 2 ? 'bg-brand-lime' : 'bg-gray-800'}`} />
-        <div className={`h-1 flex-1 rounded ${step >= 3 ? 'bg-brand-lime' : 'bg-gray-800'}`} />
-      </div>
+      <StepIndicator
+        steps={['Evidence', 'Details', 'Location']}
+        currentStep={step}
+      />
 
       {/* Form Steps */}
       {step === 1 && (
         <div className="space-y-6">
-          <div className="border-2 border-dashed border-panel-border/80 hover:border-brand-lime/20 rounded-lg p-12 text-center transition-colors">
-            <Camera className="mx-auto text-gray-500 mb-4 animate-bounce" size={40} />
-            <h3 className="font-serif italic font-bold text-base mb-1">Capture or Upload Evidence</h3>
-            <p className="text-gray-500 text-xs max-w-sm mx-auto mb-6">Attach a clear photograph of the damaged road, leak, or street safety hazard.</p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={handlePhotoUpload}
-                className="w-full sm:w-auto bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2.5 rounded text-xs transition-colors"
-              >
-                Simulate Camera Capture
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="w-full sm:w-auto bg-panel-card border border-panel-border hover:border-brand-lime/10 text-gray-300 font-medium px-6 py-2.5 rounded text-xs transition-colors"
-              >
-                Skip Photo Attachment
-              </button>
-            </div>
+          <FileUpload
+            value={files}
+            onChange={setFiles}
+            maxFiles={5}
+            maxSizeMB={20}
+          />
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-panel-border">
+            <button
+              type="button"
+              aria-label="Skip to details step"
+              onClick={() => setStep(2)}
+              className="text-xs text-gray-400 hover:text-foreground font-mono"
+            >
+              Skip Photo Attachment
+            </button>
+            <button
+              type="button"
+              aria-label="Next step: details"
+              onClick={() => setStep(2)}
+              className="bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs"
+            >
+              Next Step: Details →
+            </button>
           </div>
         </div>
       )}
 
       {step === 2 && (
-        <form onSubmit={handleTriggerAIPreview} className="space-y-6">
-          {photo && (
+        <div className="space-y-6">
+          {firstFileUrl && (
             <div className="relative rounded overflow-hidden h-40 border border-panel-border">
-              <img src={photo} alt="Report Attachment Preview" className="w-full h-full object-cover" />
+              <img src={firstFileUrl} alt="Report Attachment Preview" className="w-full h-full object-cover" />
               <button
                 type="button"
-                onClick={() => setPhoto(null)}
+                onClick={() => setFiles([])}
                 className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 text-[10px] hover:bg-black"
               >
                 ✕ Remove
@@ -189,6 +163,7 @@ export const ReportIssue: React.FC = () => {
                 <button
                   key={c}
                   type="button"
+                  aria-label={`Category: ${c}`}
                   onClick={() => setCategory(c)}
                   className={`p-3 rounded text-xs font-medium border text-left transition-all duration-150 ${category === c ? 'bg-brand-soft border-brand-lime text-brand-lime' : 'bg-panel-card border-panel-border text-gray-300'}`}
                 >
@@ -203,6 +178,7 @@ export const ReportIssue: React.FC = () => {
             <textarea
               required
               rows={4}
+              aria-label="Detailed description of the issue"
               placeholder="Describe the issue, landmarks, or details to assist municipal field officers..."
               value={description}
               onChange={e => setDescription(e.target.value)}
@@ -271,6 +247,7 @@ export const ReportIssue: React.FC = () => {
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-panel-border">
             <button
               type="button"
+              aria-label="Previous step: evidence"
               onClick={() => setStep(1)}
               className="text-xs text-gray-400 hover:text-foreground font-mono"
             >
@@ -278,13 +255,14 @@ export const ReportIssue: React.FC = () => {
             </button>
             <button
               type="button"
+              aria-label="Next step: location"
               onClick={() => setStep(3)}
               className="bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs"
             >
               Next Step: Location →
             </button>
           </div>
-        </form>
+        </div>
       )}
 
       {step === 3 && (
@@ -305,6 +283,7 @@ export const ReportIssue: React.FC = () => {
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-panel-border">
             <button
               type="button"
+              aria-label="Previous step: details"
               onClick={() => setStep(2)}
               className="text-xs text-gray-400 hover:text-foreground font-mono"
             >
@@ -312,94 +291,25 @@ export const ReportIssue: React.FC = () => {
             </button>
             <button
               type="button"
-              disabled={loading}
-              onClick={handleTriggerAIPreview}
+              aria-label="Submit report"
+              disabled={submitting}
+              onClick={handleSubmit}
               className="bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs flex items-center gap-1.5"
             >
-              {loading ? (
+              {submitting ? (
                 <>
                   <Loader className="animate-spin" size={14} />
-                  <span>Agent Ingesting...</span>
+                  <span>Submitting...</span>
                 </>
               ) : (
-                <>
-                  <Sparkles size={14} />
-                  <span>Review AI Prediction</span>
-                </>
+                <span>Submit & Process with AI →</span>
               )}
             </button>
           </div>
         </div>
       )}
 
-      {/* AI Agent Pipeline Preview Modal */}
-      {showAIPreview && aiPreviewData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-panel-bg border border-panel-border rounded-lg max-w-lg w-full p-6 space-y-6">
-            
-            <div className="flex items-center space-x-2 text-brand-lime">
-              <Sparkles size={20} className="animate-pulse" />
-              <h2 className="font-serif italic font-bold text-lg">Multi-Agent Pipeline Prediction</h2>
-            </div>
 
-            <p className="text-gray-400 text-xs leading-relaxed">
-              Before submitting, you can view the initial pre-ingestion predictions calculated by our 9-agent LangGraph orchestration pipeline.
-            </p>
-
-            <div className="grid grid-cols-2 gap-4 font-mono text-xs">
-              <div className="bg-panel-card p-3 border border-panel-border rounded">
-                <span className="text-gray-500 block mb-1">Predicted Category</span>
-                <span className="text-white font-semibold">{aiPreviewData.category}</span>
-              </div>
-              <div className="bg-panel-card p-3 border border-panel-border rounded">
-                <span className="text-gray-500 block mb-1">Pipeline Severity</span>
-                <span className={`capitalize font-semibold ${aiPreviewData.severity === 'high' ? 'text-red-400' : 'text-yellow-400'}`}>
-                  {aiPreviewData.severity}
-                </span>
-              </div>
-              <div className="bg-panel-card p-3 border border-panel-border rounded">
-                <span className="text-gray-500 block mb-1">Priority Index</span>
-                <span className="text-white font-semibold">Level {aiPreviewData.priorityScore} / 3</span>
-              </div>
-              <div className="bg-panel-card p-3 border border-panel-border rounded">
-                <span className="text-gray-500 block mb-1">Duplicate Check</span>
-                <span className="text-brand-lime font-semibold">Passed (Unique Incident)</span>
-              </div>
-            </div>
-
-            <div className="bg-panel-card p-4 border border-panel-border rounded space-y-1.5">
-              <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">AI Ingestion Reasoning</span>
-              <p className="text-gray-300 text-xs leading-relaxed font-sans">{aiPreviewData.reasoning}</p>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAIPreview(false)}
-                className="flex-1 bg-panel-card border border-panel-border hover:border-brand-lime/10 text-gray-300 font-semibold py-2.5 rounded text-xs transition-colors"
-              >
-                Edit Details
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={handleFinalSubmit}
-                className="flex-1 bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold py-2.5 rounded text-xs flex items-center justify-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <Loader className="animate-spin" size={14} />
-                    <span>Filing Report...</span>
-                  </>
-                ) : (
-                  <span>Submit Ticket</span>
-                )}
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
     </div>
   );

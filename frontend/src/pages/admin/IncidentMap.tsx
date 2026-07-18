@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import { AlertTriangle, Loader, MapPin } from 'lucide-react';
+import { AlertTriangle, Loader } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -30,7 +30,7 @@ const STATUS_RADIUS: Record<string, number> = {
   verified: 6,
 };
 
-export const PublicMap: React.FC = () => {
+export const IncidentMap: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export const PublicMap: React.FC = () => {
         setLoading(false);
       })
       .catch(err => {
-        setError(err.message || 'Failed to load incidents');
+        setError(err.message || 'Failed to load tickets');
         setLoading(false);
       });
   };
@@ -85,25 +85,15 @@ export const PublicMap: React.FC = () => {
     <div className="p-6 max-w-6xl mx-auto space-y-6 min-h-screen">
 
       <div className="border-b border-panel-border pb-6">
-        <h1 className="text-2xl font-serif italic font-bold">Public Ward Health Map</h1>
+        <h1 className="text-2xl font-serif italic font-bold">Incident Map</h1>
         <p className="text-gray-500 text-xs mt-1">
-          Geospatial view of all reported incidents across the municipality.
+          Geospatial view of all reported incidents — color-coded by status, sized by priority.
         </p>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
           <Loader size={24} className="text-brand-lime animate-spin" />
-        </div>
-      ) : tickets.length === 0 ? (
-        <div className="bg-panel-card border border-panel-border rounded flex flex-col items-center justify-center py-20">
-          <div className="w-14 h-14 rounded-full bg-gray-900/40 border border-gray-800/30 flex items-center justify-center mb-4">
-            <MapPin size={24} className="text-gray-500" />
-          </div>
-          <h3 className="text-base font-semibold mb-1">No incidents reported</h3>
-          <p className="text-sm text-gray-400 max-w-xs text-center">
-            There are currently no incidents to display on the map.
-          </p>
         </div>
       ) : (
         <>
@@ -153,17 +143,10 @@ export const PublicMap: React.FC = () => {
                       <p className="text-gray-400">
                         {t.latitude.toFixed(4)}, {t.longitude.toFixed(4)}
                       </p>
-                      <p>
-                        <span className="text-gray-400">Status: </span>
-                        <span className={`font-mono font-bold ${
-                          t.status === 'resolved' || t.status === 'verified' ? 'text-green-500' : 'text-yellow-500'
-                        }`}>
-                          {t.status.replace('_', ' ')}
-                        </span>
-                      </p>
-                      <p>
-                        <span className="text-gray-400">Severity: </span>
-                        <span className="font-mono text-gray-300">{t.severity}</span>
+                      <p className={`font-mono font-bold ${
+                        t.status === 'resolved' || t.status === 'verified' ? 'text-green-500' : 'text-yellow-500'
+                      }`}>
+                        {t.status.replace('_', ' ')}
                       </p>
                     </div>
                   </Popup>

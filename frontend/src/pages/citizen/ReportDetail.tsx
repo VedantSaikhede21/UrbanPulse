@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Loader, MapPin, Calendar, AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Loader, MapPin, Calendar, AlertTriangle, CheckCircle2, ChevronRight, Image, Mic } from 'lucide-react';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { divIcon } from 'leaflet';
 import { apiFetch } from '../../lib/api';
+
+const STATIC_MARKER = divIcon({
+  className: 'custom-map-marker',
+  html: `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:#C6F135;border:2px solid #161616;border-radius:50%;box-shadow:0 0 12px rgba(198,241,53,0.4);transform:translate(-50%,-100%);"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#0d0d0d" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>`,
+  iconSize: [28, 28],
+  iconAnchor: [14, 28],
+});
 
 interface Ticket {
   id: string;
@@ -10,6 +19,8 @@ interface Ticket {
   description: string;
   latitude: number;
   longitude: number;
+  original_media_url?: string;
+  voice_note_url?: string;
   status: string;
   priority_score: number;
   priority_reason?: string;
@@ -25,19 +36,24 @@ export const ReportDetail: React.FC = () => {
 
   useEffect(() => {
     if (!id) return;
-    apiFetch(`/api/tickets/${id}`)
+    let cancelled = false;
+    const controller = new AbortController();
+    apiFetch(`/api/tickets/${id}`, { signal: controller.signal })
       .then(res => {
         if (!res.ok) throw new Error('Failed to load ticket');
         return res.json();
       })
       .then((data: Ticket) => {
+        if (cancelled) return;
         setTicket(data);
         setLoading(false);
       })
       .catch(err => {
+        if (cancelled) return;
         console.error(err);
         setLoading(false);
       });
+    return () => { cancelled = true; controller.abort(); };
   }, [id]);
 
   if (loading) {
@@ -105,6 +121,60 @@ export const ReportDetail: React.FC = () => {
             <p className="text-gray-300 text-xs leading-relaxed bg-panel-card border border-panel-border p-4 rounded-lg">
               {ticket.description}
             </p>
+          </div>
+
+          {/* Media Display */}
+          {ticket.original_media_url && (
+            <div className="bg-panel-card border border-panel-border rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-panel-border bg-panel-bg">
+                <Image size={14} className="text-brand-lime" />
+                <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">Attached Media</span>
+              </div>
+              <div className="p-3">
+                {ticket.original_media_url.match(/\.(mp4|mov|webm)(\?|$)/i) ? (
+                  <video src={ticket.original_media_url} controls className="w-full rounded max-h-80 object-contain bg-black" />
+                ) : (
+                  <img src={ticket.original_media_url} alt="Report evidence" className="w-full rounded max-h-80 object-contain bg-black" />
+                )}
+              </div>
+            </div>
+          )}
+
+          {ticket.voice_note_url && (
+            <div className="bg-panel-card border border-panel-border rounded-lg p-4 flex items-center gap-3">
+              <Mic size={18} className="text-brand-lime shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-1">Voice Note</p>
+                <audio src={ticket.voice_note_url} controls className="w-full h-8" />
+              </div>
+            </div>
+          )}
+
+          {/* Map Display */}
+          <div className="bg-panel-card border border-panel-border rounded-lg overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-panel-border bg-panel-bg">
+              <MapPin size={14} className="text-brand-lime" />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">Location</span>
+            </div>
+            <div className="h-48">
+              <MapContainer
+                center={[ticket.latitude, ticket.longitude]}
+                zoom={15}
+                className="w-full h-full"
+                zoomControl={false}
+                scrollWheelZoom={false}
+                dragging={false}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                />
+                <Marker position={[ticket.latitude, ticket.longitude]} icon={STATIC_MARKER} />
+              </MapContainer>
+            </div>
+            <div className="px-4 py-2 text-[10px] font-mono text-gray-500 border-t border-panel-border">
+              {ticket.latitude.toFixed(4)}, {ticket.longitude.toFixed(4)}
+            </div>
           </div>
 
           {/* Details Table */}
