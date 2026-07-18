@@ -1,3 +1,5 @@
+// heat map is remaining
+
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { RoleLayout } from './components/layout/RoleLayout';
@@ -16,7 +18,7 @@ const StaffLogin = lazy(() => import('./pages/auth/StaffLogin'));
 const CitizenDashboard = lazy(() => import('./pages/citizen/CitizenDashboard').then(m => ({ default: m.CitizenDashboard })));
 const ReportIssue = lazy(() => import('./pages/citizen/ReportIssue').then(m => ({ default: m.ReportIssue })));
 const ReportDetail = lazy(() => import('./pages/citizen/ReportDetail').then(m => ({ default: m.ReportDetail })));
-// ProcessingPage was removed as it's not used in routes
+const ProcessingPage = lazy(() => import('./pages/citizen/ProcessingPage').then(m => ({ default: m.ProcessingPage })));
 const WardHealth = lazy(() => import('./pages/citizen/WardHealth').then(m => ({ default: m.WardHealth })));
 const Profile = lazy(() => import('./pages/citizen/Profile').then(m => ({ default: m.Profile })));
 const Notifications = lazy(() => import('./pages/citizen/Notifications').then(m => ({ default: m.Notifications })));
@@ -28,6 +30,7 @@ const OfficerManagement = lazy(() => import('./pages/dept/OfficerManagement').th
 const CityAnalytics = lazy(() => import('./pages/admin/CityAnalytics').then(m => ({ default: m.CityAnalytics })));
 const IncidentMap = lazy(() => import('./pages/admin/IncidentMap').then(m => ({ default: m.IncidentMap })));
 const EscalationMonitor = lazy(() => import('./pages/admin/EscalationMonitor').then(m => ({ default: m.EscalationMonitor })));
+
 const AdminDashboard = lazy(() => import('./pages/super-admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const UserManagement = lazy(() => import('./pages/super-admin/UserManagement').then(m => ({ default: m.UserManagement })));
 const RoutingConfig = lazy(() => import('./pages/super-admin/RoutingConfig').then(m => ({ default: m.RoutingConfig })));
@@ -50,12 +53,14 @@ const App: React.FC = () => {
                 <Route path="/" element={<Landing />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/public-map" element={<PublicMap />} />
+                 
 
                 {/* Auth routes */}
                 <Route path="/auth/citizen-login" element={<CitizenLogin />} />
                 <Route path="/auth/staff-login" element={<StaffLogin />} />
                 <Route path="/auth/staff-register" element={<StaffRegister />} />
-
+                
+                
                 {/* Deprecated redirects */}
                 <Route path="/auth/login" element={<Navigate to="/auth/citizen-login" replace />} />
                 <Route path="/auth/register" element={<Navigate to="/auth/citizen-login" replace />} />
@@ -69,12 +74,12 @@ const App: React.FC = () => {
                 <Route path="/citizen/ward-health"    element={<RoleGuard allow={['citizen']}><WardHealth /></RoleGuard>} />
                 <Route path="/citizen/profile"        element={<RoleGuard allow={['citizen']}><Profile /></RoleGuard>} />
                 <Route path="/citizen/notifications"  element={<RoleGuard allow={['citizen']}><Notifications /></RoleGuard>} />
-
+                
                 {/* Officer routes */}
                 <Route path="/officer"                element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerQueue /></RoleGuard>} />
                 <Route path="/officer/queue"          element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerQueue /></RoleGuard>} />
                 <Route path="/officer/profile"        element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerProfile /></RoleGuard>} />
-
+                <Route path="/citizen/processing/:id" element={<ProcessingPage />} />
                 <Route path="/auth/post-login" element={<PostLogin />} />
 
                 {/* Department Head routes */}
@@ -86,10 +91,8 @@ const App: React.FC = () => {
                 {/* City Admin routes */}
                 <Route path="/admin/city-analytics"   element={<RoleGuard allow={['admin','super_admin']}><CityAnalytics /></RoleGuard>} />
                 <Route path="/admin/dashboard"        element={<RoleGuard allow={['admin','super_admin']}><CityAnalytics /></RoleGuard>} />
-                <Route path="/admin/heatmap"          element={<RoleGuard allow={['admin','super_admin']}><Heatmap /></RoleGuard>} />
+                <Route path="/admin/heatmap" element={<Navigate to="/admin/incident-map" replace />} />
                 <Route path="/admin/escalation"       element={<RoleGuard allow={['admin','super_admin']}><EscalationMonitor /></RoleGuard>} />
-
-{/* Super Admin routes */}  
 
                 {/* Super Admin routes */}
                 <Route path="/super-admin"            element={<RoleGuard allow={['super_admin']}><AdminDashboard /></RoleGuard>} />
@@ -98,6 +101,7 @@ const App: React.FC = () => {
                 <Route path="/super-admin/routing"    element={<RoleGuard allow={['super_admin']}><RoutingConfig /></RoleGuard>} />
                 <Route path="/super-admin/audit"      element={<RoleGuard allow={['super_admin']}><AuditLog /></RoleGuard>} />
                 <Route path="/super-admin/monitoring" element={<RoleGuard allow={['super_admin']}><AgentMonitoring /></RoleGuard>} />
+                <Route path="/admin/:mapView" element={<RoleGuard allow={['admin','super_admin']}><IncidentMap /></RoleGuard>} />
 
                 {/* Shared routes */}
                 <Route path="/trace" element={<LiveAgentTrace />} />

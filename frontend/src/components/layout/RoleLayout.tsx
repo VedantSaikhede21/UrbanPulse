@@ -182,7 +182,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
               })}
             </nav>
           </div>
-
+            
           <div className="pt-4 border-t border-panel-border">
             <span className="px-2 text-[10px] font-mono uppercase tracking-widest text-gray-500 block mb-2">
               Shared Tools
@@ -266,6 +266,19 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
                 CITY UHS: <span className="font-bold">{uhsScore !== null ? uhsScore.toFixed(1) : '…'}</span>
               </span>
             </div>
+
+            {/* Always-visible Sign Out button */}
+            {user && (
+              <button
+                onClick={signOut}
+                aria-label="Sign out"
+                data-testid="header-signout-btn"
+                className="flex items-center space-x-2 bg-panel-card border border-panel-border hover:border-red-500/40 hover:text-red-400 text-gray-300 px-3 py-1.5 rounded transition-colors"
+              >
+                <LogOut size={14} />
+                <span className="text-xs font-medium hidden sm:inline">Sign Out</span>
+              </button>
+            )}
           </div>
         </header>
 

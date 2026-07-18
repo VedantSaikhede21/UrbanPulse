@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithPassword, getRoleFromUser } from '../../lib/auth';
+import { signInWithPassword} from '../../lib/auth';
 
 export default function StaffLogin() {
   const navigate = useNavigate();
@@ -22,11 +22,7 @@ export default function StaffLogin() {
       setLoading(false);
       return;
     }
-
-    const role = getRoleFromUser(user);
-    setLoading(false);
-    
-    // Route staff to their respective dashboards based on role
+   setLoading(false); 
    navigate('/auth/post-login');
   }
 
