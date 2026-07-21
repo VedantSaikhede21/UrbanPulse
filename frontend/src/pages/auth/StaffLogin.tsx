@@ -56,7 +56,7 @@ export default function StaffLogin() {
         }}>
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', color: '#d1d5db', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 500 }}>
+              <label htmlFor="staff-email" style={{ display: 'block', color: '#d1d5db', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 500 }}>
                 Work Email Address
               </label>
               <input
@@ -75,7 +75,7 @@ export default function StaffLogin() {
             </div>
 
             <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', color: '#d1d5db', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 500 }}>
+              <label htmlFor="staff-password" style={{ display: 'block', color: '#d1d5db', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 500 }}>
                 Password
               </label>
               <input

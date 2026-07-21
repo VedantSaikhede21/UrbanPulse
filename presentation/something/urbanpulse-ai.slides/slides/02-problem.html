@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>UrbanPulse AI — Problem</title>
+<link rel="stylesheet" href="../assets/chrome.css">
+</head>
+<body>
+<div class="slide-container bg-noise" data-screen-label="02 Problem">
+
+  <!-- Grid overlay -->
+  <div data-object="true" data-object-type="shape" class="bg-grid"
+       style="position:absolute; left:0; top:0; width:1920px; height:1080px; opacity:0.4; z-index:1;"></div>
+
+  <!-- Header -->
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:100px; top:70px; width:900px; z-index:10;">
+    <div class="eyebrow">◆ 01 / PROBLEM STATEMENT</div>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:1700px; top:70px; width:120px; z-index:10; text-align:right;">
+    <div class="page-num">02 / 15</div>
+  </div>
+
+  <!-- Title -->
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:100px; top:130px; width:1720px; z-index:10;">
+    <h1 style="font-family:var(--font-serif); font-style:italic; font-weight:300; font-size:104px; line-height:1; margin:0; color:#fff; letter-spacing:-0.02em;">
+      Civic complaints vanish<br>
+      <span style="color:var(--brand-lime);">into black holes.</span>
+    </h1>
+  </div>
+
+  <!-- Subtitle -->
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:100px; top:400px; width:1400px; z-index:10;">
+    <p style="font-family:var(--font-heading); font-size:26px; font-weight:300; line-height:1.5; margin:0; color:var(--fg-dim);">
+      Every day, municipal corporations receive thousands of reports on potholes, water leaks,
+      garbage, and streetlight failures — routed manually, prioritized by whoever shouts loudest,
+      and resolved without accountability.
+    </p>
+  </div>
+
+  <!-- Four pain cards -->
+  <!-- Card 1: Citizens -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:100px; top:620px; width:410px; height:340px; z-index:5;
+              background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005));
+              border:1px solid var(--border); border-radius:20px;"></div>
+  <div data-object="true" data-object-type="icon"
+       style="position:absolute; left:130px; top:650px; width:56px; height:56px; z-index:10;
+              background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); border-radius:14px;
+              display:flex; align-items:center; justify-content:center;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </svg>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:130px; top:730px; width:350px; z-index:10;">
+    <div class="mono" style="font-size:11px; color:var(--accent-blue); letter-spacing:0.18em;">FOR CITIZENS</div>
+    <h3 style="font-family:var(--font-heading); font-weight:600; font-size:32px; margin:12px 0 16px; color:#fff; line-height:1.15;">No channel.<br>No status. No trust.</h3>
+    <p style="font-size:16px; color:var(--fg-dim); line-height:1.5; margin:0;">Phone calls, WhatsApp, in-person visits — reports enter a void with no acknowledgement or ETA.</p>
+  </div>
+
+  <!-- Card 2: Officers -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:530px; top:620px; width:410px; height:340px; z-index:5;
+              background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005));
+              border:1px solid var(--border); border-radius:20px;"></div>
+  <div data-object="true" data-object-type="icon"
+       style="position:absolute; left:560px; top:650px; width:56px; height:56px; z-index:10;
+              background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); border-radius:14px;
+              display:flex; align-items:center; justify-content:center;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:560px; top:730px; width:350px; z-index:10;">
+    <div class="mono" style="font-size:11px; color:var(--accent-amber); letter-spacing:0.18em;">FOR OFFICERS</div>
+    <h3 style="font-family:var(--font-heading); font-weight:600; font-size:32px; margin:12px 0 16px; color:#fff; line-height:1.15;">Manual triage.<br>No priority.</h3>
+    <p style="font-size:16px; color:var(--fg-dim); line-height:1.5; margin:0;">Every complaint arrives with equal urgency. Hours lost on triage that should be spent on repairs.</p>
+  </div>
+
+  <!-- Card 3: Admins -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:960px; top:620px; width:410px; height:340px; z-index:5;
+              background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005));
+              border:1px solid var(--border); border-radius:20px;"></div>
+  <div data-object="true" data-object-type="icon"
+       style="position:absolute; left:990px; top:650px; width:56px; height:56px; z-index:10;
+              background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.4); border-radius:14px;
+              display:flex; align-items:center; justify-content:center;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 6-6"/>
+    </svg>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:990px; top:730px; width:350px; z-index:10;">
+    <div class="mono" style="font-size:11px; color:var(--accent-purple); letter-spacing:0.18em;">FOR ADMINS</div>
+    <h3 style="font-family:var(--font-heading); font-weight:600; font-size:32px; margin:12px 0 16px; color:#fff; line-height:1.15;">Zero city-wide<br>visibility.</h3>
+    <p style="font-size:16px; color:var(--fg-dim); line-height:1.5; margin:0;">No health score, no trending issues, no data-driven resource allocation. Only headlines.</p>
+  </div>
+
+  <!-- Card 4: Existing systems -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:1390px; top:620px; width:410px; height:340px; z-index:5;
+              background: linear-gradient(180deg, rgba(239,68,68,0.06), rgba(239,68,68,0.01));
+              border:1px solid rgba(239,68,68,0.3); border-radius:20px;"></div>
+  <div data-object="true" data-object-type="icon"
+       style="position:absolute; left:1420px; top:650px; width:56px; height:56px; z-index:10;
+              background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:14px;
+              display:flex; align-items:center; justify-content:center;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:1420px; top:730px; width:350px; z-index:10;">
+    <div class="mono" style="font-size:11px; color:var(--accent-red); letter-spacing:0.18em;">EXISTING SYSTEMS</div>
+    <h3 style="font-family:var(--font-heading); font-weight:600; font-size:32px; margin:12px 0 16px; color:#fff; line-height:1.15;">Glorified<br>CRUD forms.</h3>
+    <p style="font-size:16px; color:var(--fg-dim); line-height:1.5; margin:0;">FixMyStreet-style apps are complaint boxes — no AI, no routing, no analytics, no accountability.</p>
+  </div>
+
+  <!-- Footer signature -->
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:100px; top:1010px; width:1720px; z-index:10;">
+    <div class="mono" style="font-size:12px; color:var(--fg-mute); letter-spacing:0.16em;">URBANPULSE AI · PROBLEM SPACE — MUNICIPAL INFRASTRUCTURE REPORTING</div>
+  </div>
+
+</div>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>

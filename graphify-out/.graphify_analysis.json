@@ -1,0 +1,511 @@
+{
+  "communities": {
+    "0": [
+      "backend_app_db_models",
+      "backend_app_db_models_auditlog",
+      "backend_app_db_models_citizen",
+      "backend_app_db_models_officer",
+      "backend_app_db_models_ticket",
+      "backend_app_db_models_ward",
+      "backend_app_db_seed",
+      "backend_app_db_seed_seed_db",
+      "backend_app_main",
+      "backend_app_main_authuser",
+      "backend_app_main_authuser_init",
+      "backend_app_main_city_pulse",
+      "backend_app_main_create_ticket",
+      "backend_app_main_createticketrequest",
+      "backend_app_main_find_nearby_tickets",
+      "backend_app_main_get_agent_trace",
+      "backend_app_main_get_current_user",
+      "backend_app_main_get_me",
+      "backend_app_main_get_ticket",
+      "backend_app_main_health_check",
+      "backend_app_main_list_tickets",
+      "backend_app_main_load_graphs",
+      "backend_app_main_officer_queue",
+      "backend_app_main_process_ticket_sse",
+      "backend_app_main_py_basemodel",
+      "backend_app_main_rationale_369",
+      "backend_app_main_resolve_ticket",
+      "backend_app_main_resolveticketrequest",
+      "backend_app_main_serialize_ticket",
+      "backend_app_main_update_ticket_status",
+      "backend_app_main_updateticketstatusrequest",
+      "backend_app_main_ward_analytics",
+      "base",
+      "session",
+      "ticket"
+    ],
+    "1": [
+      "frontend_tsconfig",
+      "frontend_tsconfig_compileroptions",
+      "frontend_tsconfig_compileroptions_allowimportingtsextensions",
+      "frontend_tsconfig_compileroptions_baseurl",
+      "frontend_tsconfig_compileroptions_ignoredeprecations",
+      "frontend_tsconfig_compileroptions_isolatedmodules",
+      "frontend_tsconfig_compileroptions_jsx",
+      "frontend_tsconfig_compileroptions_lib",
+      "frontend_tsconfig_compileroptions_module",
+      "frontend_tsconfig_compileroptions_moduleresolution",
+      "frontend_tsconfig_compileroptions_noemit",
+      "frontend_tsconfig_compileroptions_nofallthroughcasesinswitch",
+      "frontend_tsconfig_compileroptions_nounusedlocals",
+      "frontend_tsconfig_compileroptions_nounusedparameters",
+      "frontend_tsconfig_compileroptions_paths",
+      "frontend_tsconfig_compileroptions_resolvejsonmodule",
+      "frontend_tsconfig_compileroptions_skiplibcheck",
+      "frontend_tsconfig_compileroptions_strict",
+      "frontend_tsconfig_compileroptions_target",
+      "frontend_tsconfig_compileroptions_usedefineforclassfields",
+      "frontend_tsconfig_include",
+      "frontend_tsconfig_references",
+      "ref_dom",
+      "ref_dom_iterable",
+      "ref_es2020",
+      "ref_src"
+    ],
+    "2": [
+      "any",
+      "backend_app_agents_graph",
+      "backend_app_agents_graph_analytics_agent",
+      "backend_app_agents_graph_analytics_resolve",
+      "backend_app_agents_graph_analytics_triage",
+      "backend_app_agents_graph_ask_gemini",
+      "backend_app_agents_graph_ask_gemini_with_images",
+      "backend_app_agents_graph_build_triage_graph",
+      "backend_app_agents_graph_build_verification_graph",
+      "backend_app_agents_graph_cx_agent",
+      "backend_app_agents_graph_deduplication_agent",
+      "backend_app_agents_graph_escalation_agent",
+      "backend_app_agents_graph_get_db_session",
+      "backend_app_agents_graph_parse_json_response",
+      "backend_app_agents_graph_priority_agent",
+      "backend_app_agents_graph_py_basemodel",
+      "backend_app_agents_graph_rationale_37",
+      "backend_app_agents_graph_rationale_433",
+      "backend_app_agents_graph_rationale_52",
+      "backend_app_agents_graph_routing_agent",
+      "backend_app_agents_graph_ticketstate",
+      "backend_app_agents_graph_trust_fraud_agent",
+      "backend_app_agents_graph_verification_agent",
+      "backend_app_agents_graph_vision_agent"
+    ],
+    "3": [
+      "autoprefixer",
+      "frontend_package_devdependencies",
+      "frontend_package_devdependencies_autoprefixer",
+      "frontend_package_devdependencies_postcss",
+      "frontend_package_devdependencies_tailwindcss",
+      "frontend_package_devdependencies_types_react",
+      "frontend_package_devdependencies_types_react_dom",
+      "frontend_package_devdependencies_typescript",
+      "frontend_package_devdependencies_typescript_eslint_eslint_plugin",
+      "frontend_package_devdependencies_typescript_eslint_parser",
+      "frontend_package_devdependencies_vite",
+      "frontend_package_devdependencies_vitejs_plugin_react",
+      "postcss",
+      "tailwindcss",
+      "types_react",
+      "types_react_dom",
+      "typescript",
+      "typescript_eslint_eslint_plugin",
+      "typescript_eslint_parser",
+      "vite",
+      "vitejs_plugin_react"
+    ],
+    "4": [
+      "frontend_package",
+      "frontend_package_dependencies",
+      "frontend_package_dependencies_lucide_react",
+      "frontend_package_dependencies_react",
+      "frontend_package_dependencies_react_dom",
+      "frontend_package_dependencies_react_router_dom",
+      "frontend_package_dependencies_supabase_supabase_js",
+      "frontend_package_name",
+      "frontend_package_private",
+      "frontend_package_scripts",
+      "frontend_package_scripts_build",
+      "frontend_package_scripts_dev",
+      "frontend_package_scripts_lint",
+      "frontend_package_scripts_preview",
+      "frontend_package_type",
+      "frontend_package_version",
+      "lucide_react",
+      "react",
+      "react_dom",
+      "react_router_dom",
+      "supabase_supabase_js"
+    ],
+    "5": [
+      "frontend_src_context_authcontext",
+      "frontend_src_context_authcontext_authcontext",
+      "frontend_src_context_authcontext_authcontextvalue",
+      "frontend_src_context_authcontext_authprovider",
+      "frontend_src_lib_auth",
+      "frontend_src_lib_auth_appuser",
+      "frontend_src_lib_auth_getrolefromuser",
+      "frontend_src_lib_auth_getsession",
+      "frontend_src_lib_auth_signinwithgoogle",
+      "frontend_src_lib_auth_signinwithpassword",
+      "frontend_src_lib_auth_signout",
+      "frontend_src_lib_auth_userrole",
+      "frontend_src_lib_supabase",
+      "frontend_src_lib_supabase_supabase",
+      "frontend_src_lib_supabase_supabaseanonkey",
+      "frontend_src_lib_supabase_supabaseurl",
+      "frontend_src_pages_auth_citizenlogin",
+      "frontend_src_pages_auth_citizenlogin_citizenlogin",
+      "frontend_src_pages_auth_stafflogin",
+      "frontend_src_pages_auth_stafflogin_stafflogin"
+    ],
+    "6": [
+      "frontend_src_app",
+      "frontend_src_app_app",
+      "frontend_src_main",
+      "frontend_src_pages_admin_escalationmonitor",
+      "frontend_src_pages_admin_escalationmonitor_escalationmonitor",
+      "frontend_src_pages_dept_departmentanalytics",
+      "frontend_src_pages_dept_departmentanalytics_departmentanalytics",
+      "frontend_src_pages_officer_officerprofile",
+      "frontend_src_pages_officer_officerprofile_officerprofile",
+      "frontend_src_pages_public_about",
+      "frontend_src_pages_public_about_about",
+      "frontend_src_pages_public_landing",
+      "frontend_src_pages_public_landing_landing",
+      "frontend_src_pages_super_admin_admindashboard",
+      "frontend_src_pages_super_admin_admindashboard_admindashboard",
+      "frontend_src_pages_super_admin_routingconfig",
+      "frontend_src_pages_super_admin_routingconfig_routingconfig"
+    ],
+    "7": [
+      "frontend_src_lib_api",
+      "frontend_src_lib_api_apifetch",
+      "frontend_src_lib_api_apiurl",
+      "frontend_src_pages_citizen_reportdetail",
+      "frontend_src_pages_citizen_reportdetail_reportdetail",
+      "frontend_src_pages_citizen_reportdetail_ticket",
+      "frontend_src_pages_citizen_reportissue",
+      "frontend_src_pages_citizen_reportissue_aipreviewdata",
+      "frontend_src_pages_citizen_reportissue_reportissue",
+      "frontend_src_pages_citizen_reportissue_step",
+      "frontend_src_pages_officer_officerqueue",
+      "frontend_src_pages_officer_officerqueue_officerqueue",
+      "frontend_src_pages_officer_officerqueue_ticket",
+      "frontend_src_pages_shared_liveagenttrace",
+      "frontend_src_pages_shared_liveagenttrace_agent_icons",
+      "frontend_src_pages_shared_liveagenttrace_agentstep",
+      "frontend_src_pages_shared_liveagenttrace_liveagenttrace"
+    ],
+    "8": [
+      "frontend_src_components_ui_card",
+      "frontend_src_components_ui_card_card",
+      "frontend_src_components_ui_card_cardcontent",
+      "frontend_src_components_ui_card_carddescription",
+      "frontend_src_components_ui_card_cardheader",
+      "frontend_src_components_ui_card_cardprops",
+      "frontend_src_components_ui_card_cardtitle",
+      "frontend_src_components_ui_pagestub",
+      "frontend_src_components_ui_pagestub_pagestubprops",
+      "frontend_src_pages_auth_register",
+      "frontend_src_pages_auth_register_register"
+    ],
+    "9": [
+      "frontend_src_components_ui_pagestub_pagestub",
+      "frontend_src_pages_auth_adminlogin",
+      "frontend_src_pages_auth_adminlogin_adminlogin",
+      "frontend_src_pages_auth_login",
+      "frontend_src_pages_auth_login_login",
+      "frontend_src_pages_citizen_notifications",
+      "frontend_src_pages_citizen_notifications_notifications",
+      "frontend_src_pages_super_admin_agentmonitoring",
+      "frontend_src_pages_super_admin_agentmonitoring_agentmonitoring",
+      "frontend_src_pages_super_admin_usermanagement",
+      "frontend_src_pages_super_admin_usermanagement_usermanagement"
+    ],
+    "10": [
+      "frontend_tsconfig_node",
+      "frontend_tsconfig_node_compileroptions",
+      "frontend_tsconfig_node_compileroptions_allowsyntheticdefaultimports",
+      "frontend_tsconfig_node_compileroptions_composite",
+      "frontend_tsconfig_node_compileroptions_module",
+      "frontend_tsconfig_node_compileroptions_moduleresolution",
+      "frontend_tsconfig_node_compileroptions_skiplibcheck",
+      "frontend_tsconfig_node_include",
+      "ref_vite_config_ts"
+    ],
+    "11": [
+      "frontend_src_components_layout_rolelayout",
+      "frontend_src_components_layout_rolelayout_rolelayout",
+      "frontend_src_components_layout_rolelayout_rolelayoutprops",
+      "frontend_src_components_layout_rolelayout_userrole",
+      "frontend_src_context_authcontext_useauth",
+      "frontend_src_pages_citizen_citizendashboard",
+      "frontend_src_pages_citizen_citizendashboard_citizendashboard",
+      "frontend_src_pages_citizen_citizendashboard_ticket"
+    ],
+    "12": [
+      "backend_app_config",
+      "backend_app_config_settings",
+      "backend_app_db_session",
+      "backend_app_db_session_get_db",
+      "basesettings"
+    ],
+    "13": [
+      "frontend_src_components_ui_badge",
+      "frontend_src_components_ui_badge_badge",
+      "frontend_src_components_ui_badge_badgeprops",
+      "frontend_src_components_ui_badge_badgetype",
+      "frontend_src_components_ui_badge_badgevalue"
+    ],
+    "14": [
+      "frontend_src_components_ui_button",
+      "frontend_src_components_ui_button_button",
+      "frontend_src_components_ui_button_buttonprops",
+      "frontend_src_components_ui_button_buttonvariant"
+    ],
+    "15": [
+      "backend_test_pipeline",
+      "backend_test_pipeline_rationale_1"
+    ],
+    "16": [
+      "backend_test_sse",
+      "backend_test_sse_rationale_1"
+    ],
+    "17": [
+      "frontend_src_pages_admin_cityanalytics",
+      "frontend_src_pages_admin_cityanalytics_cityanalytics"
+    ],
+    "18": [
+      "frontend_src_pages_admin_heatmap",
+      "frontend_src_pages_admin_heatmap_heatmap"
+    ],
+    "19": [
+      "frontend_src_pages_dept_officermanagement",
+      "frontend_src_pages_dept_officermanagement_officermanagement"
+    ],
+    "20": [
+      "frontend_src_pages_citizen_profile",
+      "frontend_src_pages_citizen_profile_profile"
+    ],
+    "21": [
+      "frontend_src_pages_citizen_wardhealth",
+      "frontend_src_pages_citizen_wardhealth_wardhealth"
+    ],
+    "22": [
+      "frontend_src_pages_dept_departmentdashboard",
+      "frontend_src_pages_dept_departmentdashboard_departmentdashboard"
+    ],
+    "23": [
+      "frontend_src_pages_public_publicmap",
+      "frontend_src_pages_public_publicmap_publicmap"
+    ],
+    "24": [
+      "frontend_src_pages_shared_settings",
+      "frontend_src_pages_shared_settings_settings"
+    ],
+    "25": [
+      "frontend_src_pages_shared_support",
+      "frontend_src_pages_shared_support_support"
+    ],
+    "26": [
+      "frontend_src_pages_super_admin_auditlog",
+      "frontend_src_pages_super_admin_auditlog_auditlog"
+    ],
+    "27": [
+      "backend_app_agents_init"
+    ],
+    "28": [
+      "backend_app_init"
+    ],
+    "29": [
+      "frontend_postcss_config"
+    ],
+    "30": [
+      "frontend_tailwind_config"
+    ],
+    "31": [
+      "frontend_vite_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.17142857142857143,
+    "1": 0.07692307692307693,
+    "2": 0.2572463768115942,
+    "3": 0.09523809523809523,
+    "4": 0.09523809523809523,
+    "5": 0.15263157894736842,
+    "6": 0.17647058823529413,
+    "7": 0.17647058823529413,
+    "8": 0.21818181818181817,
+    "9": 0.18181818181818182,
+    "10": 0.2222222222222222,
+    "11": 0.32142857142857145,
+    "12": 0.4,
+    "13": 0.4,
+    "14": 0.5,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0,
+    "23": 1.0,
+    "24": 1.0,
+    "25": 1.0,
+    "26": 1.0,
+    "27": 1.0,
+    "28": 1.0,
+    "29": 1.0,
+    "30": 1.0,
+    "31": 1.0
+  },
+  "gods": [
+    {
+      "id": "frontend_src_components_ui_pagestub_pagestub",
+      "label": "PageStub()",
+      "degree": 23
+    },
+    {
+      "id": "backend_app_agents_graph_ticketstate",
+      "label": "TicketState",
+      "degree": 22
+    },
+    {
+      "id": "frontend_tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 19
+    },
+    {
+      "id": "backend_app_db_models_ticket",
+      "label": "Ticket",
+      "degree": 16
+    },
+    {
+      "id": "backend_app_main_authuser",
+      "label": "AuthUser",
+      "degree": 14
+    },
+    {
+      "id": "backend_app_db_models_officer",
+      "label": "Officer",
+      "degree": 11
+    },
+    {
+      "id": "backend_app_agents_graph_build_triage_graph",
+      "label": "_build_triage_graph()",
+      "degree": 10
+    },
+    {
+      "id": "frontend_src_lib_api_apifetch",
+      "label": "apiFetch()",
+      "degree": 10
+    },
+    {
+      "id": "backend_app_db_models_ward",
+      "label": "Ward",
+      "degree": 9
+    },
+    {
+      "id": "backend_app_db_models_citizen",
+      "label": "Citizen",
+      "degree": 9
+    }
+  ],
+  "surprises": [
+    {
+      "source": "TicketState",
+      "target": "Officer",
+      "source_files": [
+        "backend/app/agents/graph.py",
+        "backend/app/db/models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "TicketState",
+      "target": "Ticket",
+      "source_files": [
+        "backend/app/agents/graph.py",
+        "backend/app/db/models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "AuthUser",
+      "target": "TicketState",
+      "source_files": [
+        "backend/app/main.py",
+        "backend/app/agents/graph.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "CreateTicketRequest",
+      "target": "TicketState",
+      "source_files": [
+        "backend/app/main.py",
+        "backend/app/agents/graph.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "resolve_ticket()",
+      "target": "TicketState",
+      "source_files": [
+        "backend/app/main.py",
+        "backend/app/agents/graph.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `TicketState` connect `TicketState` to `main.py`?",
+      "why": "High betweenness centrality (0.022) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `devDependencies` connect `devDependencies` to `package.json`?",
+      "why": "High betweenness centrality (0.018) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 9 inferred relationships involving `TicketState` (e.g. with `_build_triage_graph()` and `_build_verification_graph()`) actually correct?",
+      "why": "`TicketState` has 9 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 14 inferred relationships involving `Ticket` (e.g. with `TicketState` and `seed_db()`) actually correct?",
+      "why": "`Ticket` has 14 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 5 inferred relationships involving `AuthUser` (e.g. with `TicketState` and `Citizen`) actually correct?",
+      "why": "`AuthUser` has 5 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `name`, `private`, `version` to the rest of the system?",
+      "why": "71 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `compilerOptions` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.07692307692307693 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

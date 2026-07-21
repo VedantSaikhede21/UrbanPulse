@@ -7,7 +7,7 @@ import {
 import { Badge } from '../../components/ui/Badge';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, apiUrl } from '../../lib/api';
 import { useToast } from '../../components/ui/Toast';
 
 interface Ticket {
@@ -216,7 +216,7 @@ export const OfficerQueue: React.FC = () => {
 
                 {ticket.original_media_url && (
                   <img
-                    src={ticket.original_media_url}
+                    src={ticket.original_media_url.startsWith('/') ? apiUrl(ticket.original_media_url) : ticket.original_media_url}
                     alt="Issue"
                     className="w-24 h-24 object-cover rounded border border-panel-border shrink-0"
                   />
@@ -252,7 +252,9 @@ export const OfficerQueue: React.FC = () => {
                   <p className="text-xs font-mono text-gray-500 uppercase tracking-wider">Submit Resolution</p>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <input
+                      id="closure-photo-url"
                       type="url"
+                      aria-label="Closure photo URL"
                       placeholder="Closure photo URL (after repair)"
                       value={resolvingId === ticket.id ? closureUrl : ''}
                       onFocus={() => setResolvingId(ticket.id)}

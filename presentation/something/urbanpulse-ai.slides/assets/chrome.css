@@ -1,0 +1,165 @@
+/* UrbanPulse AI — Presentation Design System */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  /* Brand */
+  --brand-lime: #C6F135;
+  --brand-lime-dim: #a3c726;
+  --brand-lime-soft: rgba(198, 241, 53, 0.08);
+  --brand-lime-glow: rgba(198, 241, 53, 0.35);
+
+  /* Backgrounds — darker premium */
+  --bg-0: #0D1117;
+  --bg-1: #0f141c;
+  --bg-2: #161B22;
+  --bg-3: #1c2230;
+  --border: #30363D;
+  --border-soft: rgba(48, 54, 61, 0.6);
+
+  /* Typography */
+  --fg: #f2f2f2;
+  --fg-dim: #a3adbb;
+  --fg-mute: #6b7280;
+
+  /* Accents */
+  --accent-blue: #3B82F6;
+  --accent-cyan: #22D3EE;
+  --accent-purple: #8b5cf6;
+  --accent-amber: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-green: #10b981;
+
+  /* Type scale (all in px for slides) */
+  --fs-hero: 140px;
+  --fs-h1: 92px;
+  --fs-h2: 64px;
+  --fs-h3: 44px;
+  --fs-h4: 32px;
+  --fs-body: 22px;
+  --fs-sm: 18px;
+  --fs-xs: 14px;
+  --fs-mono: 14px;
+
+  /* Fonts */
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-heading: 'Poppins', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  color: var(--fg);
+  background: var(--bg-0);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.slide-container {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: var(--bg-0);
+}
+
+/* Shared chrome — noise & grid */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(198, 241, 53, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(198, 241, 53, 0.035) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+.bg-noise {
+  background:
+    radial-gradient(1200px 800px at 20% 10%, rgba(198, 241, 53, 0.07), transparent 60%),
+    radial-gradient(1000px 700px at 90% 80%, rgba(59, 130, 246, 0.06), transparent 60%),
+    var(--bg-0);
+}
+
+/* Deck chrome */
+.deck-brand {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.deck-brand .ai {
+  color: var(--brand-lime);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--brand-lime);
+  font-weight: 500;
+}
+
+.serif-italic {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Glass card */
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.005));
+  border: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
+}
+
+.glass-lime {
+  background: linear-gradient(180deg, rgba(198, 241, 53, 0.08), rgba(198, 241, 53, 0.02));
+  border: 1px solid rgba(198, 241, 53, 0.25);
+  border-radius: 20px;
+}
+
+/* Buttons/badges */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-lime);
+  box-shadow: 0 0 12px var(--brand-lime-glow);
+}
+
+/* Page number label */
+.page-num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: var(--fg-mute);
+}

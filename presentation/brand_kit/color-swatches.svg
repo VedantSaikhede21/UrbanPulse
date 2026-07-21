@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" font-family="'Inter', sans-serif">
+  <rect width="320" height="200" fill="#0d0d0d"/>
+  <text x="16" y="24" fill="#f2f2f2" font-size="13" font-weight="700">UrbanPulse AI — Color Swatches</text>
+  <!-- Brand lime -->
+  <rect x="16" y="36" width="30" height="30" rx="4" fill="#C6F135"/>
+  <text x="54" y="55" fill="#f2f2f2" font-size="10">#C6F135 Brand Lime</text>
+  <!-- Dim -->
+  <rect x="16" y="76" width="30" height="30" rx="4" fill="#a3c726"/>
+  <text x="54" y="95" fill="#f2f2f2" font-size="10">#a3c726 Brand Dim</text>
+  <!-- Panel BG -->
+  <rect x="16" y="116" width="30" height="30" rx="4" fill="#121212" stroke="#262626" stroke-width="1"/>
+  <text x="54" y="135" fill="#f2f2f2" font-size="10">#121212 Panel BG</text>
+  <!-- Panel Border -->
+  <rect x="16" y="156" width="30" height="30" rx="4" fill="#262626"/>
+  <text x="54" y="175" fill="#f2f2f2" font-size="10">#262626 Panel Border</text>
+  <!-- Status colors -->
+  <text x="190" y="55" fill="#3b82f6" font-size="10">■ #3b82f6 New</text>
+  <text x="190" y="75" fill="#f59e0b" font-size="10">■ #f59e0b In Progress</text>
+  <text x="190" y="95" fill="#10b981" font-size="10">■ #10b981 Resolved</text>
+  <text x="190" y="115" fill="#8b5cf6" font-size="10">■ #8b5cf6 Verified</text>
+  <text x="190" y="135" fill="#ef4444" font-size="10">■ #ef4444 Escalated</text>
+</svg>

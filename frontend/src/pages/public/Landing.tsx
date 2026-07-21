@@ -15,7 +15,7 @@ export const Landing: React.FC = () => {
         <div className="inline-flex items-center space-x-2 bg-brand-soft border border-brand-lime/20 px-3.5 py-1.5 rounded-full mb-8 animate-fade-in">
           <Activity size={14} className="text-brand-lime animate-pulse" />
           <span className="font-mono text-xs uppercase tracking-wider text-brand-lime">
-            Live City UHS: <span className="font-bold">78.4 / 100</span>
+            Live City UHS: <span className="font-bold">80.9 / 100</span>
           </span>
         </div>
 

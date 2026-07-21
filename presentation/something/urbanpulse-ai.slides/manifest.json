@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "format": "html",
+  "metadata": {
+    "title": "UrbanPulse AI — Lenovo LEAP AICTE Hackathon 2.0",
+    "description": "Agentic Urban Intelligence Platform for Smarter Cities",
+    "author": "Vijay Barhate & Vedant Saikhede"
+  },
+  "canvas": {"width": 1920, "height": 1080},
+  "playlist": [
+    "01-cover.html",
+    "02-problem.html",
+    "03-comparison.html",
+    "04-solution.html",
+    "05-architecture.html",
+    "06-ai-pipeline.html",
+    "07-citizen.html",
+    "08-officer.html",
+    "09-admin.html",
+    "10-super-admin.html",
+    "11-workflow.html",
+    "12-innovation.html",
+    "13-future.html",
+    "14-tech-stack.html",
+    "15-thank-you.html"
+  ]
+}

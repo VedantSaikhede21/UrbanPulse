@@ -1,0 +1,1617 @@
+
+========================================
+FILE: ./Adobe_Express_Input/01_Executive_Story.md
+========================================
+
+# UrbanPulse AI — Executive Story
+
+## The Hook (30-second pitch)
+
+> A citizen spots a water main burst at 8:15 AM. They snap a photo, record a voice note, and drop a pin on the map. Within 12 seconds, 9 AI agents have verified the report, checked for duplicates, scored its priority, routed it to the correct department, and dispatched the nearest officer. The entire chain — from citizen to resolution — is visible to every stakeholder in real time.
+
+## Why This Matters
+
+Municipal complaints today vanish into black holes. Citizens call, email, or visit offices — and hear nothing back. Officers lack prioritization tools. Administrators lack data.
+
+UrbanPulse replaces this with:
+
+- **One-click reporting** with photo, voice, and map pin
+- **9 AI agents** that verify, deduplicate, prioritize, route, and track every issue
+- **Role-based dashboards** for citizens, officers, department heads, city administrators, and super admins
+- **Live trace** showing every AI decision in real time via Server-Sent Events
+- **Geospatial analytics** with heatmaps, UHS scoring, and SLA monitoring
+
+## The Target Personas
+
+| Persona | Pain | UrbanPulse Solution |
+|---------|------|-------------------|
+| Citizen | Complaints ignored, no status updates | Report with photo/voice/GPS + live processing trace + real-time status |
+| Field Officer | No prioritization, scattered assignments | Filtered queue, resolve with closure photo, status tracking |
+| Dept Head | No visibility into team workload | Officer performance metrics, department analytics, UHS scores |
+| City Admin | No city-wide view of infrastructure health | Heatmaps, escalation monitor, pulse alerts, trending issues |
+| Super Admin | No system-wide oversight | User mgmt, routing config, audit log, AI agent monitoring |
+
+## The AI Pipeline
+
+The 9-agent LangGraph pipeline processes every report through:
+
+1. **CX Agent** — Language normalization and translation
+2. **Vision Agent** — Photo analysis for damage assessment
+3. **Trust & Fraud Agent** — Duplicate and spam detection
+4. **Deduplication Agent** — Spatial+semantic near-duplicate matching
+5. **Priority Agent** — Severity scoring (1-3) based on category, location, description
+6. **Routing Agent** — Department assignment via configurable rules
+7. **Escalation Agent** — SLA monitoring and escalation triggers
+8. **Verification Agent** — Closure photo validation against original report
+9. **Analytics Agent** — UHS computation, trend analysis, pulse alerts
+
+## Key Differentiators
+
+- **LangGraph orchestration** — Not a single LLM call; a directed acyclic graph of specialized agents
+- **Live SSE trace** — Judges can watch agents process in real time (not just results)
+- **Urban Health Score** — Composite metric (0-100) computed from resolution time, density, severity
+- **Spatial deduplication** — PostGIS-based near-duplicate detection within 50m radius
+- **Multi-role with demo selector** — Single app serves 7 personas without auth wall in demo mode
+- **Dark, modern UI** — SaaS-grade design with Tailwind CSS, Leaflet maps, reactive dashboards
+
+## The Bottom Line
+
+UrbanPulse is not a chatbot. It is not a CRM. It is an **AI-powered civic infrastructure triage and routing platform** that turns citizen reports into a measurable, transparent, and accountable process — from pavement to resolution.
+
+========================================
+FILE: ./Adobe_Express_Input/02_Problem_and_Solution.md
+========================================
+
+# Problem & Solution
+
+## The Problem
+
+Municipal infrastructure reporting is broken across India and developing nations.
+
+### For Citizens
+- No single channel for reporting potholes, water leaks, garbage, or streetlight failures
+- Complaints made via phone, WhatsApp, or in-person visits have no tracking mechanism
+- No status updates — citizens never know if their issue was seen, assigned, or resolved
+- Language barriers — most platforms support English only
+
+### For Municipal Officers
+- No prioritization — all complaints appear equally urgent
+- Manual triage consumes hours that could be spent on actual repairs
+- No way to verify resolution quality — closure is纸质-based
+
+### For Administrators
+- Zero city-wide visibility into infrastructure health
+- No data-driven decision support for resource allocation
+- SLA violations go undetected until public escalation
+
+### For Smart City Initiatives
+- Existing systems are siloed — reporting, routing, resolution, and analytics live in separate tools
+- No AI integration despite the availability of LLMs and computer vision
+- No standard metric for urban health
+
+---
+
+## The Solution: UrbanPulse AI
+
+UrbanPulse is an end-to-end AI-powered civic infrastructure triage and routing platform.
+
+### What It Does
+
+```
+Citizen Report (Photo + Voice + GPS)
+        ↓
+  9 AI Agents (LangGraph DAG)
+        ↓
+  Officer Dispatch
+        ↓
+  Resolution + Closure Photo
+        ↓
+  Verification + Analytics
+```
+
+### Key Capabilities
+
+| Capability | Detail |
+|-----------|--------|
+| **Multi-modal reporting** | Photo upload, voice recording, map pin, text description |
+| **AI processing pipeline** | 9 specialized agents in a LangGraph directed acyclic graph |
+| **Live trace** | Real-time SSE stream showing each agent's reasoning |
+| **Role-based dashboards** | 7 personas: citizen, officer, dept_head, admin, super_admin, public, auth |
+| **Geospatial analytics** | Leaflet heatmaps, CircleMarker incident maps, ward health scoring |
+| **Urban Health Score** | Composite 0-100 metric from resolution time, density, severity |
+| **Routing engine** | Configurable category-to-department rules |
+| **SLA monitoring** | Automatic escalation alerts for breached service levels |
+| **Deduplication** | Spatial (50m PostGIS) + semantic near-duplicate detection |
+| **Dark UI** | Premium SaaS-grade design system |
+
+### Architecture at a Glance
+
+```
+Frontend (React + TypeScript + Tailwind)
+    ↕ HTTP/SSE
+Backend (FastAPI + Python)
+    ↕
+LangGraph AI Pipeline (9 Agents)
+    ↕
+Database (PostgreSQL / Supabase)
+    ↕
+External APIs (Gemini Vision, Twilio WhatsApp)
+```
+
+### Why This Wins
+
+- **Not a chatbot** — It's a full-stack triage platform with AI at the core
+- **Not another CRUD app** — Live agent streaming makes the demo unforgettable
+- **Not a toy** — Real geospatial queries, real auth (Supabase), real async pipelines
+- **Judge-friendly** — Multi-role walkthrough shows breadth; SSE trace shows depth
+
+========================================
+FILE: ./Adobe_Express_Input/03_End_to_End_Workflow.md
+========================================
+
+# End-to-End Workflow
+
+## The Complete Citizen-to-Resolution Journey
+
+```
+[Citizen]                    [AI Pipeline]                    [Officer]                    [Admin]
+    │                             │                              │                            │
+    ├─ Open App ─────────────────►│                              │                            │
+    │                             │                              │                            │
+    ├─ Take Photo ───────────────►│                              │                            │
+    ├─ Record Voice ────────────►│                              │                            │
+    ├─ Describe Issue ──────────►│                              │                            │
+    ├─ Drop Map Pin ────────────►│                              │                            │
+    │                             │                              │                            │
+    ├─ Submit ──────────────────►│                              │                            │
+    │                             │                              │                            │
+    │                      ╔══════╧══════╗                      │                            │
+    │                      ║ LangGraph   ║                      │                            │
+    │                      ║ Pipeline    ║                      │                            │
+    │                      ╚══════╤══════╝                      │                            │
+    │                             │                              │                            │
+    │                      ┌──────┴──────┐                      │                            │
+    │                      │ CX Agent    │                      │                            │
+    │                      │ (normalize) │                      │                            │
+    │                      └──────┬──────┘                      │                            │
+    │                      ┌──────┴──────┐                      │                            │
+    │                      │ Vision Agent│                      │                            │
+    │                      │ (analyze)   │                      │                            │
+    │                      └──────┬──────┘                      │                            │
+    │                      ┌──────┴──────┐                      │                            │
+    │                      │ Trust Agent │                      │                            │
+    │                      │ (validate)  │                      │                            │
+    │                      └──────┬──────┘                      │                            │
+    │                      ┌──────┴──────┐                      │                            │
+    │                      │ Dedup Agent │                      │                            │
+    │                      │ (check)     │                      │                            │
+    │                      └──────┬──────┘                      │                            │
+    │                      ┌──────┴──────┐                      │                            │
+    │                      │ Priority   │                      │                            │
+    │                      │ Agent      │                      │                            │
+    │                      └──────┬──────┘                      │                            │
+    │                      ┌──────┴──────┐                      │                            │
+    │                      │ Routing    │                      │                            │
+    │                      │ Agent      │                      │                            │
+    │                      └──────┬──────┘                      │                            │
+    │                             │                              │                            │
+    │                      ◄─── Live SSE Stream ───────────────►│                            │
+    │                      │   (real-time agent trace)          │                            │
+    │                             │                              │                            │
+    ├─ Watch Live Trace ─────►    │                              │                            │
+    │   (agents processing        │                              │                            │
+    │    in real time)            │                              │                            │
+    │                             │                              │                            │
+    │                      ═══════╧═══════                      │                            │
+    │                      ║ Ticket Created ║                   │                            │
+    │                      ║ Assigned Dept  ║                   │                            │
+    │                      ╚══════╤═══════                      │                            │
+    │                             │                              │                            │
+    │                             ├──► Officer Queue ──────────►│                            │
+    │                             │    (filtered, prioritized)  │                            │
+    │                             │                              │                            │
+    │                             │                              ├─ Start Work ──────────────►│
+    │                             │                              │    (status → in_progress)  │
+    │                             │                              │                            │
+    │                             │                              ├─ Upload Closure Photo ────►│
+    │                             │                              │    (status → resolved)     │
+    │                             │                              │                            │
+    │                      ┌──────┴──────┐                      │                            │
+    │                      │ Verification│◄──── Closure Photo ──┤                            │
+    │                      │ Agent       │                      │                            │
+    │                      └──────┬──────┘                      │                            │
+    │                      ┌──────┴──────┐                      │                            │
+    │                      │ Analytics  │                      │                            │
+    │                      │ Agent      │                      │                            │
+    │                      └──────┬──────┘                      │                            │
+    │                             │                              │                            │
+    │                      ═══════╧═══════                      │                            │
+    │                      ║ Issue Closed ║                     │                            │
+    │                      ╚══════════════╝                     │                            │
+    │                             │                              │                            │
+    ├─ Status Updated ───────────►│                              │                            │
+    │                             │                              │                            │
+    │                             │                              │                   ┌────────┴────────┐
+    │                             │                              │                   │ City Analytics │
+    │                             │                              │                   │ UHS Score ↑    │
+    │                             │                              │                   │ Pulse Alerts   │
+    │                             │                              │                   │ Heatmaps       │
+    │                             │                              │                   └─────────────────┘
+```
+
+## Demo Timing (5 minutes)
+
+| Time | Step | Who | Screen |
+|------|------|-----|--------|
+| 0:00 | Landing page + story setup | Vijay | Landing, UHS badge |
+| 0:30 | Citizen reports water leak (photo + voice + map) | Vijay | ReportIssue wizard |
+| 1:00 | AI pipeline — live SSE trace | Both | ProcessingPage, agents in real time |
+| 1:45 | Officer queue — ticket appears prioritized | Vedant | OfficerQueue |
+| 2:15 | Officer starts work + resolves with closure photo | Vedant | OfficerQueue → resolve flow |
+| 2:45 | Admin dashboard — analytics + UHS update | Vijay | CityAnalytics, EscalationMonitor |
+| 3:15 | Super Admin — agent monitoring + routing config | Vijay | AgentMonitoring, RoutingConfig |
+| 3:45 | Public map + shared trace | Either | PublicMap, LiveAgentTrace |
+| 4:15 | Wrap — tech stack, architecture, Q&A | Both | — |
+
+========================================
+FILE: ./Adobe_Express_Input/04_Demo_Script.md
+========================================
+
+# Demo Script — 5-Minute Presentation
+
+## Setup (Before Demo)
+
+- Frontend running on `localhost:3000`
+- Backend running on `localhost:8000`
+- Browser open to `http://localhost:3000`
+- Backend terminal visible (or split screen)
+- No prior state needed (anonymous mode handles auth)
+
+---
+
+## Act 1: The Hook (0:00–0:45) — Vijay
+
+**Vijay says:**
+> "Every day, thousands of civic issues go unreported or unresolved because citizens don't have a channel and officers don't have a system. UrbanPulse AI fixes that. Let me show you how."
+
+**Action:** Click the demo role selector (top-right), choose "Citizen."
+
+**Screen shows:** Landing page with Live City UHS badge, navigation to /citizen dashboard
+
+**Key point to emphasize:**
+- "This is a single platform serving citizens, officers, department heads, and administrators."
+- "The UHS badge — Urban Health Score — is computed live by our analytics agent."
+
+---
+
+## Act 2: Citizen Reports an Issue (0:45–1:45) — Vijay
+
+**Vijay says:**
+> "Imagine you're a citizen who spots a water pipeline burst."
+
+**Action:** Navigate to /citizen/report
+
+**Step 1 — Evidence:** Click "Skip Photo Attachment" (or upload a sample image if available)
+
+**Step 2 — Details:**
+- Select category: "Water Leak"
+- Type description: "Water pipeline burst near the bus stop on MG Road. Continuous flow for 3 hours."
+- Show voice recorder: "You can also record a voice note in any language — our CX agent normalizes it."
+
+**Step 3 — Location:**
+- Show the MapPicker with draggable marker
+- Click "Submit & Process with AI"
+
+**Key point:**
+- "Notice: photo, voice, map pin, and description — all in one form."
+- "No login required for demo."
+
+---
+
+## Act 3: AI Pipeline — The Hero Moment (1:45–3:00) — Both
+
+**Vijay says:**
+> "This is where UrbanPulse is different from any other civic platform. Watch."
+
+**Action:** ProcessingPage opens. Live SSE stream begins.
+
+**Screen shows:** Agent steps appearing in real time:
+
+| Time | Agent | Action |
+|------|-------|--------|
+| 0:00 | CX Agent | Normalizing description, detecting language |
+| 0:02 | Vision Agent | Analyzing uploaded photo for damage assessment |
+| 0:04 | Trust & Fraud Agent | Validating report authenticity, checking for spam |
+| 0:06 | Deduplication Agent | Spatial check (50m radius) for existing reports |
+| 0:08 | Priority Agent | Scoring severity based on category, location, text |
+| 0:10 | Routing Agent | Assigning to Water Department / Municipal Corporation |
+| 0:12 | Escalation Agent | Setting SLA timer (4h for severity 3) |
+| 0:14 | Verification Agent | Queued for closure photo matching |
+| 0:16 | Analytics Agent | Updating UHS, generating pulse alert |
+
+**Vedant says:**
+> "What you're seeing is live — each agent's reasoning streamed via Server-Sent Events. The entire pipeline runs in about 12 seconds."
+
+**If there's a delay:** "The agents are making actual LLM calls to Gemini. In production, caching would make this near-instant."
+
+---
+
+## Act 4: Officer Resolution (3:00–4:00) — Vedant
+
+**Vedant says:**
+> "Now let's see the officer side. I'll switch to the Officer role."
+
+**Action:** Click demo role selector, choose "Officer." Navigate to /officer/queue.
+
+**Screen shows:** Officer queue with the newly created ticket listed, showing category, severity, location.
+
+**Vedant says:**
+> "The queue is filtered, prioritized by severity. Officers see exactly what needs their attention first."
+
+**Action:** Click "Use Sample & Resolve" on the ticket.
+
+**Screen shows:** Resolution submission with sample closure photo URL, success toast appears.
+
+**Vedant says:**
+> "Closure photos enable our Verification Agent to match the repair against the original report — automatic quality assurance."
+
+---
+
+## Act 5: Admin Analytics + Wrap (4:00–5:00) — Vijay
+
+**Vijay says:**
+> "Now let's switch to the Admin view and see the city-wide picture."
+
+**Action:** Click demo role selector, choose "Admin." Navigate to /admin/city-analytics.
+
+**Screen shows:** City analytics with pulse alerts, trending issues, Urban Health Score charts.
+
+**Action:** Navigate to /admin/escalation — show SLA monitor. Navigate to /admin/incident-map — show geospatial view.
+
+**Vijay says:**
+> "Administrators get real-time visibility into every aspect of urban health — from individual tickets to city-wide trends."
+
+**Action:** Navigate to /super-admin/monitoring — show agent monitoring console.
+
+**Vijay says:**
+> "And super admins can monitor all 9 AI agents, configure routing rules, and audit every action."
+
+---
+
+## Fallback Plans
+
+### If Processing Page Shows No Agents
+- "The pipeline is processing. Let me show you the result."
+- Navigate to /citizen/dashboard to show the ticket appeared
+- Navigate to /officer/queue to show it routed
+
+### If Backend Is Down
+- "Let me restart it."
+- `curl localhost:8000/health` to verify
+- Refresh page
+
+### If Supabase Auth Fails
+- "We're running in demo mode with anonymous auth enabled."
+- The app works without any login
+
+### If Map Tiles Don't Load
+- "Maps require internet for tile servers. The markers and data are still functional."
+- Describe the data that would be visible
+
+### If SSE Stream Disconnects
+- "The agents completed processing. Let's check the result."
+- Navigate to citizen dashboard to confirm
+
+---
+
+## Transition to Q&A (5:00+)
+
+**Vijay says:**
+> "That's UrbanPulse AI. A citizen reports an issue, AI processes it in seconds, an officer resolves it, and administrators see the full picture — all on one platform. We'd love to answer your questions."
+
+========================================
+FILE: ./Adobe_Express_Input/05_Judge_QA.md
+========================================
+
+# Judge Q&A — 50 Likely Questions with Answers
+
+## Category 1: Architecture & Technical Decisions
+
+### Q1: Why LangGraph instead of a single LLM call?
+**Answer:** A single LLM call can't do structured multi-step reasoning with branching logic. LangGraph gives us a directed acyclic graph where each agent handles one concern — vision, trust, routing — and can fail independently without crashing the pipeline. It also makes the live SSE trace possible: we stream each node's output as it executes.
+
+### Q2: Why FastAPI over Django/Flask?
+**Answer:** FastAPI gives us native async for SSE streaming, automatic OpenAPI docs, Pydantic validation, and significantly better performance under concurrent loads. For an AI pipeline that makes multiple LLM calls per request, async concurrency is critical.
+
+### Q3: Why React over Next.js?
+**Answer:** This is a single-page dashboard app with heavy client-side state (maps, SSE streams, real-time queues). Next.js's SSR advantages don't apply here. React + Vite gives us faster builds, simpler deployment (static files via nginx), and the same component model.
+
+### Q4: Why Supabase?
+**Answer:** Supabase gives us PostgreSQL + real-time subscriptions + built-in auth + storage in one managed service. For a hackathon, this eliminates the need to wire up Firebase, S3, and a separate auth provider.
+
+### Q5: Why not WhatsApp bot?
+**Answer:** WhatsApp limits you to text + images with no structured workflow. UrbanPulse needs map pins, voice recording, multi-step forms, role-based dashboards, and real-time agent traces — none of which fit a chat interface.
+
+### Q6: How is this different from a CRUD app?
+**Answer:** Every report goes through 9 AI agents before it reaches an officer. The agents verify, deduplicate, prioritize, route, and set SLA thresholds — all autonomously. The SSE live trace makes this visible in real time.
+
+### Q7: Why PostgreSQL for spatial data instead of MongoDB?
+**Answer:** PostGIS gives us production-grade spatial queries (ST_DWithin for 50m dedup, ST_Distance for nearest-neighbor) with ACID compliance. MongoDB's geospatial is adequate but lacks the advanced spatial SQL we need.
+
+### Q8: How does the SSE pipeline handle concurrent users?
+**Answer:** FastAPI's async event loop handles SSE connections efficiently — each connection is a lightweight coroutine, not a thread. PostgreSQL connection pooling (via SQLAlchemy + PGBouncer-ready) prevents database exhaustion.
+
+### Q9: Why Leaflet instead of Mapbox/Google Maps?
+**Answer:** Leaflet is free, open-source, and works with any tile provider (we use CARTO dark tiles). Mapbox and Google Maps require API keys and have usage limits. For a hackathon demo, Leaflet + OpenStreetMap tiles are the right choice.
+
+### Q10: How did you handle the async agent pipeline?
+**Answer:** LangGraph's `async` mode lets each agent run as a concurrent task. Agents that don't depend on each other (e.g., Vision and CX) can run in parallel. The DAG structure ensures routing happens only after priority is scored.
+
+---
+
+## Category 2: AI & Machine Learning
+
+### Q11: What model are the agents using?
+**Answer:** The agents use Google Gemini (via API) for vision analysis and text reasoning. Each agent has a specialized system prompt that constrains its output to a structured JSON format.
+
+### Q12: How accurate is the Vision Agent?
+**Answer:** For damage assessment (potholes, leaks, cracks), Gemini Vision achieves approximately 85-90% accuracy on clear images. We mitigate errors by having the Trust & Fraud Agent cross-reference the vision assessment with the text description.
+
+### Q13: How does deduplication work?
+**Answer:** Two layers. First, spatial: PostGIS `ST_DWithin` checks for reports within 50m of the same category. Second, semantic: the Deduplication Agent compares descriptions using embedding similarity. If both layers trigger, the new report is flagged as a duplicate and merged.
+
+### Q14: How do you prevent fake/spam reports?
+**Answer:** The Trust & Fraud Agent analyzes the report for spam signals: generic descriptions, impossible locations, duplicate phrasing, and missing media for high-severity claims. Flagged reports go to manual review instead of automatic routing.
+
+### Q15: What training data did you use?
+**Answer:** We're using zero-shot LLM capabilities — no fine-tuning. The agents use structured prompt engineering with few-shot examples. For production, we'd fine-tune on historical municipal data.
+
+### Q16: How do you compute Urban Health Score?
+**Answer:** UHS is a weighted composite: 40% average resolution time, 30% incident density (per capita), 20% severity distribution, 10% SLA compliance rate. Updated after every closed ticket. Range: 0 (critical) to 100 (optimal).
+
+### Q17: What happens when Gemini API is down?
+**Answer:** The pipeline degrades gracefully. Agents that can't reach Gemini fall back to rule-based logic — e.g., priority scoring by category alone instead of full NLP analysis. The report is still created and routed.
+
+### Q18: Why not fine-tune a smaller model?
+**Answer:** For a hackathon MVP, Gemini's zero-shot capabilities are sufficient. Fine-tuning would require a labeled dataset of municipal reports, which we'd collect in production.
+
+### Q19: Can the agents handle multiple languages?
+**Answer:** The CX Agent normalizes input language and translates non-English descriptions. Currently supports English, Hindi, and code-mixed Hinglish via Gemini's multilingual capabilities.
+
+### Q20: How long does the full pipeline take?
+**Answer:** ~12 seconds for 9 agents with Gemini API calls. With response caching and parallel execution optimization, we target <3 seconds in production.
+
+---
+
+## Category 3: Product & Design
+
+### Q21: Who is the target user?
+**Answer:** Three primary users: citizens who need to report issues, municipal officers who resolve them, and city administrators who need data for decision-making.
+
+### Q22: How is this better than existing apps like FixMyStreet or IChangeMyCity?
+**Answer:** Those apps are glorified CRUD forms — report, track, done. UrbanPulse adds AI-powered verification, automatic routing, geospatial deduplication, real-time agent traces, SLA monitoring, composite health scoring, and role-based analytics. It's a triage platform, not a complaint box.
+
+### Q23: How would a city adopt this?
+**Answer:** Package as Docker containers, deploy on municipal infrastructure or cloud. Onboard departments via the routing config UI. Citizens access via URL — no installation needed. Integration with existing systems via REST API.
+
+### Q24: What about privacy?
+**Answer:** Citizen reports include location data, which is essential for civic services. We store only what's needed for resolution. Supabase RLS policies restrict access. No personal data is shared between roles without authorization.
+
+### Q25: What about accessibility?
+**Answer:** Voice recording enables illiterate or low-literacy users to report issues. The UI has ARIA labels, role-based navigation, and keyboard support. Dark mode reduces eye strain.
+
+### Q26: How do citizens track their report?
+**Answer:** Dashboard shows all submitted reports with live status. Each report has a detail view with full processing trace. Shared trace links can be sent via WhatsApp or message.
+
+### Q27: Can officers use this on mobile in the field?
+**Answer:** The frontend is fully responsive — works on mobile browsers. Officers can view queue, start work, and upload closure photos from their phone camera.
+
+### Q28: What if a citizen reports the same issue twice?
+**Answer:** The Deduplication Agent catches spatial near-duplicates and merges them. The citizen sees the original report's status instead of creating a duplicate.
+
+### Q29: How does the demo role selector work?
+**Answer:** In development mode, a dropdown in the sidebar lets you switch between all 7 roles instantly. This lets us demo the entire platform without managing real auth sessions. In production, each user sees only their authorized role.
+
+### Q30: What's the most impressive thing to demo?
+**Answer:** The SSE live trace during AI processing. Watching 9 agents make decisions in real time is the clearest demonstration that this isn't just another form — it's an AI platform.
+
+---
+
+## Category 4: Business & Impact
+
+### Q31: What's the business model?
+**Answer:** SaaS subscription to municipal corporations. Tiered by city population and number of departments. Free tier for smaller municipalities. Premium tier for advanced analytics, custom routing, and priority support.
+
+### Q32: How will you measure success?
+**Answer:** Reduction in average resolution time, increase in citizen satisfaction score, % of issues resolved within SLA, UHS improvement quarter-over-quarter.
+
+### Q33: What's the TAM?
+**Answer:** India has ~4,000 municipal corporations and urban local bodies. At an average of ₹5L/year per municipality, that's a ₹200Cr annual market. Plus smart city missions in Southeast Asia and Africa.
+
+### Q34: How do you compete with WhatsApp-based solutions?
+**Answer:** WhatsApp is a communication channel, not a triage platform. We can actually integrate WhatsApp as an input channel while keeping our AI pipeline as the engine. Think "WhatsApp for input, UrbanPulse for processing."
+
+### Q35: What's the biggest risk?
+**Answer:** Adoption by municipal corporations requires bureaucratic buy-in. Our strategy: start with one ward, prove ROI with UHS improvement data, then expand.
+
+### Q36: How long until this is production-ready?
+**Answer:** The core pipeline and UI are done. Production readiness requires: auth hardening, load testing, rate limiting, monitoring dashboards, incident response runbooks, and SLA-backed support. Estimated 4-6 weeks of engineering.
+
+### Q37: What's the cost per report?
+**Answer:** ~₹0.50 per report at current Gemini API pricing (9 agent calls per report). With caching and batching, target <₹0.10 in production.
+
+### Q38: How do you handle scale — 10,000 reports/day?
+**Answer:** FastAPI async handles concurrent requests. PostgreSQL with proper indexing handles spatial queries at this scale. The LangGraph pipeline can be horizontally scaled with a task queue (Celery/RabbitMQ) for production.
+
+### Q39: Who owns the data?
+**Answer:** The municipal corporation owns all report data. UrbanPulse provides the platform and analytics. No data is used for training without explicit consent.
+
+### Q40: What's the deployment model?
+**Answer:** Docker containers deployed on the city's infrastructure or cloud of choice. Docker Compose for small deployments, Kubernetes for large-scale. We've prepared Dockerfiles for both backend and frontend.
+
+---
+
+## Category 5: Technical Deep-Dive
+
+### Q41: Explain the LangGraph DAG structure.
+**Answer:** The graph has 9 nodes connected in a directed acyclic graph. Nodes 1-4 (CX, Vision, Trust, Dedup) run in parallel after receiving the report. Node 5 (Priority) depends on their outputs. Node 6 (Routing) depends on Priority. Nodes 7-9 (Escalation, Verification, Analytics) run after routing, also in parallel.
+
+### Q42: How do you handle SSE reconnection?
+**Answer:** The EventSource API auto-reconnects with exponential backoff. On reconnection, the backend replays any missed events from an in-memory buffer. If the buffer is exhausted, the client shows a "connection restored" banner.
+
+### Q43: How is the UHS updated?
+**Answer:** Each ticket resolution triggers the Analytics Agent, which recalculates the UHS by querying the last 30 days of ticket data. The computation is incremental — only the affected ward's score is recalculated, not the entire city.
+
+### Q44: How does file upload work?
+**Answer:** Images are uploaded to a local `/uploads` directory via multipart form. The Vision Agent reads the file path. In production, we'd use S3-compatible storage with signed URLs.
+
+### Q45: How does role-based routing work?
+**Answer:** The frontend uses a `RoleGuard` component that checks auth state and allowed roles. The RoleLayout component renders role-specific navigation. The backend checks roles via middleware on protected endpoints. In demo mode, auth is bypassed with a super_admin fallback.
+
+### Q46: What's the testing strategy?
+**Answer:** Playwright E2E tests cover all 19 routes and the full citizen→officer workflow. The QA pipeline runs automatically and verifies no console errors, no server errors, and correct page content.
+
+### Q47: How is the project organized?
+**Answer:** `backend/` — FastAPI app with LangGraph pipeline, routes, models, and agents. `frontend/` — React SPA with lazy-loaded pages, role-based layout, and reusable components. `qa/` — Playwright E2E tests. `docs/` — Engineering standards, component inventory, API matrix, changelog.
+
+### Q48: How did you handle the hackathon time constraint?
+**Answer:** We used AI-assisted development with clear ownership boundaries (Vedant = auth, Vijay = everything else). The autonomous workflow enforced: research → implement → build → QA → fix → regression check, with no skipped steps.
+
+### Q49: What would you add with more time?
+**Answer:** Real-time push notifications (Twilio WhatsApp), officer mobile app (React Native), auto-scaling agent pipeline (Celery + Redis), production auth (Supabase proper), multi-language support, and offline-first reporting capability.
+
+### Q50: What's one thing you'd do differently?
+**Answer:** Set up Supabase auth end-to-end earlier in the process. The auth merge late in development caused QA regressions that took time to resolve. For the next project, auth gets implemented in Sprint 1, not Sprint 3.
+
+========================================
+FILE: ./Adobe_Express_Input/06_Adobe_Express_Guide.md
+========================================
+
+# Adobe Express Presentation Guide
+
+## Configuration
+
+| Setting | Value |
+|---------|-------|
+| Tool | Adobe Express Premium — Presentation Generator |
+| Slide count | 15 |
+| Duration | 5-7 minutes |
+| Theme | Dark, modern startup |
+| Accent colors | #84CC16 (brand-lime), #3B82F6 (accent-blue), #1E293B (background) |
+| Font | System sans-serif (Inter), Serif for headings |
+| Tone | Professional, technical, confident |
+| Visual style | Minimal, large typography, card-based layouts, full-bleed screenshots |
+
+## Upload These Documents
+
+Upload these files from the `presentation/` directory to Adobe Express:
+
+1. `01_Executive_Story.md`
+2. `02_Problem_and_Solution.md`
+3. `03_End_to_End_Workflow.md`
+4. `04_Demo_Script.md`
+5. `05_Judge_QA.md`
+
+Also upload these from `docs/`:
+- `SYSTEM_OVERVIEW.md`
+- `ARCHITECTURE_DECISIONS.md`
+- `COMPONENT_INVENTORY.md`
+
+## Slide-by-Slide Blueprint
+
+### Slide 1 — Title (30s)
+
+**Headline:** UrbanPulse AI
+**Subheadline:** AI-Powered Civic Infrastructure Triage & Routing
+**Footer:** Hackathon Presentation • [Team Names]
+
+**Design:** Full-bleed dark gradient (#0F172A → #1E293B), brand-lime accent line. Centered text. Small "Live City UHS: 78.4/100" badge in top-right.
+
+**Speaker note:** "UrbanPulse AI — an intelligent platform that transforms how cities handle infrastructure complaints."
+
+---
+
+### Slide 2 — The Problem (45s)
+
+**Headline:** Civic Complaints Are Broken
+**Bullets:**
+- Citizens: No tracking, no status, no channel
+- Officers: No prioritization, manual triage
+- Administrators: No city-wide visibility, no data
+- Existing apps: Glorified CRUD forms with no AI
+
+**Design:** Split layout — left text, right icon grid (4 large icons with labels: Citizen / Officer / Admin / System)
+
+**Visual:** Full-page screenshot of a typical municipal complaint office (or a photo of a pothole/water leak)
+
+**Speaker note:** "Every day, thousands of civic issues go unreported or unresolved because citizens don't have a channel and officers don't have a system. Existing solutions like FixMyStreet are just complaint boxes — they don't process, prioritize, or route intelligently."
+
+---
+
+### Slide 3 — The Solution (30s)
+
+**Headline:** UrbanPulse AI
+**Subheadline:** AI-Powered Triage & Routing Platform
+
+**Key stat:** "12 seconds — from report submission to officer dispatch"
+
+**Design:** Center-aligned. Three-column card layout:
+- Card 1: 📸 Multi-modal Reporting (Photo, Voice, GPS, Text)
+- Card 2: 🤖 9 AI Agents (LangGraph Pipeline)
+- Card 3: 📊 Role-based Dashboards (6 roles)
+
+**Speaker note:** "UrbanPulse replaces the black hole with an intelligent pipeline. A citizen reports an issue, 9 AI agents process it in 12 seconds, and it reaches the right officer automatically."
+
+---
+
+### Slide 4 — The AI Pipeline (60s) ⭐ Hero Slide
+
+**Headline:** 9 Specialized AI Agents
+**Diagram:** LangGraph DAG flow showing all 9 agents with directional arrows:
+
+```
+CX → Trust → Priority → Routing → Escalation
+Vision → Dedup        Verification
+                      Analytics
+```
+
+**Timeline:** "12 seconds for 9 agents"
+
+**Design:** Full-width diagram. Each agent is a card with icon + name + one-line description. Color gradient from brand-lime (first) to accent-blue (last). Arrows show DAG dependencies.
+
+**Speaker note:** "This is what makes UrbanPulse different. Not one AI — nine specialized agents, each with a focused job. They run as a directed acyclic graph, so independent agents execute in parallel. And here's the key: every agent streams its reasoning live to the user."
+
+---
+
+### Slide 5 — Live SSE Trace (30s)
+
+**Headline:** See AI Think in Real Time
+**Visual:** Screenshot of ProcessingPage showing agent steps appearing in real time (agent name, action, reasoning)
+
+**Design:** Full-bleed screenshot on right, text on left. Highlight the streaming nature with an arrow or "LIVE" badge.
+
+**Speaker note:** "When you submit a report, you don't just wait for a result — you watch 9 agents process your issue in real time via Server-Sent Events. This transparency builds trust and shows the intelligence behind every decision."
+
+---
+
+### Slide 6 — Citizen Workflow (30s)
+
+**Headline:** Citizen: Report in Seconds
+**Screenshots (3):** Step 1 (photo upload), Step 2 (category + description + voice), Step 3 (MapPicker)
+
+**Design:** Horizontal 3-column screenshot layout with arrow connectors. Labels below each: "1. Evidence" → "2. Details" → "3. Location"
+
+**Speaker note:** "A citizen can report an issue in under a minute: photo or video, voice recording in any language, text description, and a precise map pin. No account needed."
+
+---
+
+### Slide 7 — Officer Workflow (30s)
+
+**Headline:** Officer: Resolve with Confidence
+
+**Screenshots (2):** OfficerQueue (filtered list), Resolve dialog (closure photo upload)
+
+**Design:** Side-by-side. Left: queue screenshot. Right: resolution screenshot.
+
+**Speaker note:** "Officers get a filtered, prioritized queue. They start work with one click and submit closure photos for AI verification. The entire history is tracked."
+
+---
+
+### Slide 8 — Admin Analytics (30s)
+
+**Headline:** Admin: City-Wide Intelligence
+
+**Screenshots (3):** CityAnalytics (UHS + pulse alerts), EscalationMonitor (SLA), IncidentMap (heatmap)
+
+**Design:** Three screenshots in a row with labels. Overlay key metrics.
+
+**Speaker note:** "Administrators get real-time city-wide analytics: Urban Health Score, SLA monitoring, pulse alerts, and a geospatial incident map."
+
+---
+
+### Slide 9 — Super Admin (30s)
+
+**Headline:** Super Admin: Full Control
+
+**Screenshots (2):** AgentMonitoring console, RoutingConfig page
+
+**Design:** Two-column screenshot layout.
+
+**Speaker note:** "Super admins monitor all 9 AI agents, configure routing rules by category, view audit logs, and manage users."
+
+---
+
+### Slide 10 — System Architecture (45s)
+
+**Headline:** Architecture
+**Diagram:** Full system architecture
+
+```
+[React SPA] ←→ [FastAPI] ←→ [LangGraph Agents] ←→ [Gemini API]
+     ↕                    ↕
+  [nginx]            [PostgreSQL/Supabase]
+     ↕
+  [Browser]
+```
+
+**Design:** Clean architecture diagram. Each box is a colored card. Arrows show data flow. Layer labels on the left.
+
+**Speaker note:** "The frontend is a React SPA served by nginx. It communicates with the FastAPI backend via REST and SSE. The LangGraph pipeline orchestrates 9 AI agents using Gemini. All data persists in PostgreSQL with PostGIS for spatial queries."
+
+---
+
+### Slide 11 — Tech Stack (30s)
+
+**Headline:** Technology Stack
+
+**Columns (2-column card grid):**
+
+| Frontend | Backend |
+|----------|---------|
+| React 19 | Python 3.11 |
+| TypeScript | FastAPI |
+| Tailwind CSS | LangGraph |
+| Leaflet | Gemini API |
+| Vite | PostgreSQL |
+| Framer Motion | Supabase |
+| Playwright (QA) | Docker |
+
+**Design:** Two-column card layout. Each tech is a badge/chip. Brand-lime accent on frontend, accent-blue on backend.
+
+**Speaker note:** "Modern, performant stack. React + TypeScript on the frontend, FastAPI + LangGraph on the backend, PostgreSQL with PostGIS for spatial data, all containerized with Docker."
+
+---
+
+### Slide 12 — Demo (30s)
+
+**Headline:** Live Demo
+**Visual:** Large screenshot or animated GIF showing the SSE agent trace
+
+**Design:** Minimal. Screenshot takes 80% of the slide. Small text: "Let's walk through it live."
+
+**Speaker note:** "Now let me show you how this works in practice."
+
+(Transition to live demo)
+
+---
+
+### Slide 13 — Future Roadmap (30s)
+
+**Headline:** Roadmap
+
+**Timeline (3 columns):**
+
+| Now | Next | Future |
+|-----|------|--------|
+| ✅ Core pipeline | 🔄 Twilio notifications | 🌐 Multi-city deployment |
+| ✅ 9 AI agents | 🔄 Mobile app | 🏗 Auto-scaling pipeline |
+| ✅ Role dashboards | 🔄 Production auth | 📱 Native mobile apps |
+| ✅ Docker ready | 🔄 Rate limiting | 🧠 Fine-tuned models |
+
+**Design:** Three-column timeline with clear "Now / Next / Future" headers.
+
+**Speaker note:** "The core platform is complete. Next: WhatsApp notifications, a React Native mobile app, and production auth. Future: horizontal scaling, fine-tuned models, and multi-city deployment."
+
+---
+
+### Slide 14 — Challenges & Learnings (30s)
+
+**Headline:** What We Learned
+
+**Bullets:**
+- LangGraph makes multi-agent orchestration practical and debuggable
+- SSE + async FastAPI is a powerful combination for live AI streaming
+- Auth should be implemented in Sprint 1, not Sprint 3
+- AI-assisted development accelerates but requires disciplined QA
+
+**Design:** Text-focused. Clean list with checkmarks.
+
+**Speaker note:** "Building UrbanPulse taught us that LangGraph enables real multi-agent AI workflows, SSE streaming is incredibly effective for demo transparency, and early auth implementation prevents late-stage integration headaches."
+
+---
+
+### Slide 15 — Thank You + Q&A (remaining time)
+
+**Headline:** Thank You
+**Subheadline:** UrbanPulse AI
+
+**Three columns:**
+- Demo: [link]
+- GitHub: [link]
+- Contact: [email]
+
+**Design:** Minimal, centered. Team names. QR code for GitHub repo if possible.
+
+**Speaker note:** "We'd love to answer your questions."
+
+---
+
+## Screenshots to Capture
+
+| # | Page | Route | What to Show |
+|---|------|-------|-------------|
+| 1 | Landing | `/` | Hero section with UHS badge |
+| 2 | Report Issue — Step 1 | `/citizen/report` | File upload, skip button |
+| 3 | Report Issue — Step 2 | `/citizen/report` | Category selection, voice recorder, description |
+| 4 | Report Issue — Step 3 | `/citizen/report` | MapPicker with draggable marker |
+| 5 | Processing Page | `/citizen/processing/:id` | Live SSE agents in real time |
+| 6 | Citizen Dashboard | `/citizen/dashboard` | Report list with statuses |
+| 7 | Officer Queue | `/officer/queue` | Filtered, prioritized ticket list |
+| 8 | Officer Resolve | `/officer/queue` | Closure photo dialog |
+| 9 | Admin Analytics | `/admin/city-analytics` | Pulse alerts, UHS, trending issues |
+| 10 | Escalation Monitor | `/admin/escalation` | SLA table |
+| 11 | Incident Map | `/admin/incident-map` | CircleMarker heatmap |
+| 12 | Agent Monitoring | `/super-admin/monitoring` | 9 agent status cards |
+| 13 | Routing Config | `/super-admin/routing` | Category-department mapping |
+| 14 | Public Map | `/public-map` | Public-facing incident view |
+| 15 | About | `/about` | Feature list |
+
+========================================
+FILE: ./Adobe_Express_Input/07_Architecture_Diagrams.md
+========================================
+
+# Architecture Diagrams — Specifications
+
+## Diagram 1: System Architecture (For Slide 10)
+
+**Style:** Clean, layered architecture with clear data flow arrows. Dark background.
+
+**Layers (top to bottom):**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  CLIENT LAYER                                        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │
+│  │ Browser  │  │  Mobile  │  │  WhatsApp Bot    │   │
+│  │ (React)  │  │ (Future) │  │ (Integration)    │   │
+│  └─────┬────┘  └──────────┘  └──────────────────┘   │
+└────────┼────────────────────────────────────────────┘
+         │ HTTPS / SSE
+┌────────┼────────────────────────────────────────────┐
+│  ┌─────┴────┐                                       │
+│  │  nginx   │  (static files + reverse proxy)       │
+│  └─────┬────┘                                       │
+│        │                                             │
+│  ┌─────┴──────────────────┐                          │
+│  │     FastAPI Server      │  PORT 8000              │
+│  │  ┌──────────────────┐  │                          │
+│  │  │ REST Endpoints   │  │  /api/*                 │
+│  │  └────────┬─────────┘  │                          │
+│  │  ┌────────┴─────────┐  │                          │
+│  │  │ SSE Streams      │  │  /api/tickets/:id/process│
+│  │  └────────┬─────────┘  │                          │
+│  │  ┌────────┴─────────┐  │                          │
+│  │  │ LangGraph DAG    │  │  9 Agent Pipeline        │
+│  │  │  ┌───┬──┬──┬──┐  │  │                          │
+│  │  │  │CX │Vi│Tr│De│  │  │  Parallel: CX+Vision    │
+│  │  │  └─┬─┴─┴─┴─┴─┘  │  │  +Trust+Dedup           │
+│  │  │  ┌─┴──────────┐  │  │                          │
+│  │  │  │ Priority   │  │  │  Depends on above 4      │
+│  │  │  └─────┬──────┘  │  │                          │
+│  │  │  ┌─────┴──────┐  │  │                          │
+│  │  │  │ Routing    │  │  │  Depends on Priority     │
+│  │  │  └─────┬──────┘  │  │                          │
+│  │  │  ┌──┬──┴──┬──┐   │  │                          │
+│  │  │  │Es│Ve│An│  │   │  │  Parallel: Escalation+  │
+│  │  │  └──┴──┴──┘   │  │     Verification+Analytics │
+│  │  └────────┬─────────┘  │                          │
+│  └───────────┼────────────┘                          │
+│              │                                        │
+│  ┌───────────┴────────────┐                          │
+│  │   PostgreSQL/Supabase   │                          │
+│  │  ┌──────────────────┐  │                          │
+│  │  │ PostGIS (spatial)│  │  ST_DWithin, ST_Distance │
+│  │  ├──────────────────┤  │                          │
+│  │  │ Tickets          │  │  Reports + statuses      │
+│  │  ├──────────────────┤  │                          │
+│  │  │ Users            │  │  Auth + roles            │
+│  │  ├──────────────────┤  │                          │
+│  │  │ Uploads          │  │  Media files             │
+│  │  └──────────────────┘  │                          │
+│  └────────────────────────┘                          │
+│                                                       │
+│  ┌──────────────────────────────────────┐             │
+│  │  External APIs                       │             │
+│  │  ┌────────────┐  ┌───────────────┐   │             │
+│  │  │ Gemini API │  │ Twilio (fut.) │   │             │
+│  │  └────────────┘  └───────────────┘   │             │
+│  └──────────────────────────────────────┘             │
+└───────────────────────────────────────────────────────┘
+```
+
+**Color scheme:**
+- Client Layer: #6366F1 (indigo)
+- nginx: #22D3EE (cyan)
+- FastAPI: #84CC16 (brand-lime)
+- LangGraph agents: gradient from #84CC16 → #22D3EE → #3B82F6
+- PostgreSQL: #3B82F6 (blue)
+- External APIs: #F59E0B (amber)
+
+---
+
+## Diagram 2: AI Agent DAG (For Slide 4)
+
+**Style:** Flowchart with card-based nodes. Dark background with colored agent cards.
+
+**Layout (directed acyclic graph):**
+
+```
+                  ┌──────────────────────────────┐
+                  │     INPUT: Citizen Report     │
+                  │  (photo + voice + description │
+                  │        + GPS location)        │
+                  └──────────────┬───────────────┘
+                                 │
+            ┌────────────────────┼────────────────────┐
+            │                    │                    │
+            ▼                    ▼                    ▼
+   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
+   │   CX Agent     │  │  Vision Agent  │  │ Trust & Fraud  │
+   │  Normalize     │  │  Damage        │  │  Agent         │
+   │  Translate     │  │  Assessment    │  │  Validate      │
+   │  Detect Lang   │  │  Severity from │  │  Detect Spam   │
+   └────────┬───────┘  │  Image         │  └────────┬───────┘
+            │          └────────┬───────┘           │
+            └──────────────────┼────────────────────┘
+                               │
+                               ▼
+                    ┌────────────────┐
+                    │ Deduplication  │
+                    │  Agent         │
+                    │  Spatial(50m)  │
+                    │  Semantic      │
+                    └────────┬───────┘
+                             │
+                             ▼
+                    ┌────────────────┐
+                    │ Priority Agent │
+                    │  Severity 1-3  │
+                    │  Priority Score│
+                    │  Triage        │
+                    └────────┬───────┘
+                             │
+                             ▼
+                    ┌────────────────┐
+                    │ Routing Agent  │
+                    │  Dept Mapping  │
+                    │  Officer Match │
+                    │  Assignment    │
+                    └────────┬───────┘
+                             │
+            ┌────────────────┼────────────────┐
+            │                │                │
+            ▼                ▼                ▼
+   ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
+   │  Escalation    │ │  Verification  │ │  Analytics     │
+   │  Agent         │ │  Agent         │ │  Agent         │
+   │  SLA Timer     │ │  Closure Match │ │  UHS Update    │
+   │  Thresholds    │ │  QA Check      │ │  Pulse Alert   │
+   └────────────────┘ └────────────────┘ └────────────────┘
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │     OUTPUT: Processed Ticket  │
+                  │  (assigned, prioritized, with │
+                  │   SLA + verification queue)   │
+                  └──────────────────────────────┘
+```
+
+**Color legend:**
+- Input/Output: #475569 (slate-600)
+- Parallel agents (CX, Vision, Trust): #84CC16 (lime)
+- Dedup: #22D3EE (cyan)
+- Priority: #F59E0B (amber)
+- Routing: #3B82F6 (blue)
+- Final agents (Escalation, Verification, Analytics): #6366F1 (indigo)
+
+**Time annotation:** "~12 seconds total"
+
+---
+
+## Diagram 3: Database Schema (Simplified)
+
+**Style:** Entity-relationship diagram showing key tables and relationships.
+
+```
+┌─────────────────┐       ┌──────────────────┐
+│     tickets      │       │     users        │
+├─────────────────┤       ├──────────────────┤
+│ id (UUID PK)    │───────│ id (UUID PK)     │
+│ user_id (FK)    │       │ email            │
+│ category        │       │ role             │
+│ description     │       │ name             │
+│ severity (1-3)  │       │ department       │
+│ status          │       │ created_at       │
+│ latitude        │       └──────────────────┘
+│ longitude       │
+│ geom (PostGIS)  │       ┌──────────────────┐
+│ priority_score  │       │   uploads        │
+│ original_media  │───────│ id (UUID PK)     │
+│ voice_note_url  │       │ ticket_id (FK)   │
+│ closure_media   │       │ filename         │
+│ created_at      │       │ filepath         │
+│ resolved_at     │       │ mimetype         │
+│ assigned_to     │       │ created_at       │
+│ routing_dept    │       └──────────────────┘
+│ sla_deadline    │
+│ verification    │       ┌──────────────────┐
+│ uhs_impact      │       │  routing_rules   │
+└─────────────────┘       ├──────────────────┤
+                          │ id (UUID PK)     │
+┌─────────────────┐       │ category         │
+│  agent_logs     │       │ department       │
+├─────────────────┤       │ priority         │
+│ id (UUID PK)    │       │ is_active        │
+│ ticket_id (FK)  │       └──────────────────┘
+│ agent_name      │
+│ action          │       ┌──────────────────┐
+│ reasoning       │       │  audit_log       │
+│ status          │       ├──────────────────┤
+│ node            │       │ id (UUID PK)     │
+│ result (JSONB)  │       │ action           │
+│ created_at      │       │ user_id          │
+└─────────────────┘       │ details (JSONB)  │
+                          │ created_at       │
+                          └──────────────────┘
+```
+
+---
+
+## Diagram 4: Role-Based Access
+
+**Style:** Tree diagram showing role hierarchy and accessible routes.
+
+```
+                    ┌──────────────┐
+                    │  Public      │
+                    │  Landing     │
+                    │  About       │
+                    │  Public Map  │
+                    └──────┬───────┘
+                           │
+                    ┌──────┴───────┐
+                    │  Auth        │
+                    │  Login       │
+                    │  Register    │
+                    └──────┬───────┘
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+       ┌──────┴──────┐  ┌─┴────────┐  ┌┴──────────┐
+       │  Citizen    │  │ Officer  │  │ Dept Head │
+       │  Report     │  │ Queue    │  │ Dashboard │
+       │  Dashboard  │  │ Profile  │  │ Analytics │
+       │  Processing │  │ Resolve  │  │ Officers  │
+       │  Profile    │  └──────────┘  └───────────┘
+       └─────────────┘
+              │
+       ┌──────┴──────┐
+       │   Admin     │
+       │  Analytics  │
+       │  Incidents  │
+       │  Escalation │
+       └──────┬──────┘
+              │
+       ┌──────┴────────┐
+       │  Super Admin  │
+       │  Users        │
+       │  Routing      │
+       │  Audit        │
+       │  Agents       │
+       └───────────────┘
+```
+
+---
+
+## Diagram 5: Deployment Architecture
+
+**Style:** Docker container diagram showing service orchestration.
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Docker Host                          │
+│                                                       │
+│  ┌──────────────────────┐  ┌──────────────────────┐  │
+│  │  Frontend Container  │  │  Backend Container   │  │
+│  │  ┌────────────────┐  │  │  ┌────────────────┐  │  │
+│  │  │  nginx          │  │  │  │ FastAPI +     │  │  │
+│  │  │  Serves static │  │  │  │ LangGraph     │  │  │
+│  │  │  SPA fallback  │  │  │  │ Uvicorn       │  │  │
+│  │  │  Proxy /api/*  │  │  │  │ Workers: 4    │  │  │
+│  │  └────────────────┘  │  │  └────────────────┘  │  │
+│  │  Port: 80            │  │  Port: 8000           │  │
+│  └──────────────────────┘  └──────────────────────┘  │
+│                                                       │
+│  ┌──────────────────────────────────────────────┐    │
+│  │  External Dependencies                        │    │
+│  │  ┌────────────────┐  ┌────────────────────┐   │    │
+│  │  │ PostgreSQL     │  │  Gemini API        │   │    │
+│  │  │ (optional:     │  │  (external,        │   │    │
+│  │  │  can use       │  │   requires         │   │    │
+│  │  │  Supabase)     │  │   API key)         │   │    │
+│  │  └────────────────┘  └────────────────────┘   │    │
+│  └──────────────────────────────────────────────┘    │
+│                                                       │
+└─────────────────────────────────────────────────────┘
+
+Network: urbanpulse-network (bridge)
+Volumes: postgres_data, uploads
+```
+
+---
+
+## Diagram 6: Data Flow for a Single Report
+
+**Style:** Swimlane diagram showing data movement across layers.
+
+```
+Citizen         Frontend        Backend          LangGraph      Database      Gemini
+  │                │               │                │              │            │
+  │───Submit──────►│               │                │              │            │
+  │   (photo+      │               │                │              │            │
+  │    voice+desc  │───POST /api──►│                │              │            │
+  │    +gps)       │               │                │              │            │
+  │                │               │───store ticket─►│              │            │
+  │                │               │◄───ticket ID───│              │            │
+  │                │               │                │              │            │
+  │                │◄───SSE stream│                │              │            │
+  │                │    connect   │                │              │            │
+  │                │               │───invoke DAG──►│              │            │
+  │                │               │                │───CX call───►│─────────►│
+  │                │               │                │◄──response──│◄─────────│
+  │                │               │                │───Vision────►│─────────►│
+  │                │◄───SSE: CX───│◄───SSE: CX────│◄──response──│◄─────────│
+  │◄──SSE: CX─────│               │                │───Trust─────►│─────────►│
+  │                │               │                │◄──response──│◄─────────│
+  │                │◄───SSE: Vis──│◄───SSE: Vis───│───Dedup─────►│─────────►│
+  │                │               │                │◄──response──│◄─────────│
+  │                │               │                │───Priority──►│─────────►│
+  │◄──SSE: Agents─│◄───SSE: each─│◄───SSE: each──│◄──response──│◄─────────│
+  │   live         │    agent      │     agent      │───Routing───►│─────────►│
+  │                │               │                │◄──response──│◄─────────│
+  │                │               │───finalize────►│───store────►│          │
+  │                │◄───redirect──│◄───────────────│              │          │
+  │                │  /processing │                │              │          │
+  │◄─Success───────│               │                │              │          │
+```
+
+---
+
+## Tools to Create These Diagrams
+
+| Tool | Why | Notes |
+|------|-----|-------|
+| **Excalidraw** | Hand-drawn aesthetic, free, export PNG | Good for architecture and DAG diagrams |
+| **Draw.io** | Clean technical diagrams, integrates with Google Drive | For database schema and deployment |
+| **Mermaid** | Code-driven diagrams, integrates with markdown | Good for simple flow charts |
+| **Adobe Express** | Professional graphics, built-in shapes | For final polished versions |
+| **Figma** | Premium quality, but steeper learning curve | If you have design experience |
+
+**Recommendation for hackathon:** Use Excalidraw for quick, great-looking architecture diagrams. The hand-drawn aesthetic actually works well for presentations — it signals "we understand the architecture" without needing pixel-perfect alignment.
+
+========================================
+FILE: ./Adobe_Express_Input/SCREENSHOT_MAP.md
+========================================
+
+# Screenshot Map — Slide to Screenshot Reference
+
+| # | File | Route | Slide | Caption | Purpose |
+|---|------|-------|-------|---------|---------|
+| 1 | `01_landing.png` | `/` | Slide 1 (Title) | Hero section with UHS badge | Establishes brand, shows live health score |
+| 2 | `02_about.png` | `/about` | Slide 2 (Problem) | Feature list showing platform scope | Reinforces breadth of solution |
+| 3 | `03_public_map.png` | `/public-map` | Slide 11 (Features) | Public-facing incident view | Shows transparency + geospatial capability |
+| 4 | `04_citizen_login.png` | `/auth/citizen-login` | Slide 2 (Problem) | Auth page with cityscape | Visual transition to solution |
+| 5 | `05_citizen_dashboard.png` | `/citizen/dashboard` | Slide 6 (Citizen) | Report list with live statuses | Shows citizen gets tracking |
+| 6 | `06_report_step1.png` | `/citizen/report` | Slide 6 (Citizen) | File upload, skip button | Shows multi-modal evidence step |
+| 7 | `07_report_step2.png` | `/citizen/report` | Slide 6 (Citizen) | Category selected, description, voice | Shows category + voice recording |
+| 8 | `08_report_step3.png` | `/citizen/report` | Slide 6 (Citizen) | MapPicker with draggable marker | Shows GPS pin placement |
+| 9 | `09_processing.png` | `/citizen/processing/:id` | Slide 5 (Live Trace) | Agent pipeline waiting for SSE | Fallback view for live trace slide |
+| 10 | `10_report_detail.png` | `/citizen/report/:id` | Slide 6 (Citizen) | Full ticket detail with agent trace | Shows complete audit trail |
+| 11 | `11_citizen_profile.png` | `/citizen/profile` | Slide 6 (Citizen) | User profile and preferences | Shows personalization |
+| 12 | `12_ward_health.png` | `/citizen/ward-health` | Slide 11 (Features) | Ward-level health breakdown | Shows granular analytics |
+| 13 | `13_officer_queue.png` | `/officer/queue` | Slide 7 (Officer) | Filtered, prioritized ticket list | Shows officer gets triaged queue |
+| 14 | `14_officer_profile.png` | `/officer/profile` | Slide 7 (Officer) | Officer stats and metrics | Shows performance tracking |
+| 15 | `15_dept_dashboard.png` | `/dept` | Slide 11 (Features) | Department head overview | Shows multi-role depth |
+| 16 | `16_dept_analytics.png` | `/dept/analytics` | Slide 11 (Features) | Department-level analytics | Shows role-specific data views |
+| 17 | `17_officer_mgmt.png` | `/dept/officers` | Slide 11 (Features) | Officer directory with metrics | Shows team management |
+| 18 | `18_admin_analytics.png` | `/admin/city-analytics` | Slide 8 (Admin) | Pulse alerts, UHS, trending issues | Shows city-wide intelligence |
+| 19 | `19_admin_escalation.png` | `/admin/escalation` | Slide 8 (Admin) | SLA monitoring table | Shows SLA compliance tracking |
+| 20 | `20_admin_incident_map.png` | `/admin/incident-map` | Slide 8 (Admin) | CircleMarker geospatial heatmap | Shows geospatial incident view |
+| 21 | `21_super_admin.png` | `/super-admin` | Slide 9 (Super Admin) | Super admin dashboard overview | Shows system-wide oversight |
+| 22 | `22_user_management.png` | `/super-admin/users` | Slide 9 (Super Admin) | User directory | Shows auth/user management |
+| 23 | `23_routing_config.png` | `/super-admin/routing` | Slide 9 (Super Admin) | Category-department mapping | Shows configurable routing engine |
+| 24 | `24_audit_log.png` | `/super-admin/audit` | Slide 9 (Super Admin) | Action audit trail | Shows security/compliance |
+| 25 | `25_agent_monitoring.png` | `/super-admin/monitoring` | Slide 9 (Super Admin) | 9 agent status cards | Shows AI pipeline health |
+| 26 | `26_support.png` | `/support` | Slide 11 (Features) | FAQ and help center | Shows documentation |
+| 27 | `27_live_trace.png` | `/trace` | Slide 5 (Live Trace) | Shared processing trace | Shows shareable trace links |
+| 28 | `28_settings.png` | `/settings` | Slide 11 (Features) | App configuration | Shows customization |
+
+## Screenshot Recommendations for Adobe Express
+
+### Priority screenshots (must include in PPT):
+
+| Priority | Screenshots | Slide |
+|----------|-------------|-------|
+| ⭐⭐⭐ | `07_report_step2`, `08_report_step3`, `13_officer_queue` | Citizen + Officer workflow |
+| ⭐⭐⭐ | `20_admin_incident_map`, `18_admin_analytics` | Admin intelligence |
+| ⭐⭐ | `25_agent_monitoring`, `19_admin_escalation` | AI + SLA depth |
+| ⭐⭐ | `09_processing`, `27_live_trace` | Live SSE trace (hero feature) |
+| ⭐ | `01_landing`, `04_citizen_login` | Brand and visual quality |
+
+### Screenshot guidelines for Adobe:
+
+- All screenshots are 1920x1080 at 2x Retina (3840x2160 effective)
+- Dark theme throughout
+- No browser chrome, no dev tools, no loading states
+- Consistent top/bottom padding — crop to content area before inserting into slides
+- For best results: overlay screenshots on dark backgrounds with a subtle border-radius
+
+========================================
+FILE: ./brand_kit/branding.md
+========================================
+
+# UrbanPulse AI — Brand Kit
+
+## Brand Overview
+
+| Attribute | Value |
+|-----------|-------|
+| **Product name** | UrbanPulse AI |
+| **Tagline** | AI-Powered Civic Infrastructure Triage |
+| **Vibe** | Futuristic civic tech, dark industrial, intelligent |
+| **UX Promise** | Citizens report once. AI triages instantly. Officers act decisively. |
+
+---
+
+## Color Palette
+
+### Primary Brand
+| Name | Hex | Preview | Usage |
+|------|-----|---------|-------|
+| Brand Lime | `#C6F135` | ██████ | Primary accent, buttons, active states |
+| Brand Dim | `#a3c726` | ██████ | Hover/subtle brand |
+| Brand Soft | `rgba(198, 241, 53, 0.08)` | ██████ | Subtle backgrounds, badges |
+
+### Dark Theme (UI Surfaces)
+| Name | Hex | Preview | Usage |
+|------|-----|---------|-------|
+| Background | `#0d0d0d` | ██████ | Page background |
+| Foreground | `#f2f2f2` | ██████ | Body text |
+| Panel BG | `#121212` | ██████ | Card/section backgrounds |
+| Panel Card | `#161616` | ██████ | Elevated cards |
+| Panel Hover | `#1e1e1e` | ██████ | Hover states |
+| Panel Border | `#262626` | ██████ | Borders, dividers |
+
+### Status Colors
+| Name | Hex | Preview | Usage |
+|------|-----|---------|-------|
+| New/Reported | `#3b82f6` | ██████ | Blue status |
+| In Progress | `#f59e0b` | ██████ | Amber status |
+| Resolved | `#10b981` | ██████ | Green status |
+| Verified | `#8b5cf6` | ██████ | Purple status |
+| Escalated | `#ef4444` | ██████ | Red alert |
+
+### Priority Colors
+| Name | Hex | Preview | Usage |
+|------|-----|---------|-------|
+| Low | `#6b7280` | ██████ | Low priority badge |
+| Medium | `#eab308` | ██████ | Medium priority badge |
+| High | `#ef4444` | ██████ | High priority badge |
+
+---
+
+## Typography
+
+### Font Stack
+| Role | Font | Fallback | Weights |
+|------|------|----------|---------|
+| **Body (Sans)** | Inter | `sans-serif` | 300, 400, 500, 600, 700, 800 |
+| **Headings (Serif)** | Fraunces (italic) | `serif` | 100–900 italic |
+| **Code/Mono** | JetBrains Mono | `monospace` | 300, 400, 500, 600, 700 |
+
+### Type Scale
+| Element | Size | Weight | Style |
+|---------|------|--------|-------|
+| Page title (h1) | `text-xl` (1.25rem) | `font-bold` | Fraunces italic |
+| Section title (h2) | various | `font-semibold` | Inter |
+| Body | `text-sm` (0.875rem) | `font-normal` | Inter |
+| Caption | `text-xs` (0.75rem) | `font-normal` | Inter |
+| Mono label | `text-[10px]` | `font-mono` | JetBrains Mono |
+
+### CSS Classes
+```css
+.font-serif { font-family: 'Fraunces', serif; }
+.font-sans  { font-family: 'Inter', sans-serif; }
+.font-mono  { font-family: 'JetBrains Mono', monospace; }
+```
+
+### Selection Highlight
+- Background: `#C6F135` (brand-lime)
+- Text: `#0d0d0d` (background)
+
+---
+
+## Logo
+
+A standalone SVG logo is at `presentation/icons/urbanpulse-logo.svg`:
+
+- **Symbol**: A stylized pulse/signal icon in brand-lime
+- **Text mark**: "UrbanPulse AI" in white, with "AI" in brand-lime
+- **Usage**: Light background → use inverted version; Dark background → use standard version
+
+### Logo Variations
+- `urbanpulse-logo.svg` — Full logo (icon + wordmark), dark bg optimized
+- `urbanpulse-icon.svg` — Icon only (for favicon, small badges)
+
+---
+
+## Icons Set
+
+15 SVG icons in `presentation/icons/`:
+
+| Icon | File | Hex Color |
+|------|------|-----------|
+| Citizen | `citizen.svg` | `currentColor` |
+| Officer | `officer.svg` | `currentColor` |
+| Admin | `admin.svg` | `currentColor` |
+| Super Admin | `super-admin.svg` | `currentColor` |
+| AI Agent | `ai-agent.svg` | `currentColor` |
+| Map Pin | `map-pin.svg` | `currentColor` |
+| Analytics | `analytics.svg` | `currentColor` |
+| Routing | `routing.svg` | `currentColor` |
+| Security | `security.svg` | `currentColor` |
+| Settings | `settings.svg` | `currentColor` |
+| Camera | `camera.svg` | `currentColor` |
+| Mic | `mic.svg` | `currentColor` |
+| Database | `database.svg` | `currentColor` |
+| LangGraph | `langgraph.svg` | `currentColor` |
+| Docker | `docker.svg` | `currentColor` |
+
+All icons: 24×24 viewBox, stroke-width 2, round caps/joins, `fill="none"`, `stroke="currentColor"`.
+
+---
+
+## Design Principles
+
+1. **Dark-first, lime accent** — The entire UI lives on a near-black canvas with lime-green energy.
+2. **Data density** — Information-rich views with compact type and tight spacing.
+3. **Live status everywhere** — Badges, pulse animations, SSE streams — nothing feels stale.
+4. **Code as aesthetic** — Monospace labels, terminal-style panels, agent trace logs.
+5. **Geospatial first** — Maps are not an add-on; they're the default view for admin intelligence.
+6. **Every role has a dashboard** — Citizen, officer, department head, admin, super admin each get curated views.
+
+---
+
+## Motion Guidelines
+
+| Animation | Duration | Easing | Use Case |
+|-----------|----------|--------|----------|
+| Pulse slow | 3s | ease-in-out infinite | Loading badges, live indicators |
+| Node active | 2s | scale 1→1.08→1 + glow | Agent pipeline nodes |
+| Fade in up | 0.5s | `cubic-bezier(0.16, 1, 0.3, 1)` | Page transitions |
+| Slide in right | 0.3s | `cubic-bezier(0.16, 1, 0.3, 1)` | Panel/modal slide-ins |
+| Spinner | 0.8s | linear infinite | Loading states |
+
+---
+
+## Screenshot Style (for Adobe Express)
+
+| Property | Value |
+|----------|-------|
+| Viewport | 1920×1080 at 2x Retina |
+| Background | `#0a0a0f` (dark charcoal) |
+| Corner radius | 16px (suggested in slides) |
+| Shadow | 0 8px 40px rgba(0,0,0,0.7) |
+| Default padding | 24px around content |
+| Browser chrome | Remove / don't show |
+
+========================================
+FILE: ./PRESENTATION_ASSET_INDEX.md
+========================================
+
+# UrbanPulse AI — Presentation Asset Index
+
+---
+
+## 📸 Screenshots
+
+### Curated (13) — `presentation/screenshots/`
+Freshly captured with 0 console errors, live agent pipeline data.
+
+| # | File | Route | Slide | Why Included |
+|---|------|-------|-------|-------------|
+| 1 | `01_landing.png` | `/` | Title | Hero section, UHS badge, brand identity |
+| 2 | `02_public_map.png` | `/public-map` | Features | Public transparency + geospatial |
+| 3 | `03_report_wizard.png` | `/citizen/report` | Citizen | Category selection, description input |
+| 4 | `04_processing_live.png` | `/processing/:id` | **Live Trace** | **HERO SHOT** — 4 agents running with traces |
+| 5 | `05_processing_done.png` | `/processing/:id` | Live Trace | 8-agent pipeline complete, success state |
+| 6 | `06_citizen_dashboard.png` | `/citizen/dashboard` | Citizen | Ticket list with live statuses |
+| 7 | `07_officer_queue.png` | `/officer/queue` | Officer | Prioritized filtered queue |
+| 8 | `08_admin_analytics.png` | `/admin/city-analytics` | Admin | UHS, trending issues, pulse alerts |
+| 9 | `09_admin_incident_map.png` | `/admin/incident-map` | Admin | CircleMarker geospatial heatmap |
+| 10 | `10_admin_escalation.png` | `/admin/escalation` | Admin | SLA compliance table |
+| 11 | `11_super_admin.png` | `/super-admin` | Super Admin | System-wide oversight dashboard |
+| 12 | `12_routing_config.png` | `/super-admin/routing` | Super Admin | Category-department mapping engine |
+| 13 | `13_agent_monitoring.png` | `/super-admin/monitoring` | Super Admin | 9 agent status cards with metrics |
+
+### Polished (12) — `presentation/polished/`
+Same as curated but with dark background frame, consistent quality.
+
+| # | File | Notes |
+|---|------|-------|
+| 1 | `01_landing.png` | Dark frame applied |
+| 2 | `02_public_map.png` | Map rendered, dark frame |
+| 3 | `03_processing_live.png` | **HERO** — agents running live |
+| 4 | `03_processing_done.png` | Pipeline complete state |
+| 5 | `04_report_wizard.png` | Filled wizard, dark frame |
+| 6 | `05_officer_queue.png` | Dark frame |
+| 7 | `06_admin_analytics.png` | Dark frame |
+| 8 | `07_admin_incident_map.png` | Map rendered, dark frame |
+| 9 | `08_admin_escalation.png` | Dark frame |
+| 10 | `09_super_admin.png` | Dark frame |
+| 11 | `10_routing_config.png` | Dark frame |
+| 12 | `11_agent_monitoring.png` | Dark frame |
+
+### Removed (not included in PPT)
+- Login/Auth page (not impressive)
+- Profile pages (personalization, not demo-relevant)
+- Settings (utility, not feature)
+- Support/FAQ (utility)
+- About page (not needed in slides)
+- Report detail (covered by processing done state)
+- User management (admin utility)
+- Audit log (utility, not feature)
+
+---
+
+## 🎨 Brand Assets — `presentation/brand_kit/`
+
+| File | Usage |
+|------|-------|
+| `branding.md` | Full brand reference (colors, fonts, design principles) |
+| `urbanpulse-logo.svg` | Full logo with wordmark (for slide headers/footers) |
+| `urbanpulse-icon.svg` | Icon only (favicon, small placements) |
+| `color-swatches.svg` | Visual color reference for design tools |
+| `citizen.svg` | Person icon (citizen persona) |
+| `officer.svg` | Shield with badge (officer persona) |
+| `admin.svg` | Building (admin persona) |
+| `super-admin.svg` | Star (super admin persona) |
+| `ai-agent.svg` | Brain with sparks (AI pipeline) |
+| `map-pin.svg` | Location pin (geospatial) |
+| `analytics.svg` | Bar chart (analytics views) |
+| `routing.svg` | Flow/route (routing engine) |
+| `security.svg` | Shield (trust & security) |
+| `settings.svg` | Gear (configuration) |
+| `camera.svg` | Camera (evidence capture) |
+| `mic.svg` | Microphone (voice notes) |
+| `database.svg` | Cylinder (data layer) |
+| `langgraph.svg` | Connected nodes (LangGraph DAG) |
+| `docker.svg` | Container (deployment) |
+
+---
+
+## 📄 Presentation Documents — `presentation/`
+
+| File | Content | Best For |
+|------|---------|----------|
+| `01_Executive_Story.md` | Hook, 4 personas, AI pipeline summary, differentiators | Pitch/opening slides |
+| `02_Problem_and_Solution.md` | Broken civic system → UrbanPulse fix | Problem slides |
+| `03_End_to_End_Workflow.md` | Full citizen→AI→officer→admin flow | Architecture/walkthrough |
+| `04_Demo_Script.md` | 5-act script with exact words, actions, fallbacks | Demo rehearsal |
+| `05_Judge_QA.md` | 50 likely questions with answers (5 categories) | Judge prep |
+| `06_Adobe_Express_Guide.md` | 15-slide blueprint with design specs | **Primary slide builder** |
+| `07_Architecture_Diagrams.md` | 6 diagram specs | Architect/eng slides |
+| `SCREENSHOT_MAP.md` | Slide-to-screenshot cross-reference | Asset selection |
+| `capture_curated.mjs` | Playwright script (13 curated screenshots) | Re-capture if needed |
+| `capture_polished.mjs` | Playwright script (12 polished screenshots) | Re-capture if needed |
+
+---
+
+## 🗺️ Architecture Diagrams (planned — need drawing)
+
+| Diagram | Spec File | Suggested Tool |
+|---------|-----------|---------------|
+| System Architecture | `07_Architecture_Diagrams.md` §1 | Draw.io / Excalidraw |
+| LangGraph DAG | `07_Architecture_Diagrams.md` §2 | Draw.io / Excalidraw |
+| Database Schema | `07_Architecture_Diagrams.md` §3 | Draw.io / Excalidraw |
+| RBAC Flow | `07_Architecture_Diagrams.md` §4 | Draw.io / Excalidraw |
+| Deployment | `07_Architecture_Diagrams.md` §5 | Draw.io / Excalidraw |
+| Data Flow | `07_Architecture_Diagrams.md` §6 | Draw.io / Excalidraw |
+
+---
+
+## 📋 Suggested Slide-to-Asset Mapping
+
+| Slide | Content | Key Assets |
+|-------|---------|-----------|
+| 1 | Title + Team | `urbanpulse-logo.svg`, `01_landing.png` |
+| 2 | Problem | — |
+| 3 | Solution Intro | `urbanpulse-logo.svg` |
+| 4 | Architecture | System Architecture diagram |
+| 5 | AI Pipeline | LangGraph DAG diagram |
+| 6 | Citizen Flow | `03_report_wizard.png`, `04_processing_live.png`, `05_processing_done.png`, `06_citizen_dashboard.png` |
+| 7 | Officer Workflow | `07_officer_queue.png` |
+| 8 | Admin Intelligence | `08_admin_analytics.png`, `09_admin_incident_map.png`, `10_admin_escalation.png` |
+| 9 | Super Admin | `11_super_admin.png`, `12_routing_config.png`, `13_agent_monitoring.png` |
+| 10 | Live Trace | `04_processing_live.png` (hero) |
+| 11 | Features/Map | `02_public_map.png` |
+| 12-13 | Business value | — |
+| 14 | Team + Thank You | `urbanpulse-icon.svg` |
+| 15 | Q&A | — |
+
+========================================
+FILE: ./SCREENSHOT_MAP.md
+========================================
+
+# Screenshot Map — Slide to Screenshot Reference
+
+| # | File | Route | Slide | Caption | Purpose |
+|---|------|-------|-------|---------|---------|
+| 1 | `01_landing.png` | `/` | Slide 1 (Title) | Hero section with UHS badge | Establishes brand, shows live health score |
+| 2 | `02_about.png` | `/about` | Slide 2 (Problem) | Feature list showing platform scope | Reinforces breadth of solution |
+| 3 | `03_public_map.png` | `/public-map` | Slide 11 (Features) | Public-facing incident view | Shows transparency + geospatial capability |
+| 4 | `04_citizen_login.png` | `/auth/citizen-login` | Slide 2 (Problem) | Auth page with cityscape | Visual transition to solution |
+| 5 | `05_citizen_dashboard.png` | `/citizen/dashboard` | Slide 6 (Citizen) | Report list with live statuses | Shows citizen gets tracking |
+| 6 | `06_report_step1.png` | `/citizen/report` | Slide 6 (Citizen) | File upload, skip button | Shows multi-modal evidence step |
+| 7 | `07_report_step2.png` | `/citizen/report` | Slide 6 (Citizen) | Category selected, description, voice | Shows category + voice recording |
+| 8 | `08_report_step3.png` | `/citizen/report` | Slide 6 (Citizen) | MapPicker with draggable marker | Shows GPS pin placement |
+| 9 | `09_processing.png` | `/citizen/processing/:id` | Slide 5 (Live Trace) | Agent pipeline waiting for SSE | Fallback view for live trace slide |
+| 10 | `10_report_detail.png` | `/citizen/report/:id` | Slide 6 (Citizen) | Full ticket detail with agent trace | Shows complete audit trail |
+| 11 | `11_citizen_profile.png` | `/citizen/profile` | Slide 6 (Citizen) | User profile and preferences | Shows personalization |
+| 12 | `12_ward_health.png` | `/citizen/ward-health` | Slide 11 (Features) | Ward-level health breakdown | Shows granular analytics |
+| 13 | `13_officer_queue.png` | `/officer/queue` | Slide 7 (Officer) | Filtered, prioritized ticket list | Shows officer gets triaged queue |
+| 14 | `14_officer_profile.png` | `/officer/profile` | Slide 7 (Officer) | Officer stats and metrics | Shows performance tracking |
+| 15 | `15_dept_dashboard.png` | `/dept` | Slide 11 (Features) | Department head overview | Shows multi-role depth |
+| 16 | `16_dept_analytics.png` | `/dept/analytics` | Slide 11 (Features) | Department-level analytics | Shows role-specific data views |
+| 17 | `17_officer_mgmt.png` | `/dept/officers` | Slide 11 (Features) | Officer directory with metrics | Shows team management |
+| 18 | `18_admin_analytics.png` | `/admin/city-analytics` | Slide 8 (Admin) | Pulse alerts, UHS, trending issues | Shows city-wide intelligence |
+| 19 | `19_admin_escalation.png` | `/admin/escalation` | Slide 8 (Admin) | SLA monitoring table | Shows SLA compliance tracking |
+| 20 | `20_admin_incident_map.png` | `/admin/incident-map` | Slide 8 (Admin) | CircleMarker geospatial heatmap | Shows geospatial incident view |
+| 21 | `21_super_admin.png` | `/super-admin` | Slide 9 (Super Admin) | Super admin dashboard overview | Shows system-wide oversight |
+| 22 | `22_user_management.png` | `/super-admin/users` | Slide 9 (Super Admin) | User directory | Shows auth/user management |
+| 23 | `23_routing_config.png` | `/super-admin/routing` | Slide 9 (Super Admin) | Category-department mapping | Shows configurable routing engine |
+| 24 | `24_audit_log.png` | `/super-admin/audit` | Slide 9 (Super Admin) | Action audit trail | Shows security/compliance |
+| 25 | `25_agent_monitoring.png` | `/super-admin/monitoring` | Slide 9 (Super Admin) | 9 agent status cards | Shows AI pipeline health |
+| 26 | `26_support.png` | `/support` | Slide 11 (Features) | FAQ and help center | Shows documentation |
+| 27 | `27_live_trace.png` | `/trace` | Slide 5 (Live Trace) | Shared processing trace | Shows shareable trace links |
+| 28 | `28_settings.png` | `/settings` | Slide 11 (Features) | App configuration | Shows customization |
+
+## Screenshot Recommendations for Adobe Express
+
+### Priority screenshots (must include in PPT):
+
+| Priority | Screenshots | Slide |
+|----------|-------------|-------|
+| ⭐⭐⭐ | `07_report_step2`, `08_report_step3`, `13_officer_queue` | Citizen + Officer workflow |
+| ⭐⭐⭐ | `20_admin_incident_map`, `18_admin_analytics` | Admin intelligence |
+| ⭐⭐ | `25_agent_monitoring`, `19_admin_escalation` | AI + SLA depth |
+| ⭐⭐ | `09_processing`, `27_live_trace` | Live SSE trace (hero feature) |
+| ⭐ | `01_landing`, `04_citizen_login` | Brand and visual quality |
+
+### Screenshot guidelines for Adobe:
+
+- All screenshots are 1920x1080 at 2x Retina (3840x2160 effective)
+- Dark theme throughout
+- No browser chrome, no dev tools, no loading states
+- Consistent top/bottom padding — crop to content area before inserting into slides
+- For best results: overlay screenshots on dark backgrounds with a subtle border-radius

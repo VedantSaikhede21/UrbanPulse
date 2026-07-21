@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>UrbanPulse AI — Slide Review Contact Sheet</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d0d0d; color: #f2f2f2; font-family: system-ui, -apple-system, sans-serif; padding: 40px; }
+  h1 { font-size: 32px; margin-bottom: 8px; }
+  .sub { color: #888; font-size: 16px; margin-bottom: 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 32px; }
+  .card { background: #161b22; border: 1px solid #2d2d2d; border-radius: 16px; overflow: hidden; }
+  .card img { width: 100%; display: block; }
+  .card-body { padding: 16px 20px 20px; }
+  .card-body .num { font-family: monospace; font-size: 12px; color: #C6F135; letter-spacing: 0.15em; }
+  .card-body h2 { font-size: 20px; margin-top: 4px; }
+  .card-body .cols { display: flex; gap: 12px; margin-top: 10px; font-size: 13px; color: #aaa; }
+  .card-body .cols span { flex: 1; }
+  .card-body .cols .label { color: #666; }
+  .rating { display: flex; gap: 4px; margin-top: 8px; }
+  .dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+  .g5 { background: rgba(198,241,53,0.2); color: #C6F135; }
+  .g4 { background: rgba(198,241,53,0.15); color: #a0c42a; }
+  .g3 { background: rgba(245,158,11,0.2); color: #f59e0b; }
+  .g2 { background: rgba(239,68,68,0.2); color: #ef4444; }
+  .g1 { background: rgba(239,68,68,0.3); color: #f87171; }
+  .actions { margin-top: 30px; display: flex; gap: 16px; }
+  .actions a { display: inline-block; padding: 12px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; }
+  .btn-primary { background: #C6F135; color: #0d0d0d; }
+  .btn-secondary { background: #161b22; color: #f2f2f2; border: 1px solid #2d2d2d; }
+  .pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 8px; }
+  .keep { background: rgba(198,241,53,0.15); color: #C6F135; }
+  .modify { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .replace { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .issue { color: #ef4444; font-size: 13px; margin-top: 4px; }
+</style></head>
+<body>
+<h1>UrbanPulse AI — Slide Review</h1>
+<p class="sub">15 slides from the HTML deck · Review each below · No changes yet</p>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const slides = [
+  { num: '01', file: '01_01-cover.png',          title: 'Cover',              desc: 'Hero city background, brand lockup, 9 agents stat, 12s triage stat',                                              verdict: 'excellent', issue: null },
+  { num: '02', file: '02_02-problem.png',         title: 'Problem',            desc: '4 pain cards: citizens, officers, admins, existing systems',                                                        verdict: 'excellent', issue: null },
+  { num: '03', file: '03_03-comparison.png',      title: 'Comparison',         desc: '6-row ✕/✓ table vs FixMyStreet, IChangeMyCity, WhatsApp bots',                                                     verdict: 'excellent', issue: null },
+  { num: '04', file: '04_04-solution.png',        title: 'Solution',           desc: '5-node flow (Citizen→AI→Officer→Verification→Analytics) + 3 KPI cards',                                            verdict: 'excellent', issue: null },
+  { num: '05', file: '05_05-architecture.png',    title: 'Architecture',       desc: '5 layers (Client / API / AI Core / Data / Edge) with tech chips — no real diagram',                                 verdict: 'adequate', issue: 'No actual architecture diagram — just text chips. You said you\'d create premium version manually.' },
+  { num: '06', file: '06_06-ai-pipeline.png',     title: 'AI Pipeline',        desc: '9-agent DAG: 4 parallel → Priority+Routing → 3 fan-out. SSE trace strip at bottom. Hero slide.',                    verdict: 'excellent', issue: 'Says 9 agents — live pipeline shows 8. Verify count.' },
+  { num: '07', file: '07_07-citizen.png',         title: 'Citizen',            desc: 'Left: screenshot placeholder. Right: 3-step flow (Evidence → Details → Location).',                                  verdict: 'good',      issue: 'Screenshot is from OLD UI. Replace with polished/04_report_wizard.png' },
+  { num: '08', file: '08_08-officer.png',         title: 'Officer',            desc: 'Left: screenshot. Right: 3 workflow chips (Prioritized → Geo-located → Closure Photo). Stat: 15min saved/ticket.',   verdict: 'good',      issue: 'Screenshot is from OLD UI. Replace with polished/05_officer_queue.png' },
+  { num: '09', file: '09_09-admin.png',           title: 'Admin',              desc: 'Left: analytics screenshot. Right: UHS(80.3) + incident map + SLA escalation monitor.',                               verdict: 'good',      issue: '2 screenshots from OLD UI. Replace with polished/06_admin_analytics.png + 07_admin_incident_map.png' },
+  { num: '10', file: '10_10-super-admin.png',     title: 'Super Admin',        desc: 'Left: agent monitoring screenshot. Right: routing config screenshot. Bottom: 4 capability chips.',                 verdict: 'good',      issue: '2 screenshots from OLD UI. Replace with polished/11_agent_monitoring.png + 10_routing_config.png' },
+  { num: '11', file: '11_11-workflow.png',        title: 'Workflow Timeline',  desc: '6-node timeline (Citizen submits → AI done → Officer notified → Repair → Auto-verified → UHS updated). Bottom: pipeline screenshot.', verdict: 'good', issue: 'Bottom screenshot is OLD. Replace with polished/03_processing_done.png' },
+  { num: '12', file: '12_12-innovation.png',      title: 'Innovation',         desc: '8-card grid: DAG, SSE trace, fraud scoring, spatial dedup, explainable priority, UHS, SLA escalation, Docker scale.',  verdict: 'excellent', issue: null },
+  { num: '13', file: '13_13-future.png',          title: 'Future Roadmap',     desc: '3-horizon columns: NOW (shipped) / NEXT (Q3-Q4 sensors) / FUTURE (2027+ predict).',                                  verdict: 'excellent', issue: null },
+  { num: '14', file: '14_14-tech-stack.png',      title: 'Tech Stack',         desc: '8 cards: Frontend, Backend, AI, Data, Auth, Deploy, Maps, QA.',                                                     verdict: 'excellent', issue: 'Says "Framer Motion" — verify if correct (codebase may use motion/react)' },
+  { num: '15', file: '15_15-thank-you.png',       title: 'Thank You / Q&A',   desc: 'Centered closing. Team names, submission details, focus area. City background.',                                    verdict: 'excellent', issue: null },
+];
+
+const verdictMap = { excellent: { cls: 'g5', label: '⭐⭐⭐⭐⭐' }, good: { cls: 'g4', label: '⭐⭐⭐⭐☆' }, adequate: { cls: 'g3', label: '⭐⭐⭐☆☆' } };
+const actionMap = { excellent: 'Keep', good: 'Modify', adequate: 'Replace' };
+const actionCls  = { excellent: 'keep', good: 'modify', adequate: 'replace' };
+
+const grid = document.getElementById('grid');
+slides.forEach(s => {
+  const v = verdictMap[s.verdict];
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <img src="${s.file}" alt="Slide ${s.num}" loading="lazy">
+    <div class="card-body">
+      <div class="num">${s.num} / 15</div>
+      <h2>${s.title}</h2>
+      <div class="cols"><span><span class="label">Layout: </span>Full-bleed 1920×1080</span><span><span class="label">Screenshots: </span>${s.issue ? '⚠️ Stale' : '✅ None needed'}</span></div>
+      <div class="rating"><div class="dot ${v.cls}">${v.label}</div></div>
+      <div class="pill ${actionCls[s.verdict]}">${actionMap[s.verdict]}</div>
+      ${s.issue ? `<div class="issue">⚠ ${s.issue}</div>` : ''}
+    </div>
+  `;
+  grid.appendChild(card);
+});
+</script>
+</body>
+</html>

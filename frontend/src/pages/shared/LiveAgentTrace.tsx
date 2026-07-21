@@ -109,7 +109,9 @@ export const LiveAgentTrace: React.FC = () => {
       {/* Controls */}
       <div className="flex items-center gap-3">
         <input
+          id="trace-ticket-id"
           type="text"
+          aria-label="Paste a Ticket UUID"
           placeholder="Paste a Ticket UUID (from /citizen/dashboard)..."
           value={ticketId}
           onChange={e => setTicketId(e.target.value)}

@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>UrbanPulse AI — Solution</title>
+<link rel="stylesheet" href="../assets/chrome.css">
+</head>
+<body>
+<div class="slide-container bg-noise" data-screen-label="04 Solution">
+
+  <div data-object="true" data-object-type="shape" class="bg-grid"
+       style="position:absolute; left:0; top:0; width:1920px; height:1080px; opacity:0.3; z-index:1;"></div>
+
+  <!-- Header -->
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:100px; top:70px; width:900px; z-index:10;">
+    <div class="eyebrow">◆ 03 / SOLUTION OVERVIEW</div>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:1700px; top:70px; width:120px; z-index:10; text-align:right;">
+    <div class="page-num">04 / 15</div>
+  </div>
+
+  <!-- Title -->
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:100px; top:130px; width:1720px; z-index:10;">
+    <h1 style="font-family:var(--font-serif); font-style:italic; font-weight:300; font-size:88px; line-height:1; margin:0; color:#fff; letter-spacing:-0.02em;">
+      One report. <span style="color:var(--brand-lime);">Nine agents.</span><br>
+      Zero black boxes.
+    </h1>
+  </div>
+
+  <!-- Flow diagram nodes -->
+  <!-- 5 nodes across -->
+  <!-- Node 1: Citizen -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:100px; top:450px; width:280px; height:280px; z-index:5;
+              background: linear-gradient(180deg, rgba(59,130,246,0.12), rgba(59,130,246,0.02));
+              border:1px solid rgba(59,130,246,0.4); border-radius:24px;"></div>
+  <div data-object="true" data-object-type="icon"
+       style="position:absolute; left:200px; top:490px; width:80px; height:80px; z-index:10;
+              background:rgba(59,130,246,0.18); border-radius:20px; display:flex; align-items:center; justify-content:center;">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    </svg>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:120px; top:600px; width:240px; z-index:10; text-align:center;">
+    <div class="mono" style="font-size:11px; color:#3B82F6; letter-spacing:0.2em;">STEP 01</div>
+    <div style="font-family:var(--font-heading); font-weight:600; font-size:26px; color:#fff; margin-top:8px;">Citizen</div>
+    <div style="font-size:15px; color:var(--fg-dim); margin-top:6px; line-height:1.4;">Photo · voice · GPS pin · text — any language</div>
+  </div>
+
+  <!-- Arrow 1 -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:380px; top:585px; width:44px; height:6px; z-index:10;
+              background:linear-gradient(90deg, rgba(59,130,246,0.6), rgba(198,241,53,0.6));"></div>
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:418px; top:576px; width:0; height:0; z-index:10;
+              border-top:12px solid transparent; border-bottom:12px solid transparent; border-left:14px solid rgba(198,241,53,0.7);"></div>
+
+  <!-- Node 2: AI Pipeline -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:440px; top:450px; width:320px; height:280px; z-index:5;
+              background: linear-gradient(180deg, rgba(198,241,53,0.14), rgba(198,241,53,0.04));
+              border:1px solid rgba(198,241,53,0.5); border-radius:24px;
+              box-shadow: 0 0 60px rgba(198,241,53,0.15);"></div>
+  <div data-object="true" data-object-type="icon"
+       style="position:absolute; left:560px; top:490px; width:80px; height:80px; z-index:10;
+              background:rgba(198,241,53,0.22); border-radius:20px; display:flex; align-items:center; justify-content:center;">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#C6F135" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/>
+    </svg>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:460px; top:600px; width:280px; z-index:10; text-align:center;">
+    <div class="mono" style="font-size:11px; color:var(--brand-lime); letter-spacing:0.2em;">STEP 02 · ~12s</div>
+    <div style="font-family:var(--font-heading); font-weight:700; font-size:26px; color:#fff; margin-top:8px;">9 AI Agents</div>
+    <div style="font-size:15px; color:var(--fg-dim); margin-top:6px; line-height:1.4;">LangGraph DAG — verify, dedup, prioritize, route</div>
+  </div>
+
+  <!-- Arrow 2 -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:760px; top:585px; width:44px; height:6px; z-index:10;
+              background:linear-gradient(90deg, rgba(198,241,53,0.6), rgba(245,158,11,0.6));"></div>
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:798px; top:576px; width:0; height:0; z-index:10;
+              border-top:12px solid transparent; border-bottom:12px solid transparent; border-left:14px solid rgba(245,158,11,0.7);"></div>
+
+  <!-- Node 3: Officer -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:820px; top:450px; width:280px; height:280px; z-index:5;
+              background: linear-gradient(180deg, rgba(245,158,11,0.10), rgba(245,158,11,0.02));
+              border:1px solid rgba(245,158,11,0.4); border-radius:24px;"></div>
+  <div data-object="true" data-object-type="icon"
+       style="position:absolute; left:920px; top:490px; width:80px; height:80px; z-index:10;
+              background:rgba(245,158,11,0.18); border-radius:20px; display:flex; align-items:center; justify-content:center;">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
+    </svg>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:840px; top:600px; width:240px; z-index:10; text-align:center;">
+    <div class="mono" style="font-size:11px; color:#f59e0b; letter-spacing:0.2em;">STEP 03</div>
+    <div style="font-family:var(--font-heading); font-weight:600; font-size:26px; color:#fff; margin-top:8px;">Officer</div>
+    <div style="font-size:15px; color:var(--fg-dim); margin-top:6px; line-height:1.4;">Filtered queue — resolve with closure photo</div>
+  </div>
+
+  <!-- Arrow 3 -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:1100px; top:585px; width:44px; height:6px; z-index:10;
+              background:linear-gradient(90deg, rgba(245,158,11,0.6), rgba(139,92,246,0.6));"></div>
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:1138px; top:576px; width:0; height:0; z-index:10;
+              border-top:12px solid transparent; border-bottom:12px solid transparent; border-left:14px solid rgba(139,92,246,0.7);"></div>
+
+  <!-- Node 4: Verification -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:1160px; top:450px; width:280px; height:280px; z-index:5;
+              background: linear-gradient(180deg, rgba(139,92,246,0.10), rgba(139,92,246,0.02));
+              border:1px solid rgba(139,92,246,0.4); border-radius:24px;"></div>
+  <div data-object="true" data-object-type="icon"
+       style="position:absolute; left:1260px; top:490px; width:80px; height:80px; z-index:10;
+              background:rgba(139,92,246,0.18); border-radius:20px; display:flex; align-items:center; justify-content:center;">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2 4 6v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V6l-8-4z"/><path d="m9 12 2 2 4-4"/>
+    </svg>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:1180px; top:600px; width:240px; z-index:10; text-align:center;">
+    <div class="mono" style="font-size:11px; color:#8b5cf6; letter-spacing:0.2em;">STEP 04</div>
+    <div style="font-family:var(--font-heading); font-weight:600; font-size:26px; color:#fff; margin-top:8px;">Verification</div>
+    <div style="font-size:15px; color:var(--fg-dim); margin-top:6px; line-height:1.4;">Auto-QA of closure photo vs. original</div>
+  </div>
+
+  <!-- Arrow 4 -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:1440px; top:585px; width:44px; height:6px; z-index:10;
+              background:linear-gradient(90deg, rgba(139,92,246,0.6), rgba(198,241,53,0.6));"></div>
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:1478px; top:576px; width:0; height:0; z-index:10;
+              border-top:12px solid transparent; border-bottom:12px solid transparent; border-left:14px solid rgba(198,241,53,0.7);"></div>
+
+  <!-- Node 5: Analytics -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:1500px; top:450px; width:320px; height:280px; z-index:5;
+              background: linear-gradient(180deg, rgba(198,241,53,0.12), rgba(198,241,53,0.02));
+              border:1px solid rgba(198,241,53,0.5); border-radius:24px;"></div>
+  <div data-object="true" data-object-type="icon"
+       style="position:absolute; left:1620px; top:490px; width:80px; height:80px; z-index:10;
+              background:rgba(198,241,53,0.22); border-radius:20px; display:flex; align-items:center; justify-content:center;">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#C6F135" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 3v18h18"/><path d="M7 16l4-6 4 3 6-9"/>
+    </svg>
+  </div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:1520px; top:600px; width:280px; z-index:10; text-align:center;">
+    <div class="mono" style="font-size:11px; color:var(--brand-lime); letter-spacing:0.2em;">STEP 05</div>
+    <div style="font-family:var(--font-heading); font-weight:600; font-size:26px; color:#fff; margin-top:8px;">City Health ↑</div>
+    <div style="font-size:15px; color:var(--fg-dim); margin-top:6px; line-height:1.4;">UHS updated · heatmaps · pulse alerts</div>
+  </div>
+
+  <!-- Bottom 3 KPI callouts -->
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:100px; top:820px; width:560px; height:170px; z-index:5;
+              background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005));
+              border:1px solid var(--border); border-radius:20px;"></div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:130px; top:850px; width:500px; z-index:10;">
+    <div class="mono" style="font-size:11px; color:var(--brand-lime); letter-spacing:0.2em;">MULTI-MODAL INPUT</div>
+    <div style="font-family:var(--font-heading); font-weight:500; font-size:24px; color:#fff; margin-top:10px; line-height:1.35;">
+      Photo · voice · GPS · text in any language — CX agent normalizes it.
+    </div>
+  </div>
+
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:680px; top:820px; width:560px; height:170px; z-index:5;
+              background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005));
+              border:1px solid var(--border); border-radius:20px;"></div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:710px; top:850px; width:500px; z-index:10;">
+    <div class="mono" style="font-size:11px; color:var(--brand-lime); letter-spacing:0.2em;">ROLE-BASED DASHBOARDS</div>
+    <div style="font-family:var(--font-heading); font-weight:500; font-size:24px; color:#fff; margin-top:10px; line-height:1.35;">
+      Citizen · Officer · Dept Head · Admin · Super Admin — six curated views.
+    </div>
+  </div>
+
+  <div data-object="true" data-object-type="shape"
+       style="position:absolute; left:1260px; top:820px; width:560px; height:170px; z-index:5;
+              background: linear-gradient(180deg, rgba(198,241,53,0.08), rgba(198,241,53,0.01));
+              border:1px solid rgba(198,241,53,0.3); border-radius:20px;"></div>
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:1290px; top:850px; width:500px; z-index:10;">
+    <div class="mono" style="font-size:11px; color:var(--brand-lime); letter-spacing:0.2em;">◆ LIVE SSE TRACE</div>
+    <div style="font-family:var(--font-heading); font-weight:500; font-size:24px; color:#fff; margin-top:10px; line-height:1.35;">
+      Every AI decision streamed in real time — no black boxes for anyone.
+    </div>
+  </div>
+
+  <div data-object="true" data-object-type="textbox"
+       style="position:absolute; left:100px; top:1030px; width:1720px; z-index:10;">
+    <div class="mono" style="font-size:12px; color:var(--fg-mute); letter-spacing:0.16em;">URBANPULSE AI · END-TO-END TRIAGE FLOW</div>
+  </div>
+
+</div>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
