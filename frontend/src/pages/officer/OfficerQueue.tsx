@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle, Calendar, CheckCircle2, MapPin,
@@ -8,7 +8,10 @@ import { Badge } from '../../components/ui/Badge';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { apiFetch, apiUrl } from '../../lib/api';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useToast } from '../../components/ui/Toast';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
+import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 
 interface Ticket {
   id: string;
@@ -47,13 +50,17 @@ const FILTERS: { key: StatusFilter; label: string }[] = [
 ];
 
 export const OfficerQueue: React.FC = () => {
+  useDocumentTitle('Officer Queue');
   const { toast } = useToast();
+  const breadcrumbs = useBreadcrumbs();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [closureUrl, setClosureUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  const hasLoadedOnce = useRef(false);
 
   const loadQueue = useCallback(() => {
     apiFetch('/api/officers/queue')
@@ -64,20 +71,25 @@ export const OfficerQueue: React.FC = () => {
       .then(data => {
         setTickets(data);
         setLoading(false);
+        hasLoadedOnce.current = true;
+        setError(null);
       })
       .catch(() => {
-        if (!tickets.length) {
+        setLoading(false);
+        if (!hasLoadedOnce.current) {
           setError('Could not load officer queue. Is the backend running?');
         }
-        setLoading(false);
       });
-  }, [tickets.length]);
+  }, []);
+
+  const loadQueueRef = useRef(loadQueue);
+  loadQueueRef.current = loadQueue;
 
   useEffect(() => {
-    loadQueue();
-    const interval = setInterval(loadQueue, POLL_INTERVAL);
+    loadQueueRef.current();
+    const interval = setInterval(() => loadQueueRef.current(), POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [loadQueue]);
+  }, []);
 
   const handleStartWork = async (ticketId: string) => {
     await apiFetch(`/api/tickets/${ticketId}/status`, {
@@ -117,11 +129,11 @@ export const OfficerQueue: React.FC = () => {
   if (loading) {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
-        <div className="border-b border-panel-border pb-6 mb-6">
-          <div className="h-7 w-64 animate-pulse bg-panel-border rounded mb-2" />
-          <div className="h-4 w-80 animate-pulse bg-panel-border rounded" />
+        <div className="border-b border-border-default pb-6 mb-6">
+          <div className="h-7 w-64 animate-pulse bg-border-default rounded mb-2" />
+          <div className="h-4 w-80 animate-pulse bg-border-default rounded" />
         </div>
-        <div className="grid grid-cols-1 gap-4">
+        <div role="status" aria-live="polite" className="grid grid-cols-1 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -130,11 +142,35 @@ export const OfficerQueue: React.FC = () => {
     );
   }
 
+  if (!loading && error && tickets.length === 0) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto flex flex-col items-center justify-center min-h-screen text-center space-y-4">
+        <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/40 flex items-center justify-center">
+          <AlertTriangle size={24} className="text-red-400" />
+        </div>
+        <h2 className="text-lg font-semibold text-red-300">Connection Error</h2>
+        <p className="text-sm text-text-secondary max-w-md">{error}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setLoading(true);
+            loadQueue();
+          }}
+          className="focus-ring inline-flex items-center gap-1.5 px-5 py-2 bg-brand-lime text-background font-semibold text-sm rounded hover:bg-brand-lime-hover transition-all active:scale-[0.97]"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 min-h-screen">
-      <div className="border-b border-panel-border pb-6">
+      <Breadcrumbs items={breadcrumbs} />
+      <div className="border-b border-border-default pb-6">
         <h1 className="text-2xl font-serif italic font-bold">Field Officer Work Queue</h1>
-        <p className="text-gray-500 text-xs mt-1">
+        <p className="text-text-tertiary text-xs mt-1">
           Prioritized stack of assigned tickets — dispatch, resolve, and trigger verification.
         </p>
       </div>
@@ -147,7 +183,7 @@ export const OfficerQueue: React.FC = () => {
             type="button"
             aria-label="Dismiss error"
             onClick={() => setError(null)}
-            className="ml-auto text-red-400 hover:text-red-200 text-xs"
+            className="focus-ring ml-auto text-red-400 hover:text-red-200 text-xs"
           >
             Dismiss
           </button>
@@ -156,24 +192,24 @@ export const OfficerQueue: React.FC = () => {
 
       {/* Status filter tabs */}
       {tickets.length > 0 && (
-        <div className="flex items-center gap-1.5 border-b border-panel-border pb-3">
-          <Filter size={14} className="text-gray-500" />
+        <div className="flex items-center gap-1.5 border-b border-border-default pb-3">
+          <Filter size={14} className="text-text-tertiary" />
           {FILTERS.map(f => (
             <button
               key={f.key}
               type="button"
               aria-label={`Filter: ${f.label}`}
               onClick={() => setStatusFilter(f.key)}
-              className={`text-xs font-mono px-3 py-1 rounded transition-colors ${
+              className={`focus-ring text-xs font-mono px-3 py-1 rounded transition-colors ${
                 statusFilter === f.key
                   ? 'bg-brand-lime text-background font-semibold'
-                  : 'text-gray-400 hover:text-foreground'
+                  : 'text-text-secondary hover:text-foreground'
               }`}
             >
               {f.label}
             </button>
           ))}
-          <span className="text-[10px] text-gray-600 ml-auto font-mono">
+          <span className="text-[10px] text-text-quaternary ml-auto font-mono">
             Polling every {POLL_INTERVAL / 1000}s
           </span>
         </div>
@@ -184,27 +220,28 @@ export const OfficerQueue: React.FC = () => {
           icon={CheckCircle2}
           title={statusFilter === 'all' ? 'No open tickets in your queue' : `No ${statusFilter.replace('_', ' ')} tickets`}
           message="New tickets will appear here once the AI pipeline assigns them."
+          action={error ? { label: 'Retry', onClick: () => { setError(null); setLoading(true); loadQueue(); } } : undefined}
         />
       ) : (
         <div className="space-y-4">
           {filteredTickets.map(ticket => (
             <div
               key={ticket.id}
-              className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-4"
+              className="relative bg-surface-card border border-border-default rounded-xl p-5 space-y-4 card-glow hover:border-brand-lime/15 transition-all duration-300"
             >
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                 <div className="space-y-2 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-mono text-gray-500">#{ticket.id.slice(0, 8)}</span>
+                    <span className="text-xs font-mono text-text-tertiary">#{ticket.id.slice(0, 8)}</span>
                     <Badge type="priority" value={priorityBadgeValue(ticket.priority_score)} />
                     <Badge type="status" value={statusBadgeValue(ticket.status)} />
                   </div>
                   <h3 className="font-semibold text-foreground">{ticket.category}</h3>
-                  <p className="text-sm text-gray-400">{ticket.description}</p>
+                  <p className="text-sm text-text-secondary">{ticket.description}</p>
                   {ticket.priority_reason && (
-                    <p className="text-xs text-gray-500 italic">{ticket.priority_reason}</p>
+                    <p className="text-xs text-text-tertiary italic">{ticket.priority_reason}</p>
                   )}
-                  <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                  <div className="flex flex-wrap gap-4 text-xs text-text-tertiary">
                     <span className="flex items-center gap-1">
                       <MapPin size={12} /> {ticket.latitude.toFixed(4)}, {ticket.longitude.toFixed(4)}
                     </span>
@@ -218,38 +255,38 @@ export const OfficerQueue: React.FC = () => {
                   <img
                     src={ticket.original_media_url.startsWith('/') ? apiUrl(ticket.original_media_url) : ticket.original_media_url}
                     alt="Issue"
-                    className="w-24 h-24 object-cover rounded border border-panel-border shrink-0"
+                    className="w-24 h-24 object-cover rounded border border-border-default shrink-0"
                   />
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-panel-border">
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-border-default">
                 {ticket.status === 'assigned' && (
                   <button
                     onClick={() => handleStartWork(ticket.id)}
                     aria-label={`Start work on ticket ${ticket.id.slice(0, 8)}`}
-                    className="inline-flex items-center gap-1.5 text-xs bg-orange-950/40 text-orange-300 border border-orange-800/40 px-3 py-1.5 rounded hover:bg-orange-950/60"
+                    className="focus-ring inline-flex items-center gap-1.5 text-xs bg-orange-950/40 text-orange-300 border border-orange-800/40 px-3 py-1.5 rounded hover:bg-orange-950/60 transition-all active:scale-[0.97]"
                   >
                     <Wrench size={14} /> Start Work
                   </button>
                 )}
                 <Link
                   to={`/shared/trace/${ticket.id}`}
-                  className="inline-flex items-center gap-1.5 text-xs bg-panel-card text-brand-lime border border-brand-lime/30 px-3 py-1.5 rounded hover:bg-brand-soft"
+                  className="focus-ring inline-flex items-center gap-1.5 text-xs bg-brand-soft text-brand-lime border border-brand-lime/20 px-3 py-1.5 rounded hover:bg-brand-lime/15 transition-all"
                 >
                   <PlayCircle size={14} /> Agent Trace
                 </Link>
                 <Link
                   to={`/citizen/report/${ticket.id}`}
-                  className="inline-flex items-center gap-1.5 text-xs text-gray-400 border border-panel-border px-3 py-1.5 rounded hover:text-foreground"
+                  className="focus-ring inline-flex items-center gap-1.5 text-xs text-text-secondary border border-border-default px-3 py-1.5 rounded hover:text-foreground hover:border-border-hover transition-all"
                 >
                   View Details
                 </Link>
               </div>
 
               {(ticket.status === 'assigned' || ticket.status === 'in_progress') && (
-                <div className="bg-background/50 border border-panel-border rounded p-4 space-y-3">
-                  <p className="text-xs font-mono text-gray-500 uppercase tracking-wider">Submit Resolution</p>
+                <div className="bg-background/50 border border-border-default rounded p-4 space-y-3">
+                  <p className="text-xs font-mono text-text-tertiary uppercase tracking-wider">Submit Resolution</p>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       id="closure-photo-url"
@@ -262,7 +299,7 @@ export const OfficerQueue: React.FC = () => {
                         setResolvingId(ticket.id);
                         setClosureUrl(e.target.value);
                       }}
-                      className="flex-1 bg-background border border-panel-border rounded px-3 py-2 text-sm text-foreground placeholder:text-gray-600"
+                      className="focus-ring flex-1 bg-background border border-border-default rounded px-3 py-2 text-sm text-foreground placeholder:text-text-quaternary"
                     />
                     <button
                       type="button"
@@ -287,7 +324,7 @@ export const OfficerQueue: React.FC = () => {
                             setResolvingId(null);
                           });
                       }}
-                      className="inline-flex items-center justify-center gap-1.5 text-xs bg-brand-lime text-background font-semibold px-4 py-2 rounded hover:bg-brand-lime-hover disabled:opacity-50"
+                      className="focus-ring inline-flex items-center justify-center gap-1.5 text-xs bg-brand-lime text-background font-semibold px-4 py-2 rounded hover:bg-brand-lime-hover disabled:opacity-50"
                     >
                       <Upload size={14} />
                       Use Sample & Resolve
@@ -296,8 +333,8 @@ export const OfficerQueue: React.FC = () => {
                       type="button"
                       aria-label={`Submit closure for ticket ${ticket.id.slice(0, 8)}`}
                       onClick={() => handleResolve(ticket.id)}
-                      disabled={resolvingId === ticket.id && !closureUrl}
-                      className="inline-flex items-center justify-center gap-1.5 text-xs border border-panel-border text-gray-300 px-4 py-2 rounded hover:text-foreground disabled:opacity-50"
+                      disabled={resolvingId !== ticket.id || !closureUrl.trim()}
+                      className="focus-ring inline-flex items-center justify-center gap-1.5 text-xs border border-border-default text-text-primary px-4 py-2 rounded hover:text-foreground disabled:opacity-50"
                     >
                       Submit Closure
                     </button>
@@ -309,7 +346,7 @@ export const OfficerQueue: React.FC = () => {
         </div>
       )}
 
-      <div className="text-xs text-gray-600 flex items-center gap-1">
+      <div className="text-xs text-text-quaternary flex items-center gap-1">
         <AlertTriangle size={12} />
         Queue sorted by priority score (highest first).
       </div>

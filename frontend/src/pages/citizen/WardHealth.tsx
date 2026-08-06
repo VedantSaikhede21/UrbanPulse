@@ -3,6 +3,9 @@ import { Activity, AlertTriangle, TrendingUp, MapPin } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Badge } from '../../components/ui/Badge';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
 
 interface Ward {
@@ -42,6 +45,8 @@ function avgUhs(wards: Ward[]): number {
 }
 
 export const WardHealth: React.FC = () => {
+  useDocumentTitle('Ward Health');
+  const breadcrumbs = useBreadcrumbs();
   const [wards, setWards] = useState<Ward[]>([]);
   const [pulse, setPulse] = useState<CityPulse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,18 +94,19 @@ export const WardHealth: React.FC = () => {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8 min-h-screen">
+      <Breadcrumbs items={breadcrumbs} />
 
       {/* Header */}
-      <div className="border-b border-panel-border pb-6">
+      <div className="border-b border-border-default pb-6">
         <h1 className="text-2xl font-serif italic font-bold">Ward Health View</h1>
-        <p className="text-gray-500 text-xs mt-1">
+        <p className="text-text-tertiary text-xs mt-1">
           Urban Health Score (UHS) by ward — infrastructure quality, resolution efficiency, and live pulse alerts.
         </p>
       </div>
 
       {/* Loading */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div role="status" aria-live="polite" className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {Array.from({ length: 3 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -110,32 +116,32 @@ export const WardHealth: React.FC = () => {
           {/* City Summary */}
           {pulse && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
+              <div className="bg-surface-card border border-border-default p-6 rounded flex items-center justify-between">
                 <div className="space-y-1.5">
-                  <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">City Avg UHS</span>
+                  <span className="text-text-tertiary text-[10px] font-mono uppercase tracking-wider block">City Avg UHS</span>
                   <span className="text-3xl font-serif italic font-bold block">{avgUhs(wards).toFixed(1)}</span>
                 </div>
                 <div className="w-12 h-12 rounded bg-brand-soft flex items-center justify-center text-brand-lime border border-brand-lime/10">
                   <Activity size={20} />
                 </div>
               </div>
-              <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
+              <div className="bg-surface-card border border-border-default p-6 rounded flex items-center justify-between">
                 <div className="space-y-1.5">
-                  <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">Wards Monitored</span>
+                  <span className="text-text-tertiary text-[10px] font-mono uppercase tracking-wider block">Wards Monitored</span>
                   <span className="text-3xl font-serif italic font-bold block">{wards.length}</span>
                 </div>
-                <div className="w-12 h-12 rounded bg-panel-bg flex items-center justify-center text-gray-400 border border-panel-border">
+                <div className="w-12 h-12 rounded bg-surface-raised flex items-center justify-center text-text-secondary border border-border-default">
                   <MapPin size={20} />
                 </div>
               </div>
-              <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
+              <div className="bg-surface-card border border-border-default p-6 rounded flex items-center justify-between">
                 <div className="space-y-1.5">
-                  <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">Critical Wards</span>
+                  <span className="text-text-tertiary text-[10px] font-mono uppercase tracking-wider block">Critical Wards</span>
                   <span className={`text-3xl font-serif italic font-bold block ${pulse.critical_wards > 0 ? 'text-red-400' : 'text-green-400'}`}>
                     {pulse.critical_wards}
                   </span>
                 </div>
-                <div className="w-12 h-12 rounded bg-panel-bg flex items-center justify-center text-gray-400 border border-panel-border">
+                <div className="w-12 h-12 rounded bg-surface-raised flex items-center justify-center text-text-secondary border border-border-default">
                   <AlertTriangle size={20} />
                 </div>
               </div>
@@ -149,12 +155,12 @@ export const WardHealth: React.FC = () => {
               {wards.map(ward => (
                 <div
                   key={ward.id}
-                  className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-3"
+                  className="bg-surface-card border border-border-default rounded-lg p-5 space-y-3"
                 >
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="font-semibold text-foreground">{ward.name}</h3>
-                      <p className="text-[10px] font-mono text-gray-500 mt-0.5">Ward #{ward.id}</p>
+                      <p className="text-[10px] font-mono text-text-tertiary mt-0.5">Ward #{ward.id}</p>
                     </div>
                     <Badge
                       type="priority"
@@ -167,9 +173,9 @@ export const WardHealth: React.FC = () => {
                       <span className={`text-2xl font-bold font-serif italic ${uhsTextColor(ward.uhs_score)}`}>
                         {ward.uhs_score.toFixed(1)}
                       </span>
-                      <span className="text-[10px] font-mono text-gray-500">/ 100</span>
+                      <span className="text-[10px] font-mono text-text-tertiary">/ 100</span>
                     </div>
-                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-2 bg-border-default rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${uhsColor(ward.uhs_score)}`}
                         style={{ width: `${ward.uhs_score}%` }}
@@ -183,7 +189,7 @@ export const WardHealth: React.FC = () => {
 
           {/* Trending Categories */}
           {pulse && pulse.trending_categories.length > 0 && (
-            <div className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-3">
+            <div className="bg-surface-card border border-border-default rounded-lg p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <TrendingUp size={16} className="text-brand-lime" />
                 <h3 className="text-sm font-semibold">Trending Issues City-Wide</h3>
@@ -192,7 +198,7 @@ export const WardHealth: React.FC = () => {
                 {pulse.trending_categories.map(c => (
                   <div
                     key={c.category}
-                    className="bg-panel-bg border border-panel-border rounded px-3 py-1.5 text-xs flex items-center gap-2"
+                    className="bg-surface-raised border border-border-default rounded px-3 py-1.5 text-xs flex items-center gap-2"
                   >
                     <span className="text-foreground">{c.category}</span>
                     <span className="text-brand-lime font-mono font-bold">{c.count}</span>

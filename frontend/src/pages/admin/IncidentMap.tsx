@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { AlertTriangle, Loader } from 'lucide-react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -31,6 +32,7 @@ const STATUS_RADIUS: Record<string, number> = {
 };
 
 export const IncidentMap: React.FC = () => {
+  useDocumentTitle('Incident Map');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,8 +94,21 @@ export const IncidentMap: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
+        <div className="flex items-center justify-center py-24" role="status" aria-label="Loading incidents">
           <Loader size={24} className="text-brand-lime animate-spin" />
+        </div>
+      ) : tickets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="w-14 h-14 rounded-full bg-panel-card border border-panel-border flex items-center justify-center mb-4">
+            <AlertTriangle size={24} className="text-gray-500" />
+          </div>
+          <h3 className="text-base font-semibold mb-1.5">No incidents to display</h3>
+          <p className="text-sm text-gray-400 max-w-xs mb-5">
+            When citizens file reports with location data, they will appear on this map.
+          </p>
+          <button type="button" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
+            Refresh
+          </button>
         </div>
       ) : (
         <>

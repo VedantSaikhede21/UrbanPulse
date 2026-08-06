@@ -4,7 +4,10 @@ import {
   Zap, Map, Bell, CheckCircle2, BarChart2, Cpu,
 } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import type { LucideIcon } from 'lucide-react';
 
 interface AgentInfo {
@@ -34,6 +37,8 @@ const AGENTS: AgentInfo[] = [
 ];
 
 export const AgentMonitoring: React.FC = () => {
+  useDocumentTitle('Agent Monitoring');
+  const breadcrumbs = useBreadcrumbs();
   const [pulse, setPulse] = useState<CityPulseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,13 +66,13 @@ export const AgentMonitoring: React.FC = () => {
   if (error) {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
-        <div className="flex flex-col items-center justify-center py-24">
+        <div role="alert" className="flex flex-col items-center justify-center py-24">
           <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
             <AlertTriangle size={24} className="text-red-400" />
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load agent data</h3>
-          <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
-          <button type="button" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
+          <p className="text-sm text-secondary max-w-xs mb-5">{error}</p>
+          <button type="button" aria-label="Retry loading agent data" onClick={loadData} className="focus-ring px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
             Retry
           </button>
         </div>
@@ -81,37 +86,41 @@ export const AgentMonitoring: React.FC = () => {
     <div className="p-6 max-w-6xl mx-auto space-y-6 min-h-screen">
 
       <div className="border-b border-panel-border pb-6">
+        <Breadcrumbs items={breadcrumbs} />
         <h1 className="text-2xl font-serif italic font-bold">AI Agent Monitoring Console</h1>
-        <p className="text-gray-500 text-xs mt-1">
+        <p className="text-tertiary text-xs mt-1">
           Real-time status of all 9 AI agents powering the UrbanPulse pipeline.
           <span className="ml-3 inline-block px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400 text-[9px] font-mono border border-yellow-700/30">Demo Configuration</span>
         </p>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div role="status" className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : (
         <>
           {/* System status bar */}
-          <div className="bg-panel-card border border-panel-border rounded-lg p-5 flex items-center justify-between">
+          <div className="bg-panel-card border border-panel-border rounded-xl p-5 flex items-center justify-between card-glow">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded bg-brand-soft flex items-center justify-center text-brand-lime border border-brand-lime/10">
+              <div className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand-lime border border-brand-lime/10">
                 <Cpu size={18} />
               </div>
               <div>
                 <p className="text-sm font-semibold">System Status</p>
-                <p className="text-xs text-gray-500">All systems operational</p>
+                <p className="text-xs text-tertiary">All 9 agents operational</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <div className="flex items-center gap-2 text-xs text-tertiary">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
                 <span className="font-mono">{onlineCount}/{AGENTS.length} agents online</span>
               </div>
               {pulse && (
-                <div className="flex items-center gap-2 text-xs text-gray-500 border-l border-panel-border pl-4">
+                <div className="flex items-center gap-2 text-xs text-tertiary border-l border-panel-border pl-4">
                   <Activity size={14} className="text-brand-lime" />
                   <span className="font-mono">{pulse.critical_wards} critical wards</span>
                 </div>
@@ -124,22 +133,25 @@ export const AgentMonitoring: React.FC = () => {
             {AGENTS.map(agent => {
               const Icon = agent.icon;
               return (
-                <div key={agent.name} className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-4">
+                <div key={agent.name} className="bg-panel-card border border-panel-border rounded-xl p-5 space-y-4 card-glow hover:border-brand-lime/15 transition-all duration-300">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-brand-soft border border-brand-lime/10 flex items-center justify-center text-brand-lime shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-brand-soft border border-brand-lime/10 flex items-center justify-center text-brand-lime shrink-0">
                       <Icon size={18} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold truncate">{agent.name}</h3>
-                      <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{agent.description}</p>
+                      <p className="text-xs text-tertiary mt-0.5 leading-relaxed">{agent.description}</p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-panel-border/60">
+                  <div className="flex items-center justify-between pt-2 border-t border-panel-border/60">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                      </span>
                       <span className="text-[10px] font-mono text-green-400 uppercase tracking-wider">Online</span>
                     </div>
-                    <span className="text-[10px] font-mono text-gray-500">{agent.lastActive}</span>
+                    <span className="text-[10px] font-mono text-tertiary">{agent.lastActive}</span>
                   </div>
                 </div>
               );
@@ -155,17 +167,17 @@ export const AgentMonitoring: React.FC = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 <div className="bg-panel-bg border border-panel-border rounded p-3">
-                  <span className="text-gray-500 block font-mono text-[10px] uppercase tracking-wider mb-1">Total Wards</span>
+                  <span className="text-tertiary block font-mono text-[10px] uppercase tracking-wider mb-1">Total Wards</span>
                   <span className="text-lg font-serif italic font-bold">{pulse.wards.length}</span>
                 </div>
                 <div className="bg-panel-bg border border-panel-border rounded p-3">
-                  <span className="text-gray-500 block font-mono text-[10px] uppercase tracking-wider mb-1">Critical Wards</span>
+                  <span className="text-tertiary block font-mono text-[10px] uppercase tracking-wider mb-1">Critical Wards</span>
                   <span className={`text-lg font-serif italic font-bold ${pulse.critical_wards > 0 ? 'text-red-400' : 'text-green-400'}`}>
                     {pulse.critical_wards}
                   </span>
                 </div>
                 <div className="bg-panel-bg border border-panel-border rounded p-3">
-                  <span className="text-gray-500 block font-mono text-[10px] uppercase tracking-wider mb-1">Trending Issues</span>
+                  <span className="text-tertiary block font-mono text-[10px] uppercase tracking-wider mb-1">Trending Issues</span>
                   <span className="text-lg font-serif italic font-bold">{pulse.trending_categories.length}</span>
                 </div>
               </div>

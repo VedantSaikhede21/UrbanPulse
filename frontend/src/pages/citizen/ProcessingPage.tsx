@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader, CheckCircle2, AlertCircle, Sparkles, Activity } from 'lucide-react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiUrl } from '../../lib/api';
 
 interface AgentStep {
@@ -26,6 +27,7 @@ const AGENT_ICONS: Record<string, string> = {
 };
 
 export const ProcessingPage: React.FC = () => {
+  useDocumentTitle('Processing Report');
   const { ticketId } = useParams<{ ticketId: string }>();
   const navigate = useNavigate();
   const [steps, setSteps] = useState<AgentStep[]>([]);
@@ -73,7 +75,7 @@ export const ProcessingPage: React.FC = () => {
     if (done) {
       const timer = setTimeout(() => {
         navigate(`/citizen/report/${ticketId}`);
-      }, 2500);
+      }, 30000);
       return () => clearTimeout(timer);
     }
   }, [done, navigate, ticketId]);
@@ -94,12 +96,16 @@ export const ProcessingPage: React.FC = () => {
         </div>
         <p className="text-gray-500 text-xs">
           {done
-            ? 'Redirecting to ticket detail...'
+            ? 'Your report has been fully processed by the AI pipeline.'
             : `Running 8-agent LangGraph pipeline for ticket ${ticketId?.slice(0, 8)}...`}
         </p>
       </div>
 
-      <div className="bg-panel-card border border-panel-border rounded-lg overflow-hidden">
+      <div
+        className="bg-panel-card border border-panel-border rounded-lg overflow-hidden"
+        aria-live="polite"
+        aria-label="Pipeline processing status"
+      >
         <div className="flex items-center gap-2 px-5 py-3 border-b border-panel-border bg-panel-bg">
           <Activity size={14} className={`${!done ? 'text-brand-lime animate-pulse' : 'text-green-400'}`} />
           <span className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
@@ -111,6 +117,13 @@ export const ProcessingPage: React.FC = () => {
         </div>
 
         <div className="p-5 space-y-4 max-h-[420px] overflow-y-auto">
+          {steps.length === 0 && !done && !error && (
+            <div className="flex items-center gap-3 text-gray-400 py-8 justify-center">
+              <Loader size={20} className="animate-spin text-brand-lime" />
+              <span className="text-sm font-mono">Connecting to AI pipeline...</span>
+            </div>
+          )}
+
           {steps.map((step, i) => (
             <div key={`step-${i}`} className="flex gap-4">
               <div className="flex flex-col items-center">
@@ -149,10 +162,25 @@ export const ProcessingPage: React.FC = () => {
       </div>
 
       {done && (
-        <div className="bg-brand-soft border border-brand-lime/20 rounded-lg p-5 text-center space-y-2">
-          <CheckCircle2 size={24} className="text-brand-lime mx-auto" />
+        <div className="bg-brand-soft border border-brand-lime/20 rounded-lg p-5 text-center space-y-3">
+          <CheckCircle2 size={28} className="text-brand-lime mx-auto" />
           <p className="text-sm font-serif italic text-brand-lime font-bold">Report Processed Successfully!</p>
-          <p className="text-xs text-gray-400">Redirecting to ticket detail...</p>
+          <div className="bg-background/50 border border-panel-border rounded px-4 py-3 inline-flex items-center gap-4 text-xs">
+            <span className="text-gray-400">
+              Ticket ID: <span className="font-mono text-foreground">{ticketId?.slice(0, 8)}</span>
+            </span>
+            <span className="w-px h-4 bg-panel-border" />
+            <span className="text-gray-400">
+              Status: <span className="text-brand-lime font-semibold">Reported</span>
+            </span>
+          </div>
+          <button
+            onClick={() => navigate(`/citizen/report/${ticketId}`)}
+            className="inline-flex items-center gap-1.5 px-5 py-2 bg-brand-lime text-background font-semibold text-sm rounded hover:bg-brand-lime-hover transition-all active:scale-[0.97]"
+          >
+            View Report
+          </button>
+          <p className="text-[10px] text-gray-500">Auto-redirect in 30s if no action taken</p>
         </div>
       )}
 

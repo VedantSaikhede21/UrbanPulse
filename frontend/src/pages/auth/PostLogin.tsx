@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { homeForRole } from '../../components/layout/RoleGuard';
 
 export default function PostLogin() {
+  useDocumentTitle('Redirecting...');
   const { role, loading, user } = useAuth();
   const navigate = useNavigate();
 

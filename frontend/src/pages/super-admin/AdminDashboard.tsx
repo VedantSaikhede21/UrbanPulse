@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import {
-  AlertTriangle, FileText, Clock, CheckCircle2, Users,
+  AlertTriangle, FileText, CheckCircle2, Users, TrendingUp,
 } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
+import { MetricCard } from '../../components/ui/Card';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -35,6 +38,7 @@ function formatDate(dateStr: string): string {
 }
 
 export const AdminDashboard: React.FC = () => {
+  useDocumentTitle('Admin Dashboard');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,13 +78,13 @@ export const AdminDashboard: React.FC = () => {
   if (error) {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
-        <div className="flex flex-col items-center justify-center py-24">
+        <div role="alert" className="flex flex-col items-center justify-center py-24">
           <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
             <AlertTriangle size={24} className="text-red-400" />
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load dashboard</h3>
           <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
-          <button type="button" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
+          <button type="button" aria-label="Retry loading dashboard" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
             Retry
           </button>
         </div>
@@ -99,7 +103,7 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div role="status" className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-4 animate-pulse">
               <div className="h-3 w-2/5 bg-gray-700/50 rounded" />
@@ -110,47 +114,24 @@ export const AdminDashboard: React.FC = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Total Tickets</span>
-                <span className="text-2xl font-serif italic font-bold block">{totalTickets}</span>
-              </div>
-              <div className="w-10 h-10 rounded bg-panel-bg flex items-center justify-center text-gray-400 border border-panel-border">
-                <FileText size={18} />
-              </div>
-            </div>
-            <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Open</span>
-                <span className="text-2xl font-serif italic font-bold block">{openTickets}</span>
-              </div>
-              <div className="w-10 h-10 rounded bg-orange-950/40 flex items-center justify-center text-orange-400 border border-orange-800/30">
-                <Clock size={18} />
-              </div>
-            </div>
-            <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Resolved</span>
-                <span className="text-2xl font-serif italic font-bold text-brand-lime block">{resolvedTickets}</span>
-              </div>
-              <div className="w-10 h-10 rounded bg-brand-soft flex items-center justify-center text-brand-lime border border-brand-lime/10">
-                <CheckCircle2 size={18} />
-              </div>
-            </div>
-            <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Active Officers</span>
-                <span className="text-2xl font-serif italic font-bold block">{activeOfficers}</span>
-              </div>
-              <div className="w-10 h-10 rounded bg-panel-bg flex items-center justify-center text-gray-400 border border-panel-border">
-                <Users size={18} />
-              </div>
-            </div>
+            <MetricCard label="Total Tickets" icon={<FileText size={18} />}>
+              {totalTickets}
+            </MetricCard>
+            <MetricCard label="Open" icon={<TrendingUp size={18} />}>
+              {openTickets}
+            </MetricCard>
+            <MetricCard label="Resolved" icon={<CheckCircle2 size={18} />} accent>
+              {resolvedTickets}
+            </MetricCard>
+            <MetricCard label="Active Officers" icon={<Users size={18} />}>
+              {activeOfficers}
+            </MetricCard>
           </div>
 
-          <div className="bg-panel-card border border-panel-border rounded-lg">
-            <div className="px-5 py-4 border-b border-panel-border">
+          <div className="bg-panel-card border border-panel-border rounded-lg card-glow overflow-hidden">
+            <div className="px-5 py-4 border-b border-panel-border flex items-center justify-between">
               <h3 className="text-sm font-semibold">Recent Tickets</h3>
+              <span className="text-[10px] font-mono text-gray-500">{recentTickets.length} entries</span>
             </div>
             {recentTickets.length === 0 ? (
               <div className="flex flex-col items-center py-12 text-center">
@@ -158,10 +139,10 @@ export const AdminDashboard: React.FC = () => {
                 <p className="text-sm text-gray-500">No tickets found.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs font-mono">
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-panel-border text-gray-500 text-[10px] uppercase tracking-wider">
+                    <tr className="border-b border-panel-border text-gray-500 text-[10px] font-mono uppercase tracking-wider">
                       <th className="text-left px-5 py-3 font-medium">ID</th>
                       <th className="text-left px-5 py-3 font-medium">Category</th>
                       <th className="text-left px-5 py-3 font-medium">Status</th>
@@ -170,18 +151,24 @@ export const AdminDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentTickets.map(ticket => (
-                      <tr key={ticket.id} className="border-b border-panel-border/50 hover:bg-panel-bg/40 transition-colors">
-                        <td className="px-5 py-3 text-gray-400">#{ticket.id.slice(0, 8)}</td>
-                        <td className="px-5 py-3 text-foreground">{ticket.category}</td>
+                    {recentTickets.map((ticket, i) => (
+                      <motion.tr
+                        key={ticket.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                        className="border-b border-panel-border/50 hover:bg-panel-bg/60 transition-colors"
+                      >
+                        <td className="px-5 py-3 font-mono text-gray-400">#{ticket.id.slice(0, 8)}</td>
+                        <td className="px-5 py-3 text-foreground font-medium">{ticket.category}</td>
                         <td className="px-5 py-3">
                           <Badge type="status" value={statusBadgeValue(ticket.status)} />
                         </td>
                         <td className="px-5 py-3">
                           <Badge type="priority" value={ticket.priority_score >= 3 ? 'high' : ticket.priority_score === 2 ? 'medium' : 'low'} />
                         </td>
-                        <td className="px-5 py-3 text-gray-500">{formatDate(ticket.created_at)}</td>
-                      </tr>
+                        <td className="px-5 py-3 text-gray-500 font-mono">{formatDate(ticket.created_at)}</td>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>

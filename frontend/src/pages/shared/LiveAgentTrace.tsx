@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Activity, Sparkles, CheckCircle2, AlertCircle, Loader, Play } from 'lucide-react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiUrl } from '../../lib/api';
 
 interface AgentStep {
@@ -26,6 +27,7 @@ const AGENT_ICONS: Record<string, string> = {
 };
 
 export const LiveAgentTrace: React.FC = () => {
+  useDocumentTitle('Agent Trace');
   const { ticketId: routeTicketId } = useParams<{ ticketId?: string }>();
   const [ticketId, setTicketId] = useState(routeTicketId || '');
   const [steps, setSteps] = useState<AgentStep[]>([]);

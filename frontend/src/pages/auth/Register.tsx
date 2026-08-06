@@ -1,7 +1,9 @@
 import React from 'react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { PageStub } from '../../components/ui/PageStub';
 
 export const Register: React.FC = () => {
+  useDocumentTitle('Register');
   return (
     <PageStub
       title="Citizen Registration"

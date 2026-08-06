@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, CheckCircle2, AlertTriangle, Plus, MapPin, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { FileText, CheckCircle2, AlertTriangle, Plus, MapPin, Calendar, AlertCircle, TrendingUp } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
+import { MetricCard } from '../../components/ui/Card';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -45,6 +48,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export const CitizenDashboard: React.FC = () => {
+  useDocumentTitle('Dashboard');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,47 +123,15 @@ export const CitizenDashboard: React.FC = () => {
 
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
-          <div className="space-y-1.5">
-            <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">My Total Reports</span>
-            {loading ? (
-              <div className="h-8 w-16 animate-pulse bg-panel-border rounded" />
-            ) : (
-              <span className="text-3xl font-serif italic font-bold block">{totalReports}</span>
-            )}
-          </div>
-          <div className="w-12 h-12 rounded bg-panel-bg flex items-center justify-center text-gray-400 border border-panel-border">
-            <FileText size={20} />
-          </div>
-        </div>
-
-        <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
-          <div className="space-y-1.5">
-            <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">Open Reports</span>
-            {loading ? (
-              <div className="h-8 w-16 animate-pulse bg-panel-border rounded" />
-            ) : (
-              <span className="text-3xl font-serif italic font-bold block">{openReports}</span>
-            )}
-          </div>
-          <div className="w-12 h-12 rounded bg-orange-950/40 flex items-center justify-center text-orange-400 border border-orange-800/30">
-            <Clock size={20} />
-          </div>
-        </div>
-
-        <div className="bg-panel-card border border-panel-border p-6 rounded flex items-center justify-between">
-          <div className="space-y-1.5">
-            <span className="text-gray-500 text-[10px] font-mono uppercase tracking-wider block">Issues Resolved</span>
-            {loading ? (
-              <div className="h-8 w-16 animate-pulse bg-panel-border rounded" />
-            ) : (
-              <span className="text-3xl font-serif italic font-bold text-brand-lime block">{resolvedReports}</span>
-            )}
-          </div>
-          <div className="w-12 h-12 rounded bg-brand-soft flex items-center justify-center text-brand-lime border border-brand-lime/10">
-            <CheckCircle2 size={20} />
-          </div>
-        </div>
+        <MetricCard label="My Total Reports" icon={<FileText size={20} />}>
+          {loading ? <div className="h-8 w-16 shimmer rounded" /> : totalReports}
+        </MetricCard>
+        <MetricCard label="Open Reports" icon={<TrendingUp size={20} />}>
+          {loading ? <div className="h-8 w-16 shimmer rounded" /> : openReports}
+        </MetricCard>
+        <MetricCard label="Issues Resolved" icon={<CheckCircle2 size={20} />} accent>
+          {loading ? <div className="h-8 w-16 shimmer rounded" /> : resolvedReports}
+        </MetricCard>
       </div>
 
       {/* Recent Reports */}
@@ -188,11 +160,16 @@ export const CitizenDashboard: React.FC = () => {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {recentTickets.map(ticket => (
-              <Link
+            {recentTickets.map((ticket, i) => (
+              <motion.div
                 key={ticket.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+              >
+              <Link
                 to={`/citizen/report/${ticket.id}`}
-                className="bg-panel-card border border-panel-border hover:border-brand-lime/20 rounded p-6 transition-all duration-200 flex flex-col justify-between group"
+                className="block bg-panel-card border border-panel-border hover:border-brand-lime/20 rounded-lg p-6 transition-all duration-200 group card-glow"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
@@ -221,6 +198,7 @@ export const CitizenDashboard: React.FC = () => {
                   </div>
                 </div>
               </Link>
+              </motion.div>
             ))}
           </div>
         )}

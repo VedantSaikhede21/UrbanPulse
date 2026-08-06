@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { signInWithGoogle } from '../../lib/auth';
 
 export default function CitizenLogin() {
+  useDocumentTitle('Citizen Login');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,47 +19,31 @@ export default function CitizenLogin() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh', background: 'linear-gradient(135deg, #0d0d0d 0%, #111827 100%)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", padding: '1rem'
-    }}>
-      <div style={{ width: '100%', maxWidth: '420px' }}>
+    <div className="min-h-screen bg-surface-base flex items-center justify-center font-sans p-4">
+      <div className="w-full max-w-[420px]">
 
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
-            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: '12px',
-            padding: '0.6rem 1.2rem', marginBottom: '1rem'
-          }}>
-            <span style={{ fontSize: '1.4rem' }}>🏙️</span>
-            <span style={{ color: 'white', fontWeight: 700, fontSize: '1.1rem', letterSpacing: '-0.5px' }}>UrbanPulse AI</span>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-3 bg-surface-card border border-border-default rounded-xl py-2.5 px-5 mb-4">
+            <span className="text-[1.4rem]">🏙️</span>
+            <span className="text-text-primary font-bold text-[1.1rem] tracking-[-0.5px]">UrbanPulse AI</span>
           </div>
-          <h1 style={{ color: 'white', fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.25rem' }}>Citizen Portal</h1>
-          <p style={{ color: '#6b7280', fontSize: '0.9rem', margin: 0 }}>
+          <h1 className="text-text-primary text-2xl font-bold m-0 mb-1">Citizen Portal</h1>
+          <p className="text-text-tertiary text-sm m-0">
             Sign in to report and track civic issues
           </p>
         </div>
 
         {/* Card */}
-        <div style={{
-          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '16px', padding: '2.5rem 2rem', backdropFilter: 'blur(10px)',
-          textAlign: 'center'
-        }}>
-          {error && <p style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: '1rem' }}>{error}</p>}
+        <div className="bg-surface-card border border-border-default rounded-2xl px-8 py-10 text-center">
+          {error && <p role="alert" className="text-red-400 text-sm mb-4">{error}</p>}
           
           <button
             id="google-login-btn"
             onClick={handleGoogleLogin}
             disabled={loading}
-            style={{
-              width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.2)',
-              background: loading ? '#374151' : 'white',
-              color: loading ? 'white' : '#1f2937', fontWeight: 600, fontSize: '1rem',
-              cursor: loading ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem'
-            }}
+            aria-label="Sign in with Google"
+            className="focus-ring w-full p-3.5 rounded-xl border border-border-strong bg-white disabled:bg-surface-elevated text-text-inverse disabled:text-text-tertiary font-semibold text-base cursor-pointer disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-3"
           >
             {!loading && (
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -72,9 +58,9 @@ export default function CitizenLogin() {
         </div>
 
         {/* Staff link */}
-        <p style={{ textAlign: 'center', color: '#4b5563', fontSize: '0.85rem', marginTop: '1.5rem' }}>
+        <p className="text-center text-text-tertiary text-sm mt-6">
           Municipal staff?{' '}
-          <Link to="/auth/staff-login" style={{ color: '#60a5fa', textDecoration: 'none', fontWeight: 500 }}>
+          <Link to="/auth/staff-login" className="text-brand-lime no-underline font-medium">
             Staff Login →
           </Link>
         </p>

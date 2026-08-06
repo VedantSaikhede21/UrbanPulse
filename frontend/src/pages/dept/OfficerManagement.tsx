@@ -4,6 +4,7 @@ import {
   Loader, Users,
 } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -35,6 +36,7 @@ const DEPT_TO_CATEGORY: Record<string, string[]> = {
 };
 
 export const OfficerManagement: React.FC = () => {
+  useDocumentTitle('Officer Management');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

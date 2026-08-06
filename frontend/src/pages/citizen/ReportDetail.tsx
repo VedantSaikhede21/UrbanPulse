@@ -4,6 +4,7 @@ import { Loader, MapPin, Calendar, AlertTriangle, CheckCircle2, ChevronRight, Im
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import { apiFetch } from '../../lib/api';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useToast } from '../../components/ui/Toast';
 
 const STATIC_MARKER = divIcon({
@@ -31,6 +32,7 @@ interface Ticket {
 }
 
 export const ReportDetail: React.FC = () => {
+  useDocumentTitle('Report Details');
   const { toast } = useToast();
   const { id } = useParams<{ id: string }>();
   const [ticket, setTicket] = useState<Ticket | null>(null);

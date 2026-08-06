@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import {
   HelpCircle, ChevronDown, ChevronRight, Mail, MessageCircle, ExternalLink,
   FileText, LifeBuoy, AlertTriangle, Map, Activity, User
@@ -41,6 +44,8 @@ const QUICK_LINKS = [
 ];
 
 export const Support: React.FC = () => {
+  useDocumentTitle('Support');
+  const breadcrumbs = useBreadcrumbs();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const toggleFaq = (index: number) => {
@@ -49,14 +54,15 @@ export const Support: React.FC = () => {
 
   return (
     <div className="p-6 max-w-5xl mx-auto min-h-screen space-y-8">
+      <Breadcrumbs items={breadcrumbs} />
 
       {/* Header */}
-      <section className="border-b border-panel-border pb-6">
+      <section className="border-b border-border-default pb-6">
         <div className="flex items-center gap-2 text-brand-lime mb-2">
           <LifeBuoy size={18} />
           <h1 className="text-xl font-serif italic font-bold">Help & Support</h1>
         </div>
-        <p className="text-gray-400 text-xs max-w-2xl">
+        <p className="text-text-secondary text-xs max-w-2xl">
           Find answers to common questions, learn how the platform works, or reach out to the support team.
         </p>
       </section>
@@ -70,7 +76,7 @@ export const Support: React.FC = () => {
           <h2 className="font-serif italic font-bold text-lg">Frequently Asked Questions</h2>
         </div>
 
-        <div className="bg-panel-card border border-panel-border rounded-lg divide-y divide-panel-border">
+        <div className="bg-surface-card border border-border-default rounded-lg divide-y divide-border-default">
           {FAQ_ITEMS.map((item, index) => (
             <div key={index}>
               <button
@@ -86,7 +92,7 @@ export const Support: React.FC = () => {
               </button>
               {openIndex === index && (
                 <div className="px-5 pb-4 pl-12">
-                  <p className="text-gray-400 text-xs leading-relaxed">{item.a}</p>
+                  <p className="text-text-secondary text-xs leading-relaxed">{item.a}</p>
                 </div>
               )}
             </div>
@@ -108,13 +114,13 @@ export const Support: React.FC = () => {
             <Link
               key={link.path}
               to={link.path}
-              className="bg-panel-card border border-panel-border/60 p-4 rounded hover:border-brand-lime/20 transition-all duration-300 group"
+              className="bg-surface-card border border-border-default/60 p-4 rounded hover:border-brand-lime/20 transition-all duration-300 group"
             >
               <div className="w-8 h-8 rounded bg-brand-soft flex items-center justify-center text-brand-lime mb-2 group-hover:bg-brand-lime group-hover:text-background transition-all duration-200">
                 <link.icon size={16} />
               </div>
               <h3 className="font-serif italic font-bold text-sm mb-0.5">{link.label}</h3>
-              <p className="text-gray-400 text-xs">{link.desc}</p>
+              <p className="text-text-secondary text-xs">{link.desc}</p>
             </Link>
           ))}
         </div>
@@ -129,29 +135,29 @@ export const Support: React.FC = () => {
           <h2 className="font-serif italic font-bold text-lg">Contact Support</h2>
         </div>
 
-        <div className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-4">
-          <p className="text-gray-400 text-sm leading-relaxed">
+        <div className="bg-surface-card border border-border-default rounded-lg p-5 space-y-4">
+          <p className="text-text-secondary text-sm leading-relaxed">
             Our support team is available during business hours to help with technical issues, 
             account questions, and feedback about the platform.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-panel-bg border border-panel-border rounded p-4 flex items-start gap-3">
+            <div className="bg-surface-raised border border-border-default rounded p-4 flex items-start gap-3">
               <div className="w-8 h-8 rounded bg-brand-soft flex items-center justify-center text-brand-lime shrink-0">
                 <Mail size={16} />
               </div>
               <div>
                 <h3 className="text-xs font-bold text-foreground mb-0.5">Email Support</h3>
-                <p className="text-gray-400 text-xs font-mono">support@urbanpulse.ai</p>
+                <p className="text-text-secondary text-xs font-mono">support@urbanpulse.ai</p>
               </div>
             </div>
-            <div className="bg-panel-bg border border-panel-border rounded p-4 flex items-start gap-3">
+            <div className="bg-surface-raised border border-border-default rounded p-4 flex items-start gap-3">
               <div className="w-8 h-8 rounded bg-brand-soft flex items-center justify-center text-brand-lime shrink-0">
                 <MessageCircle size={16} />
               </div>
               <div>
                 <h3 className="text-xs font-bold text-foreground mb-0.5">WhatsApp Channel</h3>
-                <p className="text-gray-400 text-xs font-mono">Available on pilot wards</p>
+                <p className="text-text-secondary text-xs font-mono">Available on pilot wards</p>
               </div>
             </div>
           </div>
@@ -168,11 +174,11 @@ export const Support: React.FC = () => {
       </section>
 
       {/* Feedback */}
-      <section className="bg-panel-card border border-panel-border rounded-lg p-5 text-center space-y-2">
-        <p className="text-gray-400 text-sm">
+      <section className="bg-surface-card border border-border-default rounded-lg p-5 text-center space-y-2">
+        <p className="text-text-secondary text-sm">
           Have suggestions or found a bug? We welcome feedback to improve the platform.
         </p>
-        <p className="text-gray-500 text-xs font-mono">
+        <p className="text-text-tertiary text-xs font-mono">
           Reach us at feedback@urbanpulse.ai
         </p>
       </section>

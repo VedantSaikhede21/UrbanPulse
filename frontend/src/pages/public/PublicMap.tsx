@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { AlertTriangle, Loader, MapPin } from 'lucide-react';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -31,6 +32,7 @@ const STATUS_RADIUS: Record<string, number> = {
 };
 
 export const PublicMap: React.FC = () => {
+  useDocumentTitle('Incident Map');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,13 +69,13 @@ export const PublicMap: React.FC = () => {
   if (error) {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
-        <div className="flex flex-col items-center justify-center py-24">
+        <div role="alert" className="flex flex-col items-center justify-center py-24">
           <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
             <AlertTriangle size={24} className="text-red-400" />
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load incident data</h3>
           <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
-          <button type="button" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
+          <button type="button" aria-label="Retry loading incident data" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
             Retry
           </button>
         </div>
@@ -92,7 +94,7 @@ export const PublicMap: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
+        <div role="status" className="flex items-center justify-center py-24">
           <Loader size={24} className="text-brand-lime animate-spin" />
         </div>
       ) : tickets.length === 0 ? (
@@ -123,7 +125,7 @@ export const PublicMap: React.FC = () => {
           </div>
 
           {/* Map */}
-          <div className="h-[600px] w-full rounded-lg overflow-hidden border border-panel-border">
+          <div role="region" aria-label="Incident map" className="h-[600px] w-full rounded-lg overflow-hidden border border-panel-border">
             <MapContainer
               center={[avgLat, avgLng]}
               zoom={13}

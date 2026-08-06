@@ -5,6 +5,9 @@ import {
 } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { Badge } from '../../components/ui/Badge';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -40,6 +43,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export const CityAnalytics: React.FC = () => {
+  useDocumentTitle('City Analytics');
+  const breadcrumbs = useBreadcrumbs();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [pulse, setPulse] = useState<CityPulseData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,9 +95,9 @@ export const CityAnalytics: React.FC = () => {
           <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
             <AlertTriangle size={24} className="text-red-400" />
           </div>
-          <h3 className="text-base font-semibold mb-1.5">Failed to load analytics</h3>
-          <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
-          <button type="button" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
+          <h2 className="text-base font-semibold mb-1.5">Failed to load analytics</h2>
+          <p className="text-sm text-text-secondary max-w-xs mb-5">{error}</p>
+          <button type="button" onClick={loadData} className="focus-ring px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
             Retry
           </button>
         </div>
@@ -103,56 +108,57 @@ export const CityAnalytics: React.FC = () => {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8 min-h-screen">
 
-      <div className="border-b border-panel-border pb-6">
+      <Breadcrumbs items={breadcrumbs} />
+      <div className="border-b border-border-default pb-6">
         <h1 className="text-2xl font-serif italic font-bold">City Analytics Dashboard</h1>
-        <p className="text-gray-500 text-xs mt-1">
+        <p className="text-text-tertiary text-xs mt-1">
           City-wide performance metrics, ward UHS leaderboard, and auto-generated City Pulse digests.
         </p>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div role="status" aria-live="polite" className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : (
         <>
           {/* Summary metrics */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
+            <div className="bg-surface-card border border-border-default p-5 rounded flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Total Tickets</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary block">Total Tickets</span>
                 <span className="text-2xl font-serif italic font-bold block">{totalTickets}</span>
               </div>
-              <div className="w-10 h-10 rounded bg-panel-bg flex items-center justify-center text-gray-400 border border-panel-border">
+              <div className="w-10 h-10 rounded bg-surface-raised flex items-center justify-center text-text-secondary border border-border-default">
                 <FileText size={18} />
               </div>
             </div>
-            <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
+            <div className="bg-surface-card border border-border-default p-5 rounded flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Open</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary block">Open</span>
                 <span className="text-2xl font-serif italic font-bold block">{openTickets}</span>
               </div>
               <div className="w-10 h-10 rounded bg-orange-950/40 flex items-center justify-center text-orange-400 border border-orange-800/30">
                 <Clock size={18} />
               </div>
             </div>
-            <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
+            <div className="bg-surface-card border border-border-default p-5 rounded flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Resolved</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary block">Resolved</span>
                 <span className="text-2xl font-serif italic font-bold text-brand-lime block">{resolvedTickets}</span>
               </div>
               <div className="w-10 h-10 rounded bg-brand-soft flex items-center justify-center text-brand-lime border border-brand-lime/10">
                 <CheckCircle2 size={18} />
               </div>
             </div>
-            <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
+            <div className="bg-surface-card border border-border-default p-5 rounded flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500 block">Critical Wards</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary block">Critical Wards</span>
                 <span className={`text-2xl font-serif italic font-bold block ${(pulse?.critical_wards || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>
                   {pulse?.critical_wards || 0}
                 </span>
               </div>
-              <div className="w-10 h-10 rounded bg-panel-bg flex items-center justify-center text-gray-400 border border-panel-border">
+              <div className="w-10 h-10 rounded bg-surface-raised flex items-center justify-center text-text-secondary border border-border-default">
                 <AlertTriangle size={18} />
               </div>
             </div>
@@ -160,19 +166,19 @@ export const CityAnalytics: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Status breakdown */}
-            <div className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-4">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
+            <div className="bg-surface-card border border-border-default rounded-lg p-5 space-y-4">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
                 <BarChart2 size={16} className="text-brand-lime" />
                 Tickets by Status
-              </h3>
+              </h2>
               {Object.entries(statusCounts).length === 0 ? (
-                <p className="text-xs text-gray-500">No tickets found.</p>
+                <p className="text-xs text-text-tertiary">No tickets found.</p>
               ) : (
                 <div className="space-y-3">
                   {Object.entries(statusCounts).map(([status, count]) => (
                     <div key={status} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">{STATUS_LABELS[status] || status}</span>
+                        <span className="text-text-secondary">{STATUS_LABELS[status] || status}</span>
                         <span className="font-mono text-foreground font-bold">{count}</span>
                       </div>
                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -188,19 +194,19 @@ export const CityAnalytics: React.FC = () => {
             </div>
 
             {/* Category breakdown */}
-            <div className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-4">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
+            <div className="bg-surface-card border border-border-default rounded-lg p-5 space-y-4">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
                 <FileText size={16} className="text-brand-lime" />
                 Tickets by Category
-              </h3>
+              </h2>
               {sortedCategories.length === 0 ? (
-                <p className="text-xs text-gray-500">No tickets found.</p>
+                <p className="text-xs text-text-tertiary">No tickets found.</p>
               ) : (
                 <div className="space-y-3">
                   {sortedCategories.map(([category, count]) => (
                     <div key={category} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">{category}</span>
+                        <span className="text-text-secondary">{category}</span>
                         <span className="font-mono text-foreground font-bold">{count}</span>
                       </div>
                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -218,15 +224,15 @@ export const CityAnalytics: React.FC = () => {
 
           {/* Ward UHS Leaderboard */}
           {pulse && (
-            <div className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-4">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
+            <div className="bg-surface-card border border-border-default rounded-lg p-5 space-y-4">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
                 <MapPin size={16} className="text-brand-lime" />
                 Ward UHS Leaderboard
-              </h3>
+              </h2>
               <div className="space-y-3">
                 {pulse.wards.map((ward, i) => (
                   <div key={ward.name} className="flex items-center gap-4">
-                    <span className="text-xs font-mono text-gray-500 w-6 shrink-0">#{i + 1}</span>
+                    <span className="text-xs font-mono text-text-tertiary w-6 shrink-0">#{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span className="text-foreground truncate">{ward.name}</span>
@@ -249,14 +255,14 @@ export const CityAnalytics: React.FC = () => {
           {/* Trending + Alerts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {pulse && pulse.trending_categories.length > 0 && (
-              <div className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-3">
+              <div className="bg-surface-card border border-border-default rounded-lg p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp size={16} className="text-brand-lime" />
-                  <h3 className="text-sm font-semibold">Trending Issues</h3>
+                  <h2 className="text-sm font-semibold">Trending Issues</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {pulse.trending_categories.map(c => (
-                    <div key={c.category} className="bg-panel-bg border border-panel-border rounded px-3 py-1.5 text-xs flex items-center gap-2">
+                    <div key={c.category} className="bg-surface-raised border border-border-default rounded px-3 py-1.5 text-xs flex items-center gap-2">
                       <span className="text-foreground">{c.category}</span>
                       <span className="text-brand-lime font-mono font-bold">{c.count}</span>
                     </div>
@@ -266,10 +272,10 @@ export const CityAnalytics: React.FC = () => {
             )}
 
             {pulse && pulse.pulse_alerts.length > 0 && (
-              <div className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-3">
+              <div className="bg-surface-card border border-border-default rounded-lg p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <Activity size={16} className="text-amber-400" />
-                  <h3 className="text-sm font-semibold">Pulse Alerts</h3>
+                  <h2 className="text-sm font-semibold">Pulse Alerts</h2>
                 </div>
                 <div className="space-y-2">
                   {pulse.pulse_alerts.map((alert, i) => (

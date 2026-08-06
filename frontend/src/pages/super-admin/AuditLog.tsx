@@ -4,6 +4,10 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { SkeletonCard } from '../../components/ui/Skeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { apiFetch } from '../../lib/api';
 
 interface Ticket {
@@ -30,6 +34,8 @@ function formatTimestamp(dateStr: string): string {
 }
 
 export const AuditLog: React.FC = () => {
+  useDocumentTitle('Audit Log');
+  const breadcrumbs = useBreadcrumbs();
   const [entries, setEntries] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,13 +66,13 @@ export const AuditLog: React.FC = () => {
   if (error) {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
-        <div className="flex flex-col items-center justify-center py-24">
+        <div role="alert" className="flex flex-col items-center justify-center py-24">
           <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
             <AlertTriangle size={24} className="text-red-400" />
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load audit log</h3>
-          <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
-          <button type="button" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
+          <p className="text-sm text-secondary max-w-xs mb-5">{error}</p>
+          <button type="button" aria-label="Retry loading audit log" onClick={loadData} className="focus-ring px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
             Retry
           </button>
         </div>
@@ -78,8 +84,9 @@ export const AuditLog: React.FC = () => {
     <div className="p-6 max-w-6xl mx-auto space-y-6 min-h-screen">
 
       <div className="border-b border-panel-border pb-6">
+        <Breadcrumbs items={breadcrumbs} />
         <h1 className="text-2xl font-serif italic font-bold">System Audit Trail</h1>
-        <p className="text-gray-500 text-xs mt-1">
+        <p className="text-tertiary text-xs mt-1">
           Chronological log of ticket activity — status changes, priority assignments, and system events.
         </p>
       </div>
@@ -96,18 +103,19 @@ export const AuditLog: React.FC = () => {
                 <ListOrdered size={16} className="text-brand-lime" />
                 Latest Activity
               </h3>
-              <span className="text-[10px] font-mono text-gray-500">{entries.length} entries</span>
+              <span className="text-[10px] font-mono text-tertiary">{entries.length} entries</span>
             </div>
             {entries.length === 0 ? (
-              <div className="flex flex-col items-center py-16 text-center">
-                <Clock size={32} className="text-gray-600 mb-3" />
-                <p className="text-sm text-gray-500">No audit entries found.</p>
-              </div>
+              <EmptyState
+                icon={Clock}
+                title="No audit entries found"
+                message="Audit log entries will appear here as tickets are created and processed."
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs font-mono">
                   <thead>
-                    <tr className="border-b border-panel-border text-gray-500 text-[10px] uppercase tracking-wider">
+                    <tr className="border-b border-panel-border text-tertiary text-[10px] uppercase tracking-wider">
                       <th className="text-left px-5 py-3 font-medium">Timestamp</th>
                       <th className="text-left px-5 py-3 font-medium">Ticket ID</th>
                       <th className="text-left px-5 py-3 font-medium">Category</th>
@@ -118,8 +126,8 @@ export const AuditLog: React.FC = () => {
                   <tbody>
                     {entries.map(entry => (
                       <tr key={entry.id} className="border-b border-panel-border/50 hover:bg-panel-bg/40 transition-colors">
-                        <td className="px-5 py-3 text-gray-500 whitespace-nowrap">{formatTimestamp(entry.created_at)}</td>
-                        <td className="px-5 py-3 text-gray-400">#{entry.id.slice(0, 8)}</td>
+                        <td className="px-5 py-3 text-tertiary whitespace-nowrap">{formatTimestamp(entry.created_at)}</td>
+                        <td className="px-5 py-3 text-secondary">#{entry.id.slice(0, 8)}</td>
                         <td className="px-5 py-3 text-foreground">{entry.category}</td>
                         <td className="px-5 py-3">
                           <Badge type="status" value={statusBadgeValue(entry.status)} />

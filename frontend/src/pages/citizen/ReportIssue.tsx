@@ -6,13 +6,18 @@ import { MapPicker, type LocationData } from '../../components/ui/MapPicker';
 import { FileUpload, type FileData } from '../../components/ui/FileUpload';
 import { StepIndicator } from '../../components/ui/StepIndicator';
 import { useToast } from '../../components/ui/Toast';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useMediaRecorder } from '../../hooks/useMediaRecorder';
+import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 
 type Step = 1 | 2 | 3;
 
 export const ReportIssue: React.FC = () => {
+  useDocumentTitle('Report Issue');
   const navigate = useNavigate();
   const { toast } = useToast();
+  const breadcrumbs = useBreadcrumbs();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
 
@@ -27,6 +32,10 @@ export const ReportIssue: React.FC = () => {
   const firstFileUrl = files.length > 0 ? files[0].preview : null;
 
   const handleSubmit = async () => {
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      toast({ type: 'error', title: 'Invalid location', message: 'Coordinates are out of range. Please re-pin the location on the map.' });
+      return;
+    }
     setSubmitting(true);
 
     let mediaUrl = '';
@@ -103,11 +112,12 @@ export const ReportIssue: React.FC = () => {
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-8 min-h-screen text-foreground font-sans">
       
+      <Breadcrumbs items={breadcrumbs} />
       {/* Header */}
-      <div className="border-b border-panel-border pb-6">
+      <div className="border-b border-border-default pb-6">
         <div>
           <h1 className="text-xl font-serif italic font-bold">Report New Infrastructure Issue</h1>
-          <p className="text-gray-500 text-xs mt-1">Submit civic complaints with active geolocated triggers.</p>
+          <p className="text-text-tertiary text-xs mt-1">Submit civic complaints with active geolocated triggers.</p>
         </div>
       </div>
 
@@ -125,12 +135,12 @@ export const ReportIssue: React.FC = () => {
             maxFiles={5}
             maxSizeMB={20}
           />
-          <div className="flex items-center justify-between gap-4 pt-4 border-t border-panel-border">
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-default">
             <button
               type="button"
               aria-label="Skip to details step"
               onClick={() => setStep(2)}
-              className="text-xs text-gray-400 hover:text-foreground font-mono"
+              className="focus-ring text-xs text-text-tertiary hover:text-foreground font-mono"
             >
               Skip Photo Attachment
             </button>
@@ -138,7 +148,7 @@ export const ReportIssue: React.FC = () => {
               type="button"
               aria-label="Next step: details"
               onClick={() => setStep(2)}
-              className="bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs"
+              className="focus-ring bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs"
             >
               Next Step: Details →
             </button>
@@ -149,12 +159,13 @@ export const ReportIssue: React.FC = () => {
       {step === 2 && (
         <div className="space-y-6">
           {firstFileUrl && (
-            <div className="relative rounded overflow-hidden h-40 border border-panel-border">
+            <div className="relative rounded overflow-hidden h-40 border border-border-default">
               <img src={firstFileUrl} alt="Report Attachment Preview" className="w-full h-full object-cover" />
               <button
                 type="button"
                 onClick={() => setFiles([])}
-                className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 text-[10px] hover:bg-black"
+                aria-label="Remove photo attachment"
+                className="focus-ring absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 text-[10px] hover:bg-black"
               >
                 ✕ Remove
               </button>
@@ -162,7 +173,7 @@ export const ReportIssue: React.FC = () => {
           )}
 
           <div className="space-y-2">
-            <label className="block text-xs font-mono uppercase tracking-wider text-gray-400">Issue Category</label>
+            <label className="block text-xs font-mono uppercase tracking-wider text-text-tertiary">Issue Category</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {categories.map(c => (
                 <button
@@ -170,7 +181,7 @@ export const ReportIssue: React.FC = () => {
                   type="button"
                   aria-label={`Category: ${c}`}
                   onClick={() => setCategory(c)}
-                  className={`p-3 rounded text-xs font-medium border text-left transition-all duration-150 ${category === c ? 'bg-brand-soft border-brand-lime text-brand-lime' : 'bg-panel-card border-panel-border text-gray-300'}`}
+                  className={`focus-ring p-3 rounded text-xs font-medium border text-left transition-all duration-150 ${category === c ? 'bg-brand-soft border-brand-lime text-brand-lime' : 'bg-panel-card border-border-default text-text-secondary'}`}
                 >
                   {c}
                 </button>
@@ -179,32 +190,36 @@ export const ReportIssue: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-xs font-mono uppercase tracking-wider text-gray-400">Detailed Description</label>
+            <label className="block text-xs font-mono uppercase tracking-wider text-text-tertiary">
+              Detailed Description
+              <span className="ml-2 text-[10px] text-text-tertiary font-normal">{description.length}/2000</span>
+            </label>
             <textarea
               required
               rows={4}
+              maxLength={2000}
               aria-label="Detailed description of the issue"
               placeholder="Describe the issue, landmarks, or details to assist municipal field officers..."
               value={description}
               onChange={e => setDescription(e.target.value)}
-              className="w-full bg-panel-card border border-panel-border rounded p-3 text-xs text-foreground focus:outline-none focus:border-brand-lime"
+              className="focus-ring w-full bg-panel-card border border-border-default rounded p-3 text-xs text-foreground focus:outline-none focus:border-brand-lime"
             />
           </div>
 
           {/* Voice Note */}
-          <div className="flex items-center justify-between p-4 bg-panel-card border border-panel-border rounded">
+          <div className="flex items-center justify-between p-4 bg-panel-card border border-border-default rounded">
             <div className="flex items-center space-x-3">
-              <Mic className={voice.recording ? "text-status-escalated animate-pulse" : (voice.blobUrl ? "text-brand-lime" : "text-gray-500")} size={18} />
+              <Mic className={voice.recording ? "text-status-escalated animate-pulse" : (voice.blobUrl ? "text-brand-lime" : "text-text-tertiary")} size={18} />
               <div className="flex flex-col">
-                <span className="text-xs font-semibold">Voice Note</span>
-                <span className="text-[10px] text-gray-500 font-mono">
+                <h2 className="text-xs font-semibold">Voice Note</h2>
+                <span className="text-[10px] text-text-tertiary font-mono">
                   {!voice.supported
                     ? 'Not supported in this browser'
                     : voice.recording
                       ? `Recording... ${voice.duration}s`
                       : voice.blobUrl
-                        ? `Recorded (${voice.duration}s)`
-                        : 'Describe the issue verbally'}
+                      ? `Recorded (${voice.duration}s)`
+                      : 'Describe the issue verbally'}
                 </span>
               </div>
             </div>
@@ -214,10 +229,11 @@ export const ReportIssue: React.FC = () => {
                   <button
                     type="button"
                     onClick={voice.playing ? voice.stopPlayback : voice.playRecording}
-                    className={`px-2 py-1.5 rounded text-[10px] font-mono border ${
+                    aria-label={voice.playing ? 'Stop playback' : 'Play recording'}
+                    className={`focus-ring px-2 py-1.5 rounded text-[10px] font-mono border ${
                       voice.playing
                         ? 'bg-brand-soft border-brand-lime text-brand-lime'
-                        : 'bg-background border-panel-border text-gray-400'
+                        : 'bg-background border-border-default text-text-tertiary'
                     }`}
                   >
                     {voice.playing ? '⏹' : '▶'}
@@ -225,7 +241,8 @@ export const ReportIssue: React.FC = () => {
                   <button
                     type="button"
                     onClick={voice.clearRecording}
-                    className="px-2 py-1.5 rounded text-[10px] font-mono bg-background border border-panel-border text-gray-500 hover:text-foreground"
+                    aria-label="Clear voice recording"
+                    className="focus-ring px-2 py-1.5 rounded text-[10px] font-mono bg-background border border-border-default text-text-tertiary hover:text-foreground"
                   >
                     ✕
                   </button>
@@ -235,12 +252,12 @@ export const ReportIssue: React.FC = () => {
                 type="button"
                 onClick={voice.recording ? voice.stopRecording : voice.startRecording}
                 disabled={!voice.supported}
-                className={`px-3 py-1.5 rounded text-[10px] font-mono border ${
+                className={`focus-ring px-3 py-1.5 rounded text-[10px] font-mono border ${
                   voice.recording
                     ? 'bg-status-escalated/10 border-status-escalated text-status-escalated'
                     : voice.blobUrl
                       ? 'bg-brand-soft border-brand-lime text-brand-lime'
-                      : 'bg-background border-panel-border text-gray-400 hover:border-gray-600'
+                      : 'bg-background border-border-default text-text-tertiary hover:border-border-hover'
                 }`}
               >
                 {voice.recording ? 'Stop' : voice.blobUrl ? 'Re-record' : 'Record'}
@@ -249,12 +266,12 @@ export const ReportIssue: React.FC = () => {
           </div>
           {voice.error && <p className="text-status-escalated text-[10px] font-mono">{voice.error}</p>}
 
-          <div className="flex items-center justify-between gap-4 pt-4 border-t border-panel-border">
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-default">
             <button
               type="button"
               aria-label="Previous step: evidence"
               onClick={() => setStep(1)}
-              className="text-xs text-gray-400 hover:text-foreground font-mono"
+              className="focus-ring text-xs text-text-tertiary hover:text-foreground font-mono"
             >
               ← Back
             </button>
@@ -262,7 +279,7 @@ export const ReportIssue: React.FC = () => {
               type="button"
               aria-label="Next step: location"
               onClick={() => setStep(3)}
-              className="bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs"
+              className="focus-ring bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs"
             >
               Next Step: Location →
             </button>
@@ -273,8 +290,8 @@ export const ReportIssue: React.FC = () => {
       {step === 3 && (
         <div className="space-y-6">
           <div className="space-y-1">
-            <label className="block text-xs font-mono uppercase tracking-wider text-gray-400">Pin Location</label>
-            <p className="text-[10px] text-gray-500">Click the map, drag the marker, or use GPS to select the exact location.</p>
+            <label className="block text-xs font-mono uppercase tracking-wider text-text-tertiary">Pin Location</label>
+            <p className="text-[10px] text-text-tertiary">Click the map, drag the marker, or use GPS to select the exact location.</p>
           </div>
 
           <MapPicker
@@ -285,12 +302,12 @@ export const ReportIssue: React.FC = () => {
             }}
           />
 
-          <div className="flex items-center justify-between gap-4 pt-4 border-t border-panel-border">
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-default">
             <button
               type="button"
               aria-label="Previous step: details"
               onClick={() => setStep(2)}
-              className="text-xs text-gray-400 hover:text-foreground font-mono"
+              className="focus-ring text-xs text-text-tertiary hover:text-foreground font-mono"
             >
               ← Back
             </button>
@@ -299,17 +316,17 @@ export const ReportIssue: React.FC = () => {
               aria-label="Submit report"
               disabled={submitting || !description.trim()}
               onClick={handleSubmit}
-              className={`font-semibold px-6 py-2 rounded text-xs flex items-center gap-1.5 ${
+              className={`focus-ring font-semibold px-6 py-2 rounded text-xs flex items-center gap-1.5 ${
                 submitting || !description.trim()
-                  ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                  ? 'bg-surface-elevated text-text-quaternary cursor-not-allowed'
                   : 'bg-brand-lime text-background hover:bg-brand-lime-hover'
               }`}
             >
               {submitting ? (
-                <>
+                <span role="status" aria-live="polite" className="flex items-center gap-1.5">
                   <Loader className="animate-spin" size={14} />
                   <span>Submitting...</span>
-                </>
+                </span>
               ) : (
                 <span>Submit & Process with AI →</span>
               )}
@@ -317,9 +334,6 @@ export const ReportIssue: React.FC = () => {
           </div>
         </div>
       )}
-
-
-
     </div>
   );
 };
