@@ -1,36 +1,130 @@
 @import "leaflet/dist/leaflet.css";
+@import "./styles/tokens.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  *, *::before, *::after {
+    border-color: theme('colors.panel.border');
+  }
+
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image:
+      radial-gradient(ellipse at 50% 0%, rgba(198, 241, 53, 0.03) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 50%, rgba(198, 241, 53, 0.015) 0%, transparent 50%);
+    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply tracking-tight;
   }
+
+  ::selection {
+    background-color: theme('colors.brand.lime');
+    color: theme('colors.background');
+  }
 }
 
-/* Custom Scrollbar for Near-Black Editorial Feel */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+@layer components {
+  .card-glow {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .card-glow::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, theme('colors.brand.lime / 0.08'), transparent 40%, transparent 60%, theme('colors.brand.lime / 0.04'));
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .card-glow:hover::before {
+    background: linear-gradient(135deg, theme('colors.brand.lime / 0.15'), transparent 50%, transparent 70%, theme('colors.brand.lime / 0.06'));
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      theme('colors.panel.card') 25%,
+      theme('colors.panel.hover') 50%,
+      theme('colors.panel.card') 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+
+  .glow-lime {
+    box-shadow: 0 0 20px rgba(198, 241, 53, 0.1), 0 0 60px rgba(198, 241, 53, 0.05);
+  }
+
+  .glow-lime-sm {
+    box-shadow: 0 0 12px rgba(198, 241, 53, 0.08);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: #0d0d0d;
+@layer utilities {
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d0d0d] transition-shadow duration-150;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.panel.border') transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: theme('colors.panel.border');
+    border-radius: 2px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.brand.lime');
+  }
 }
 
-::-webkit-scrollbar-thumb {
-  background: #262626;
-  border-radius: 3px;
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #C6F135;
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes line-draw {
+  to { stroke-dashoffset: 0; }
 }
 
 /* Leaflet Dark Theme Overrides */
@@ -70,4 +164,79 @@
 
 .file-card-enter {
   animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Button Ripple */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.2) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.btn-ripple:active::after {
+  opacity: 1;
+  animation: ripple-out 0.5s ease-out forwards;
+}
+
+@keyframes ripple-out {
+  from { transform: scale(0.5); opacity: 0.4; }
+  to { transform: scale(2.5); opacity: 0; }
+}
+
+/* Notification pulse dot */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

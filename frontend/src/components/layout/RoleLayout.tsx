@@ -123,15 +123,15 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
       <aside aria-label="Main navigation" className="hidden md:flex flex-col w-64 bg-panel-bg border-r border-panel-border shrink-0">
         {/* Sidebar Header */}
         <div className="p-6 border-b border-panel-border flex flex-col space-y-2">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded bg-brand-lime flex items-center justify-center text-background font-bold text-lg">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-lime flex items-center justify-center text-background font-bold text-base shadow-sm shadow-brand-lime/20">
               U
             </div>
             <span className="font-serif italic font-bold text-lg tracking-tight">
               UrbanPulse <span className="text-brand-lime">AI</span>
             </span>
           </div>
-          <span className="font-mono text-[9px] uppercase tracking-widest text-gray-500">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-gray-500 ml-0.5">
             Civic Triage Infrastructure
           </span>
         </div>
@@ -170,9 +170,10 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
                   <Link
                     key={item.path}
                     to={item.path}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`flex items-center space-x-3 px-3 py-2 text-sm rounded transition-all duration-150 ${
                       isActive
-                        ? 'bg-brand-soft text-brand-lime border border-brand-lime/20 font-medium'
+                        ? 'bg-brand-soft text-brand-lime border border-brand-lime/20 border-l-2 border-l-brand-lime font-medium'
                         : 'text-gray-400 hover:text-foreground hover:bg-panel-card border border-transparent'
                     }`}
                   >
@@ -195,9 +196,10 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
                   <Link
                     key={item.path}
                     to={item.path}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`flex items-center space-x-3 px-3 py-2 text-sm rounded transition-all duration-150 ${
                       isActive
-                        ? 'bg-brand-soft text-brand-lime border border-brand-lime/20 font-medium'
+                        ? 'bg-brand-soft text-brand-lime border border-brand-lime/20 border-l-2 border-l-brand-lime font-medium'
                         : 'text-gray-400 hover:text-foreground hover:bg-panel-card border border-transparent'
                     }`}
                   >
@@ -239,6 +241,13 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
               </button>
             )}
           </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('toggle-shortcuts-help'))}
+            className="text-[10px] text-text-quaternary hover:text-text-tertiary transition-colors px-3 py-1"
+            aria-label="Show keyboard shortcuts"
+          >
+            Press <kbd className="px-1 py-0.5 rounded bg-surface-raised border border-border-default text-[9px]">?</kbd> for shortcuts
+          </button>
         </div>
       </aside>
 
@@ -344,31 +353,47 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
             {/* Mobile Menu */}
             <div className="flex-1 overflow-y-auto px-4 py-3">
               <nav className="space-y-1">
-                {currentNavItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setSidebarOpen(false)}
-                    className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-400 hover:text-foreground hover:bg-panel-card rounded"
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </Link>
-                ))}
-              </nav>
-              <div className="pt-4 mt-4 border-t border-panel-border">
-                <nav className="space-y-1">
-                  {sharedNavItems.map((item) => (
+                {currentNavItems.map((item) => {
+                  const isActive = location.pathname === item.path;
+                  return (
                     <Link
                       key={item.path}
                       to={item.path}
                       onClick={() => setSidebarOpen(false)}
-                      className="flex items-center space-x-3 px-3 py-2 text-sm text-gray-400 hover:text-foreground hover:bg-panel-card rounded"
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`flex items-center space-x-3 px-3 py-2 text-sm rounded ${
+                        isActive
+                          ? 'bg-brand-soft text-brand-lime border border-brand-lime/20 border-l-2 border-l-brand-lime font-medium'
+                          : 'text-gray-400 hover:text-foreground hover:bg-panel-card'
+                      }`}
                     >
                       {item.icon}
                       <span>{item.label}</span>
                     </Link>
-                  ))}
+                  );
+                })}
+              </nav>
+              <div className="pt-4 mt-4 border-t border-panel-border">
+                <nav className="space-y-1">
+                  {sharedNavItems.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setSidebarOpen(false)}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={`flex items-center space-x-3 px-3 py-2 text-sm rounded ${
+                          isActive
+                            ? 'bg-brand-soft text-brand-lime border border-brand-lime/20 border-l-2 border-l-brand-lime font-medium'
+                            : 'text-gray-400 hover:text-foreground hover:bg-panel-card'
+                        }`}
+                      >
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
                 </nav>
               </div>
             </div>

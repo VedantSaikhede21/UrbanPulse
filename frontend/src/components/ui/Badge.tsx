@@ -1,50 +1,87 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-type BadgeType = 'status' | 'priority' | 'default';
+type BadgeVariant = 'status' | 'priority' | 'default';
 type BadgeValue = 'new' | 'progress' | 'resolved' | 'verified' | 'escalated' | 'low' | 'medium' | 'high' | string;
 
 interface BadgeProps {
-  type?: BadgeType;
+  variant?: BadgeVariant;
+  type?: BadgeVariant;
   value: BadgeValue;
+  dot?: boolean;
+  dismissable?: boolean;
   className?: string;
+  onDismiss?: () => void;
 }
 
+const statusColorMap: Record<string, string> = {
+  new: 'bg-status-new/10 text-status-new',
+  progress: 'bg-status-progress/10 text-status-progress',
+  in_progress: 'bg-status-progress/10 text-status-progress',
+  'in progress': 'bg-status-progress/10 text-status-progress',
+  resolved: 'bg-status-resolved/10 text-status-resolved',
+  verified: 'bg-status-verified/10 text-status-verified',
+  escalated: 'bg-status-escalated/10 text-status-escalated',
+};
+
+const priorityColorMap: Record<string, string> = {
+  low: 'bg-priority-low/10 text-priority-low',
+  medium: 'bg-priority-medium/10 text-priority-medium',
+  high: 'bg-priority-high/10 text-priority-high',
+};
+
 export const Badge: React.FC<BadgeProps> = ({
-  type = 'default',
+  variant,
+  type,
   value,
+  dot = false,
+  dismissable = false,
   className = '',
+  onDismiss,
 }) => {
-  const baseStyles = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold tracking-wider uppercase border';
+  const resolvedVariant = variant ?? type ?? 'default';
+  const [dismissed, setDismissed] = useState(false);
+
+  if (dismissed) return null;
+
+  const baseStyles =
+    'inline-flex items-center h-5 px-1.5 font-[11px] font-semibold uppercase tracking-[0.04em] rounded';
 
   const valLower = value.toLowerCase();
 
-  let styles = 'bg-panel-bg text-foreground border-panel-border';
+  let colorStyles = 'bg-panel-card text-gray-400';
 
-  if (type === 'status') {
-    if (valLower === 'new') {
-      styles = 'bg-status-new/10 text-status-new border-status-new/30';
-    } else if (valLower === 'progress' || valLower === 'in progress' || valLower === 'in_progress') {
-      styles = 'bg-status-progress/10 text-status-progress border-status-progress/30';
-    } else if (valLower === 'resolved') {
-      styles = 'bg-status-resolved/10 text-status-resolved border-status-resolved/30';
-    } else if (valLower === 'verified') {
-      styles = 'bg-status-verified/10 text-status-verified border-status-verified/30';
-    } else if (valLower === 'escalated') {
-      styles = 'bg-status-escalated/10 text-status-escalated border-status-escalated/30';
-    }
-  } else if (type === 'priority') {
-    if (valLower === 'low') {
-      styles = 'bg-priority-low/10 text-priority-low border-priority-low/30';
-    } else if (valLower === 'medium') {
-      styles = 'bg-priority-medium/10 text-priority-medium border-priority-medium/30';
-    } else if (valLower === 'high') {
-      styles = 'bg-priority-high/10 text-priority-high border-priority-high/30';
-    }
+  if (resolvedVariant === 'status') {
+    colorStyles = statusColorMap[valLower] || 'bg-panel-card text-gray-400';
+  } else if (resolvedVariant === 'priority') {
+    colorStyles = priorityColorMap[valLower] || 'bg-panel-card text-gray-400';
   }
 
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDismissed(true);
+    onDismiss?.();
+  };
+
   return (
-    <span className={`${baseStyles} ${styles} ${className}`}>
+    <span className={`${baseStyles} ${colorStyles} ${className}`}>
+      {dot && (
+        <span
+          className={`w-1.5 h-1.5 rounded-full inline-block mr-1 ${
+            resolvedVariant === 'default' ? 'bg-gray-400' : 'bg-currentColor'
+          }`}
+        />
+      )}
       {value}
+      {dismissable && (
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="ml-1 hover:opacity-70"
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
+      )}
     </span>
   );
 };

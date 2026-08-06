@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/urbanpulse-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>UrbanPulse AI — Pilot-Ready Civic Triage</title>
     <meta name="description" content="UrbanPulse AI is a multi-agent civic infrastructure platform that classifies, prioritizes, deduplicates, and assigns civic issues to the right department automatically." />
@@ -11,7 +11,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body class="bg-background text-foreground antialiased selection:bg-brand-lime selection:text-background min-h-screen">
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-splash" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#0d0d0d;color:#f2f2f2;font-family:Inter,sans-serif;gap:24px;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" width="48" height="48">
+          <path d="M4 28h8l6-18 8 36 6-24 4 12h8" stroke="#C6F135" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="36" cy="28" r="3" fill="#C6F135"/>
+        </svg>
+        <div style="display:flex;gap:6px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#C6F135;animation:pulse-dot 1.5s ease-in-out infinite;"></span>
+          <span style="width:8px;height:8px;border-radius:50%;background:#C6F135;animation:pulse-dot 1.5s ease-in-out 0.3s infinite;"></span>
+          <span style="width:8px;height:8px;border-radius:50%;background:#C6F135;animation:pulse-dot 1.5s ease-in-out 0.6s infinite;"></span>
+        </div>
+        <p style="color:#6b7280;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;margin:0;">Loading UrbanPulse AI</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

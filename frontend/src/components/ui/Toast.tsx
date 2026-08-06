@@ -58,18 +58,53 @@ const ToastItem: React.FC<{
   onDismiss: (id: string) => void;
 }> = ({ data, onDismiss }) => {
   const Icon = icons[data.type];
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const startTimeRef = useRef<number>(Date.now());
+  const remainingRef = useRef<number>(data.duration ?? 5000);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = undefined;
+    }
+  }, []);
+
+  const startTimer = useCallback((duration: number) => {
+    clearTimer();
+    if (duration > 0) {
+      startTimeRef.current = Date.now();
+      timerRef.current = setTimeout(() => onDismiss(data.id), duration);
+    }
+  }, [data.id, onDismiss, clearTimer]);
 
   useEffect(() => {
     if (data.duration !== 0) {
-      const timer = setTimeout(() => onDismiss(data.id), data.duration ?? 5000);
-      return () => clearTimeout(timer);
+      remainingRef.current = data.duration ?? 5000;
+      startTimer(remainingRef.current);
     }
-  }, [data.id, data.duration, onDismiss]);
+    return clearTimer;
+  }, [data.duration, startTimer, clearTimer]);
+
+  const handleMouseEnter = useCallback(() => {
+    if (timerRef.current) {
+      const elapsed = Date.now() - startTimeRef.current;
+      remainingRef.current = Math.max(0, remainingRef.current - elapsed);
+      clearTimer();
+    }
+  }, [clearTimer]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (remainingRef.current > 0 && data.duration !== 0) {
+      startTimer(remainingRef.current);
+    }
+  }, [startTimer, data.duration]);
 
   return (
     <div
       role="alert"
       aria-live="polite"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={`
         flex items-start gap-3 p-4 rounded-lg border shadow-lg shadow-black/30
         backdrop-blur-md
@@ -80,9 +115,9 @@ const ToastItem: React.FC<{
     >
       <Icon size={18} className={`shrink-0 mt-0.5 ${iconColors[data.type]}`} />
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-foreground">{data.title}</p>
+        <p className="text-caption font-semibold text-foreground">{data.title}</p>
         {data.message && (
-          <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">{data.message}</p>
+          <p className="text-meta text-tertiary mt-0.5 leading-relaxed">{data.message}</p>
         )}
       </div>
       <button
