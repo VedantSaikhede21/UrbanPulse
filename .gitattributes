@@ -1,0 +1,10 @@
+# Line-ending normalization: shell scripts and Python must stay LF
+# even on Windows checkouts, or containers fail to boot.
+
+*.sh text eol=lf
+*.py text eol=lf
+*.env text eol=lf
+.env.example text eol=lf
+docker-compose.yml text eol=lf
+Dockerfile text eol=lf
+nginx.conf text eol=lf
