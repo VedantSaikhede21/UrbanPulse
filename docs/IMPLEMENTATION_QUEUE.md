@@ -15,6 +15,21 @@
 
 ---
 
+## Recently Completed
+
+| # | Task | Notes |
+|---|------|-------|
+| ✓ | Profile/Notifications/Settings stub pages replaced with real content | All three pages now render live data |
+| ✓ | Auth page inline style → Tailwind conversion (CitizenLogin, StaffLogin, StaffRegister) | All auth pages converted to Tailwind classes |
+| ✓ | Accessibility pass (aria-labels, roles) | Applied across all pages |
+| ✓ | Button ripple animation CSS | Added ripple effect to interactive buttons |
+| ✓ | Empty state on IncidentMap | Handles no-data scenario gracefully |
+| ✓ | OfficerProfile retry fix | Uses `loadData` instead of `location.reload` |
+| ✓ | Root directory cleanup | Removed lenovo, FILES, env artifacts |
+| ✓ | README overhaul | SVG logo + screenshots added |
+
+---
+
 ## Layer 0 — Shared UI Components (P0)
 
 > **Build order:** highest technical risk first. MapPicker (Leaflet + GPS + permissions) is the most uncertain component — discover issues early.
@@ -100,6 +115,7 @@ Wire frontend to real backend endpoints. Without this, nothing works end-to-end.
 | 3.2 | Status transitions (assigned → in_progress → resolved) | 3.1 | — | Demo | 20-30m | OfficerQueue.tsx | Vijay |
 | 3.3 | Closure photo upload + submit | 0.1, 3.1 | — | Demo | 30-45m | OfficerQueue.tsx | Vijay |
 | 3.4 | **OfficerProfile.tsx** — Replace stub with real content | 0.7 | — | — | 30-45m | `frontend/src/pages/officer/OfficerProfile.tsx` | Vijay |
+| 3.5 | ✅ OfficerProfile retry fix (`loadData` instead of `location.reload`) | 3.4 | — | — | — | OfficerProfile.tsx | Vijay |
 
 **Done when:**
 - ✓ Officer sees all assigned tickets sorted by priority
@@ -182,9 +198,9 @@ Wire frontend to real backend endpoints. Without this, nothing works end-to-end.
 
 | # | Task | Depends On | Est. Time | Files | Owner |
 |---|------|-----------|-----------|-------|-------|
-| 8.1 | **Settings.tsx** — Replace stub | Auth (Vedant) | 20-30m | `frontend/src/pages/shared/Settings.tsx` | Vijay |
+| 8.1 | ✅ **Settings.tsx** — Replace stub | Auth (Vedant) | 20-30m | `frontend/src/pages/shared/Settings.tsx` | Vijay |
 | 8.2 | **Support.tsx** — Replace stub | Nothing | 15-20m | `frontend/src/pages/shared/Support.tsx` | Vijay |
-| 8.3 | **Notifications.tsx** — Replace stub | Auth + Realtime | 30-45m | `frontend/src/pages/citizen/Notifications.tsx` | Vijay |
+| 8.3 | ✅ **Notifications.tsx** — Replace stub | Auth + Realtime | 30-45m | `frontend/src/pages/citizen/Notifications.tsx` | Vijay |
 
 ---
 
@@ -246,8 +262,8 @@ Wire frontend to real backend endpoints. Without this, nothing works end-to-end.
 | ReportIssue | ⚠️ Needs work | 387 | 60-90m |
 | ReportDetail | ⚠️ Needs work | 185 | 45-60m |
 | WardHealth | 🔲 Stub | — | 30-45m |
-| Profile | 🔲 Stub | — | (Vedant) |
-| Notifications | 🔲 Stub | — | 30-45m |
+| Profile | ✅ Complete | — | — |
+| Notifications | ✅ Complete | — | — |
 | OfficerQueue | ✅ Mostly done | 248 | 45-60m |
 | OfficerProfile | 🔲 Stub | — | 30-45m |
 | DeptDashboard | 🔲 Stub | — | 30-45m |
@@ -262,7 +278,7 @@ Wire frontend to real backend endpoints. Without this, nothing works end-to-end.
 | AuditLog | 🔲 Stub | — | 30-45m |
 | AgentMonitoring | 🔲 Stub | — | 30-45m |
 | LiveAgentTrace | ✅ Mostly done | 234 | 30-45m |
-| Settings | 🔲 Stub | — | 20-30m |
+| Settings | ✅ Complete | — | — |
 | Support | 🔲 Stub | — | 15-20m |
 
 **Key:** ✅ Complete | ⚠️ Needs work | 🔲 Stub (PageStub) | (Vedant) — blocked on auth
