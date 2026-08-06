@@ -27,7 +27,61 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# Runtime artifacts (never commit user media or logs)
+/backend/uploads/
+/backend/*.log
+/frontend/*.log
+/frontend/dist/
+/frontend/build/
+*.log
+
+# QA screenshot artifacts
+qa-screenshots/
+qa/screenshots/
+
+# Generated knowledge-graph cache (keep GRAPH_REPORT.md)
+graphify-out/cache/
+graphify-out/.graphify_*
+graphify-out/manifest.json
+
+# Generated presentation output
+presentation/something/urbanpulse-ai.slides/
+presentation/something/_icon_cache/
+presentation/something/_screenshots/
+presentation/something/*.pdf
+presentation/review/
+presentation/polished/
+presentation/screenshots/
+presentation/*/demo-screenshots/
+presentation/demo-screenshots/
+
+# Research screenshot captures (third-party site images)
+research/**/*.png
+
+# Temporary pipeline/debug artifacts
+process_body.json
+ticket_body.json
+run_commands.txt
+
 # Root-level package files (created by dev tooling)
 /package.json
 /package-lock.json
 /env
+
+# ════════════════════════════════════════════════════════
+# Release hygiene (added 2026-08-06)
+# ════════════════════════════════════════════════════════
+
+# Personal media — MUST NEVER be tracked (P0 blocker)
+/lenovo/
+
+# AI / agent tooling session state
+.omo/
+.codegraph/
+.gstack/
+
+# Large binaries (keep editable sources only)
+*.mp4
+*.pptx
+proposal/proposal.pdf
+UrbanPulse_AI_Project_Proposal.pdf
