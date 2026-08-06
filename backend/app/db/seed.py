@@ -6,6 +6,9 @@ from app.db.session import engine, SessionLocal, Base
 from app.db.models import Ward, Citizen, Officer, Ticket, AuditLog
 
 def seed_db():
+    from app.config import settings
+    if settings.ENV != "development":
+        raise RuntimeError("seed_db() is destructive and refuses to run outside the development environment")
     print("Initializing database schema...")
     
     # 1. Ensure PostGIS and UUID extensions are enabled

@@ -16,9 +16,12 @@ class Settings(BaseSettings):
 
     # Environment
     ENV: str = "development"
-    # Only allow unauthenticated super_admin fallback when explicitly enabled in dev
-    DEV_ALLOW_ANONYMOUS: bool = True
-    DEV_ALLOW_DELETE: bool = True
+    # Must be explicitly enabled — even in dev
+    DEV_ALLOW_ANONYMOUS: bool = False
+    DEV_ALLOW_DELETE: bool = False
+
+    # Comma-separated list of allowed CORS origins
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

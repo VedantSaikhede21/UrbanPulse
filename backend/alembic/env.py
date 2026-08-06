@@ -14,6 +14,11 @@ config = context.config
 database_url = settings.DATABASE_URL
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
+# configparser uses BasicInterpolation and treats '%' specially, so
+# percent-encoded URLs (e.g. %40 in a password) must be escaped.
+# configparser.get() later un-escapes '%%' back to '%'.
+if database_url:
+    database_url = database_url.replace("%", "%%")
 config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:

@@ -5,11 +5,11 @@ import secrets
 import uuid
 from typing import Optional, List
 
-from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File, Request
+from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session, load_only
 from sqlalchemy import text, func
 import jwt
@@ -49,6 +49,9 @@ async def load_graphs():
 
 JWT_SECRET = settings.SUPABASE_JWT_SECRET or "placeholder-secret"
 
+VALID_ROLES = {"citizen", "officer", "dept_head", "admin", "super_admin"}
+STAFF_ROLES = ("officer", "dept_head", "admin", "super_admin")
+
 
 class AuthUser:
     def __init__(self, id: str, role: str, email: str = None, phone: str = None, name: str = None):
@@ -77,17 +80,26 @@ def get_current_user(
         scheme, token = authorization.split()
         if scheme.lower() != "bearer":
             raise HTTPException(status_code=401, detail="Invalid authentication scheme")
-        decode_options = {}
-        if not settings.SUPABASE_JWT_SECRET:
-            decode_options = {"verify_signature": False}
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"], options=decode_options)
+        decode_algorithms = ["HS256"]
+        if not JWT_SECRET or JWT_SECRET == "placeholder-secret":
+            if settings.ENV == "development":
+                decode_options = {"verify_signature": False}
+            else:
+                raise HTTPException(status_code=500, detail="JWT_SECRET not configured. Set SUPABASE_JWT_SECRET in .env")
+        else:
+            decode_options = {}
+        payload = jwt.decode(token, JWT_SECRET, algorithms=decode_algorithms, options=decode_options)
         user_id = payload.get("sub")
         email = payload.get("email")
         phone = payload.get("phone")
         user_metadata = payload.get("user_metadata", {})
         role = user_metadata.get("role")
-        if not role:
-            role = "officer" if email else "citizen"
+        # Hardening: never trust arbitrary/absent roles. Only the known role set
+        # is accepted and anything else (or nothing) resolves to the least
+        # privileged role. This prevents client-set metadata from self-promoting
+        # to officer/admin/super_admin.
+        if role not in VALID_ROLES:
+            role = "citizen"
         name = "Unknown User"
         if role == "citizen":
             citizen = db.query(Citizen).filter(Citizen.id == user_id).first()
@@ -112,11 +124,29 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173"],
+    allow_origins=[o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Demo Seed Endpoint ────────────────────────────────
+
+
+@app.post("/api/demo/seed")
+async def demo_seed(authorization: str = Header(None)):
+    """Re-seed the database with demo data. Accessible only in development mode."""
+    if settings.ENV != "development":
+        raise HTTPException(status_code=403, detail="Demo seed is only available in development mode")
+
+    from app.db.seed import seed_db
+    try:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, seed_db)
+        return {"status": "ok", "message": "Database re-seeded successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Seed failed: {str(e)}")
 
 
 # ── Serializers ──────────────────────────────────────────
@@ -161,6 +191,34 @@ class CreateTicketRequest(BaseModel):
     priority_score: int = Field(default=2, ge=1, le=3)
     priority_reason: Optional[str] = None
 
+    @field_validator("latitude")
+    @classmethod
+    def validate_latitude(cls, v):
+        if v < -90 or v > 90:
+            raise ValueError("latitude must be between -90 and 90")
+        return v
+
+    @field_validator("longitude")
+    @classmethod
+    def validate_longitude(cls, v):
+        if v < -180 or v > 180:
+            raise ValueError("longitude must be between -180 and 180")
+        return v
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, v):
+        if v and len(v) > 2000:
+            raise ValueError("description must not exceed 2000 characters")
+        return v
+
+    @field_validator("category")
+    @classmethod
+    def validate_category(cls, v):
+        if len(v) > 100:
+            raise ValueError("category must not exceed 100 characters")
+        return v
+
 
 class ResolveTicketRequest(BaseModel):
     closure_media_url: str
@@ -193,12 +251,37 @@ def health_check(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/health/ready")
+def readiness_check(db: Session = Depends(get_db)):
+    """Readiness probe used by Docker healthchecks. 503 while the database is unreachable."""
+    db_connected = False
+    try:
+        db.execute(text("SELECT 1"))
+        db_connected = True
+    except Exception:
+        pass
+
+    if not db_connected:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    return {
+        "status": "ready",
+        "environment": settings.ENV,
+        "database_connected": True,
+        "graphs_loaded": _triage_graph is not None,
+    }
+
+
 # ── File Upload ───────────────────────────────────────────
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".webm", ".mp3", ".wav", ".m4a", ".pdf"}
 
 @app.post("/api/upload")
-async def upload_file(request: Request, file: UploadFile = File(...)):
+async def upload_file(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: AuthUser = Depends(get_current_user),
+):
     ext = (os.path.splitext(file.filename or "file")[1] or ".bin").lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type {ext} not allowed")
@@ -238,6 +321,35 @@ def list_tickets(db: Session = Depends(get_db), current_user: AuthUser = Depends
                 "created_at": "2026-07-14T18:00:00Z",
             },
         ]
+
+
+@app.get("/api/tickets/near")
+def find_nearby_tickets(
+    latitude: float = Query(..., ge=-90, le=90),
+    longitude: float = Query(..., ge=-180, le=180),
+    radius_meters: float = Query(default=1000.0, ge=1, le=50000),
+    db: Session = Depends(get_db),
+):
+    try:
+        rows = db.execute(
+            text("""
+                SELECT id FROM tickets
+                WHERE ST_DWithin(
+                    location_geom,
+                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                    :radius
+                )
+            """),
+            {"lng": longitude, "lat": latitude, "radius": radius_meters},
+        ).fetchall()
+        ids = [str(r[0]) for r in rows]
+        if not ids:
+            return []
+        tickets = db.query(Ticket).filter(Ticket.id.in_(ids)).all()
+        return [serialize_ticket(t) for t in tickets]
+    except Exception as e:
+        print(f"Spatial query error: {e}")
+        return []
 
 
 @app.get("/api/tickets/{ticket_id}")
@@ -287,35 +399,6 @@ def create_ticket(
     return serialize_ticket(ticket)
 
 
-@app.get("/api/tickets/near")
-def find_nearby_tickets(
-    latitude: float,
-    longitude: float,
-    radius_meters: float = 1000.0,
-    db: Session = Depends(get_db),
-):
-    try:
-        rows = db.execute(
-            text("""
-                SELECT id FROM tickets
-                WHERE ST_DWithin(
-                    location_geom,
-                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
-                    :radius
-                )
-            """),
-            {"lng": longitude, "lat": latitude, "radius": radius_meters},
-        ).fetchall()
-        ids = [str(r[0]) for r in rows]
-        if not ids:
-            return []
-        tickets = db.query(Ticket).filter(Ticket.id.in_(ids)).all()
-        return [serialize_ticket(t) for t in tickets]
-    except Exception as e:
-        print(f"Spatial query error: {e}")
-        return []
-
-
 # ── Officer endpoints ────────────────────────────────────
 
 @app.get("/api/officers/queue")
@@ -344,6 +427,8 @@ def update_ticket_status(
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user),
 ):
+    if current_user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Officer access required")
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -360,6 +445,8 @@ async def resolve_ticket(
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user),
 ):
+    if current_user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Officer access required")
     if _verification_graph is None:
         raise HTTPException(status_code=503, detail="Agent graphs not loaded")
 
@@ -476,8 +563,26 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
         final_state_dict = state.model_dump()
 
         try:
+            queue = asyncio.Queue()
             seen_logs = 0
-            for step in _triage_graph.stream(state):
+
+            async def run_pipeline():
+                loop = asyncio.get_running_loop()
+
+                def _sync_stream():
+                    for step in _triage_graph.stream(state):
+                        queue.put_nowait(step)
+                    queue.put_nowait(None)
+
+                await loop.run_in_executor(None, _sync_stream)
+
+            task = asyncio.create_task(run_pipeline())
+
+            while True:
+                step = await queue.get()
+                if step is None:
+                    break
+
                 for node_name, node_output in step.items():
                     if isinstance(node_output, dict):
                         final_state_dict.update(node_output)
@@ -495,7 +600,8 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
                             "status": "running",
                         })
                         yield f"data: {event_data}\n\n"
-                        await asyncio.sleep(0)
+
+            await task
 
             try:
                 ticket.category = final_state_dict.get("category") or ticket.category
