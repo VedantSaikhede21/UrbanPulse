@@ -82,3 +82,12 @@ volumes:
 networks:
   urbanpulse-net:
     driver: bridge
+    # Supabase's database host publishes an IPv6 (AAAA) record only.
+    # Enable IPv6 on the bridge so the backend container can reach it;
+    # Docker NATs IPv6 outbound traffic through the host's IPv6 route.
+    # fd00::/8 is RFC 4193 Unique Local Addressing — safe for any LAN/host,
+    # unlike the 2001:db8::/32 documentation range.
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: fd00:20::/64
