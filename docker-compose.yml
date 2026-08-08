@@ -9,12 +9,15 @@ services:
     env_file:
       - .env
     environment:
-      - ENV=production
+      # Production by default; set ENV=development in .env for offline demos
+      # (dev mode allows unsigned JWTs and demo seed endpoints).
+      - ENV=${ENV:-production}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - uploads_data:/app/uploads
     restart: unless-stopped
+    stop_grace_period: 20s
     networks:
       - urbanpulse-net
     healthcheck:
@@ -46,7 +49,7 @@ services:
     networks:
       - urbanpulse-net
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
       interval: 30s
       timeout: 5s
       start_period: 10s
@@ -58,7 +61,7 @@ services:
   #   DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
   db:
     image: postgis/postgis:16-3.4
-    profile: ["local-db"]
+    profiles: ["local-db"]
     container_name: urbanpulse-db
     environment:
       POSTGRES_USER: postgres

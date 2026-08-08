@@ -54,7 +54,4 @@ EXPOSE 8000
 
 USER urbanpulse
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -sf http://localhost:8000/api/health || exit 1
-
 ENTRYPOINT ["/entrypoint.sh"]
