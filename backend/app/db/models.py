@@ -1,18 +1,32 @@
 import uuid
+from datetime import datetime
 from sqlalchemy import Column, String, Integer, Boolean, Numeric, ForeignKey, Text, DateTime, JSON, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from geoalchemy2 import Geometry
 from app.db.session import Base
+from sqlalchemy.orm import Mapped, mapped_column
+from geoalchemy2 import Geometry
 
 class Ward(Base):
     __tablename__ = "wards"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False, unique=True)
-    boundary = Column(Geometry(geometry_type="POLYGON", srid=4326), nullable=False)
-    uhs_score = Column(Numeric(4, 1), default=100.0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+
+    name: Mapped[str] = mapped_column(String(100),nullable=False,unique=True)
+    boundary: Mapped[object] = mapped_column(
+        Geometry(geometry_type="POLYGON", srid=4326),
+        nullable=False
+    )
+
+    uhs_score: Mapped[float] = mapped_column(
+        Numeric(4, 1),
+        default=100.0
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
 
 class Citizen(Base):
     __tablename__ = "citizens"

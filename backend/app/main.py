@@ -296,6 +296,46 @@ async def upload_file(
     return {"url": f"{base_url}/uploads/{filename}"}
 
 
+# ── Notifications ─────────────────────────────────────────
+
+@app.get("/api/notifications")
+def list_notifications(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
+    from app.agents.graph import CATEGORY_TO_DEPT
+    try:
+        query = db.query(Ticket)
+        if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
+            query = query.filter(Ticket.citizen_id == current_user.id)
+        tickets = query.order_by(Ticket.updated_at.desc()).limit(30).all()
+
+        STATUS_MESSAGES = {
+            "reported": "Your report was received and is being triaged by AI.",
+            "assigned": "Your report has been assigned to the {dept} department.",
+            "in_progress": "An officer has started work on your report.",
+            "resolved": "Your report has been marked resolved — please confirm.",
+            "verified": "Resolution verified — thank you for reporting this issue.",
+        }
+
+        notifications = []
+        for t in tickets:
+            category_key = t.category if isinstance(t.category, str) else ""
+            dept = CATEGORY_TO_DEPT.get(category_key, "the relevant")
+            status = t.status if isinstance(t.status, str) else str(t.status)
+            message = STATUS_MESSAGES.get(status, f"Status updated to {status}.")
+            message = message.format(dept=dept)
+            notifications.append({
+                "id": str(t.id),
+                "ticket_id": str(t.id),
+                "category": t.category,
+                "status": status,
+                "message": message,
+                "timestamp": t.updated_at.isoformat() if t.updated_at is not None else None,
+            })
+        return notifications
+    except Exception as e:
+        print(f"Notifications query failed: {e}")
+        return []
+
+
 # ── Tickets CRUD ─────────────────────────────────────────
 
 @app.get("/api/tickets")

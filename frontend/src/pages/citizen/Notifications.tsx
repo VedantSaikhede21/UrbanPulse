@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { Bell, CheckCircle2, AlertTriangle, Info, X, Clock } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { SkeletonCard } from '../../components/ui/Skeleton';
+import { apiFetch } from '../../lib/api';
 
 interface Notification {
   id: string;
+  ticket_id: string;
   type: 'status' | 'alert' | 'info';
   title: string;
   message: string;
@@ -13,24 +16,66 @@ interface Notification {
   read: boolean;
 }
 
-const INITIAL_NOTIFICATIONS: Notification[] = [
-  { id: '1', type: 'status', title: 'Report Resolved', message: 'Your pothole report #URB-2024-0421 has been marked as resolved.', time: '2h ago', read: false },
-  { id: '2', type: 'alert', title: 'Escalation Update', message: 'Water leakage issue escalated to priority due to community impact.', time: '5h ago', read: false },
-  { id: '3', type: 'info', title: 'Officer Assigned', message: 'An officer has been assigned to your streetlight report.', time: '1d ago', read: true },
-  { id: '4', type: 'status', title: 'Verification Needed', message: 'Please confirm the resolution of your garbage collection report.', time: '2d ago', read: true },
-  { id: '5', type: 'info', title: 'Agent Processing Complete', message: 'All 8 AI agents have finished processing your latest report.', time: '3d ago', read: true },
-];
-
 const TYPE_CONFIG = {
   status: { icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-950/30 border-emerald-800/20' },
   alert: { icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-950/30 border-amber-800/20' },
   info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-950/30 border-blue-800/20' },
 };
 
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function toNotification(raw: any): Notification {
+  const status = raw.status || 'info';
+  const type = status === 'resolved' || status === 'verified' ? 'status'
+    : status === 'escalated' ? 'alert'
+    : 'info';
+  const title = raw.category ? `${raw.category} · ${status.replace(/_/g, ' ')}` : status.replace(/_/g, ' ');
+  return {
+    id: raw.id,
+    ticket_id: raw.ticket_id,
+    type,
+    title,
+    message: raw.message || `Status updated to ${status.replace(/_/g, ' ')}.`,
+    time: timeAgo(raw.timestamp),
+    read: false,
+  };
+}
+
 export const Notifications: React.FC = () => {
   useDocumentTitle('Notifications');
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch('/api/notifications')
+      .then(res => {
+        if (!res.ok) throw new Error(`Failed to load notifications (${res.status})`);
+        return res.json();
+      })
+      .then(data => {
+        if (cancelled) return;
+        setNotifications(Array.isArray(data) ? data.map(toNotification) : []);
+        setLoading(false);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        setError(err.message || 'Could not load notifications');
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = filter === 'unread' ? notifications.filter(n => !n.read) : notifications;
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -46,6 +91,30 @@ export const Notifications: React.FC = () => {
   const markAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-4">
+        <SkeletonCard /><SkeletonCard /><SkeletonCard />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <EmptyState icon={AlertTriangle} title="Couldn't load notifications" message={error} />
+      </div>
+    );
+  }
+
+  if (notifications.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState icon={Bell} title="No notifications yet" message="You'll see updates here as your reports move through triage and resolution." />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8 min-h-screen text-foreground font-sans">

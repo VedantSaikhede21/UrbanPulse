@@ -42,7 +42,8 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
             model="gemini-2.5-flash",
             contents=prompt,
         )
-        return resp.text.strip()
+        text_response = getattr(resp, "text", None)
+        return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
         print(f"Gemini call failed: {e}")
         return fallback
@@ -61,11 +62,30 @@ def _ask_gemini_with_images(prompt: str, image_urls: List[str], fallback: str) -
             model="gemini-2.5-flash",
             contents=[types.Content(role="user", parts=parts)],
         )
-        return resp.text.strip()
+        text_response = getattr(resp, "text", None)
+        return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
         print(f"Gemini multimodal call failed: {e}")
         return fallback
-
+    
+def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
+    """Multimodal Gemini call with an audio note — transcribes + translates in one call."""
+    if not GEMINI_AVAILABLE or _gemini_client is None or types is None or not audio_url:
+        return fallback
+    try:
+        parts: List[Any] = [
+            types.Part.from_text(text=prompt),
+            types.Part.from_uri(file_uri=audio_url, mime_type="audio/webm"),
+        ]
+        resp = _gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[types.Content(role="user", parts=parts)],
+        )
+        text_response = getattr(resp, "text", None)
+        return text_response.strip() if isinstance(text_response, str) else fallback
+    except Exception as e:
+        print(f"Gemini audio call failed: {e}")
+        return fallback
 
 def _get_db_session():
     from app.db.session import SessionLocal

@@ -15,7 +15,13 @@ export default function StaffRegister() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { role: 'officer', department: 'Roads' }
+  }
+});
     setLoading(false);
     if (error) { setError(error.message); return; }
     navigate('/auth/post-login');
