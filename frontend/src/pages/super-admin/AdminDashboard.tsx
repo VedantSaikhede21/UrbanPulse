@@ -7,19 +7,10 @@ import { Badge } from '../../components/ui/Badge';
 import { MetricCard } from '../../components/ui/Card';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
+import type { Ticket } from '../../lib/types';
+import type { Officer } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  status: string;
-  severity: string;
-  priority_score: number;
-  created_at: string;
-}
 
-interface Officer {
-  id: string;
-}
 
 const OPEN_STATUSES = ['reported', 'assigned', 'in_progress'];
 const RESOLVED_STATUSES = ['resolved', 'verified'];

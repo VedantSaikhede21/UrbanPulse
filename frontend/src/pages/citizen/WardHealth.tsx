@@ -7,19 +7,9 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
+import type { Ward, CityPulse } from '../../lib/types';
 
-interface Ward {
-  id: number;
-  name: string;
-  uhs_score: number;
-}
 
-interface CityPulse {
-  wards: { name: string; uhs_score: number }[];
-  critical_wards: number;
-  trending_categories: { category: string; count: number }[];
-  pulse_alerts: string[];
-}
 
 function uhsColor(score: number): string {
   if (score >= 80) return 'bg-green-500';

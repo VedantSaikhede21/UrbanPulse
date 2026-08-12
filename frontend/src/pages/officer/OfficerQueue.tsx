@@ -12,20 +12,8 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useToast } from '../../components/ui/Toast';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
+import type { Ticket } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  severity: string;
-  description: string;
-  latitude: number;
-  longitude: number;
-  status: string;
-  priority_score: number;
-  priority_reason?: string;
-  original_media_url?: string;
-  created_at: string;
-}
 
 type StatusFilter = 'all' | 'assigned' | 'in_progress';
 

@@ -8,18 +8,8 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
+import type { Ticket } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  severity: string;
-  description: string;
-  latitude: number;
-  longitude: number;
-  status: string;
-  priority_score: number;
-  created_at: string;
-}
 
 const OPEN_STATUSES = ['reported', 'assigned', 'in_progress'];
 const RESOLVED_STATUSES = ['resolved', 'verified'];

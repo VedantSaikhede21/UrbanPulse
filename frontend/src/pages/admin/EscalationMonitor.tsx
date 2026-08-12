@@ -9,18 +9,8 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { apiFetch } from '../../lib/api';
+import type { Ticket } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  severity: string;
-  status: string;
-  priority_score: number;
-  description: string;
-  latitude: number;
-  longitude: number;
-  created_at: string;
-}
 
 interface BreachInfo {
   ticket: Ticket;

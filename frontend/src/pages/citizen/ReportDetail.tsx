@@ -6,6 +6,7 @@ import { divIcon } from 'leaflet';
 import { apiFetch } from '../../lib/api';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useToast } from '../../components/ui/Toast';
+import type { Ticket } from '../../lib/types';
 
 const STATIC_MARKER = divIcon({
   className: 'custom-map-marker',
@@ -14,22 +15,6 @@ const STATIC_MARKER = divIcon({
   iconAnchor: [14, 28],
 });
 
-interface Ticket {
-  id: string;
-  category: string;
-  severity: string;
-  description: string;
-  latitude: number;
-  longitude: number;
-  original_media_url?: string;
-  voice_note_url?: string;
-  status: string;
-  priority_score: number;
-  priority_reason?: string;
-  verification_status?: string;
-  verification_reason?: string;
-  created_at: string;
-}
 
 export const ReportDetail: React.FC = () => {
   useDocumentTitle('Report Details');

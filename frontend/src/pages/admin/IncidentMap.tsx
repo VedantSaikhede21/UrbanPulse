@@ -3,17 +3,8 @@ import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { AlertTriangle, Loader } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
+import type { Ticket } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  severity: string;
-  status: string;
-  latitude: number;
-  longitude: number;
-  description: string;
-  created_at: string;
-}
 
 const STATUS_COLORS: Record<string, string> = {
   reported: '#facc15',

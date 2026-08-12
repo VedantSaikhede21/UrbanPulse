@@ -6,14 +6,8 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
+import type { Ticket } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  status: string;
-  priority_score: number;
-  created_at: string;
-}
 
 export const Profile: React.FC = () => {
   useDocumentTitle('My Profile');

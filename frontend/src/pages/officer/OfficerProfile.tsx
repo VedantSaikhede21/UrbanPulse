@@ -6,6 +6,7 @@ import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { Badge } from '../../components/ui/Badge';
 import { SkeletonCard } from '../../components/ui/Skeleton';
+import type { Ticket } from '../../lib/types';
 
 interface UserInfo {
   id: string;
@@ -15,14 +16,6 @@ interface UserInfo {
   name: string;
 }
 
-interface Ticket {
-  id: string;
-  category: string;
-  status: string;
-  priority_score: number;
-  description: string;
-  created_at: string;
-}
 
 export const OfficerProfile: React.FC = () => {
   useDocumentTitle('Officer Profile');

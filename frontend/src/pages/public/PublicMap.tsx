@@ -3,30 +3,11 @@ import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { AlertTriangle, Loader, MapPin, Activity } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
+import type { Ticket } from '../../lib/types';
+import type { Ward, CityPulse } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  severity: string;
-  status: string;
-  latitude: number;
-  longitude: number;
-  description: string;
-  created_at: string;
-}
 
-interface Ward {
-  id: number;
-  name: string;
-  uhs_score: number;
-}
 
-interface Pulse {
-  wards: { name: string; uhs_score: number }[];
-  critical_wards: number;
-  trending_categories: { category: string; count: number }[];
-  pulse_alerts: string[];
-}
 
 const STATUS_COLORS: Record<string, string> = {
   reported: '#facc15',
@@ -53,7 +34,7 @@ export const PublicMap: React.FC = () => {
   useDocumentTitle('Incident Map');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
-  const [pulse, setPulse] = useState<Pulse | null>(null);
+  const [pulse, setPulse] = useState<CityPulse | null>(null);
   const [guestMode, setGuestMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

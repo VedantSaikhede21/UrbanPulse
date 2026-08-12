@@ -9,20 +9,10 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
+import type { Ticket } from '../../lib/types';
+import type { Ward } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  status: string;
-  severity: string;
-  priority_score: number;
-  created_at: string;
-}
 
-interface Ward {
-  name: string;
-  uhs_score: number;
-}
 
 const STATUS_LABELS: Record<string, string> = {
   reported: 'Reported',

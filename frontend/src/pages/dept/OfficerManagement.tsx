@@ -6,20 +6,10 @@ import {
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
+import type { Ticket } from '../../lib/types';
+import type { Officer } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  status: string;
-}
 
-interface Officer {
-  id: string;
-  name: string;
-  department: string;
-  status: string;
-  assignments: number;
-}
 
 const OFFICERS: Omit<Officer, 'assignments'>[] = [
   { id: '1', name: 'Dave Kumar', department: 'Roads & Potholes', status: 'Active' },

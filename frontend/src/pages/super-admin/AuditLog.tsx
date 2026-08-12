@@ -9,15 +9,8 @@ import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { apiFetch } from '../../lib/api';
+import type { Ticket } from '../../lib/types';
 
-interface Ticket {
-  id: string;
-  category: string;
-  status: string;
-  severity: string;
-  priority_score: number;
-  created_at: string;
-}
 
 function statusBadgeValue(s: string): string {
   if (s === 'reported') return 'new';
