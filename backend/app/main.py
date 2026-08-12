@@ -17,6 +17,11 @@ from app.auth.deps import AuthUser, get_current_user
 from app.config import settings
 from app.db.session import get_db
 from app.db.models import Ticket, Citizen, Officer, Ward
+from app.schemas.analytics import CityPulseResponse, WardScore
+from app.schemas.auth import MeResponse
+from app.schemas.health import HealthResponse, ReadinessResponse
+from app.schemas.tickets import NotificationOut, TicketOut
+from app.schemas.upload import UploadResponse
 
 app = FastAPI(
     title="UrbanPulse AI Backend",
@@ -165,7 +170,7 @@ class UpdateTicketStatusRequest(BaseModel):
 
 # ── Health ───────────────────────────────────────────────
 
-@app.get("/api/health")
+@app.get("/api/health", response_model=HealthResponse)
 def health_check(db: Session = Depends(get_db)):
     db_connected = False
     try:
@@ -185,7 +190,7 @@ def health_check(db: Session = Depends(get_db)):
     }
 
 
-@app.get("/api/health/ready")
+@app.get("/api/health/ready", response_model=ReadinessResponse)
 def readiness_check(db: Session = Depends(get_db)):
     """Readiness probe used by Docker healthchecks. 503 while the database is unreachable."""
     db_connected = False
@@ -210,7 +215,7 @@ def readiness_check(db: Session = Depends(get_db)):
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".webm", ".mp3", ".wav", ".m4a", ".pdf"}
 
-@app.post("/api/upload")
+@app.post("/api/upload", response_model=UploadResponse)
 async def upload_file(
     request: Request,
     file: UploadFile = File(...),
@@ -232,7 +237,7 @@ async def upload_file(
 
 # ── Notifications ─────────────────────────────────────────
 
-@app.get("/api/notifications")
+@app.get("/api/notifications", response_model=List[NotificationOut])
 def list_notifications(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
     from app.agents.graph import CATEGORY_TO_DEPT
     try:
@@ -297,7 +302,7 @@ def list_tickets(db: Session = Depends(get_db), current_user: AuthUser = Depends
         ]
 
 
-@app.get("/api/tickets/near")
+@app.get("/api/tickets/near", response_model=List[TicketOut])
 def find_nearby_tickets(
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),
@@ -326,7 +331,7 @@ def find_nearby_tickets(
         return []
 
 
-@app.get("/api/tickets/{ticket_id}")
+@app.get("/api/tickets/{ticket_id}", response_model=TicketOut)
 def get_ticket(
     ticket_id: str,
     db: Session = Depends(get_db),
@@ -346,7 +351,7 @@ def get_ticket(
     return serialize_ticket(ticket)
 
 
-@app.post("/api/tickets", status_code=201)
+@app.post("/api/tickets", status_code=201, response_model=TicketOut)
 def create_ticket(
     body: CreateTicketRequest,
     db: Session = Depends(get_db),
@@ -390,7 +395,7 @@ def create_ticket(
 
 # ── Officer endpoints ────────────────────────────────────
 
-@app.get("/api/officers/queue")
+@app.get("/api/officers/queue", response_model=List[TicketOut])
 def officer_queue(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
     if current_user.role not in ("officer", "dept_head", "admin", "super_admin"):
         raise HTTPException(status_code=403, detail="Officer access required")
@@ -409,7 +414,7 @@ def officer_queue(db: Session = Depends(get_db), current_user: AuthUser = Depend
     return [serialize_ticket(t) for t in tickets]
 
 
-@app.patch("/api/tickets/{ticket_id}/status")
+@app.patch("/api/tickets/{ticket_id}/status", response_model=TicketOut)
 def update_ticket_status(
     ticket_id: str,
     body: UpdateTicketStatusRequest,
@@ -427,7 +432,7 @@ def update_ticket_status(
     return serialize_ticket(ticket)
 
 
-@app.post("/api/tickets/{ticket_id}/resolve")
+@app.post("/api/tickets/{ticket_id}/resolve", response_model=TicketOut)
 async def resolve_ticket(
     ticket_id: str,
     body: ResolveTicketRequest,
@@ -470,12 +475,12 @@ async def resolve_ticket(
 
 # ── Analytics ────────────────────────────────────────────
 
-@app.get("/api/analytics/wards")
+@app.get("/api/analytics/wards", response_model=List[WardScore])
 def ward_analytics(db: Session = Depends(get_db)):
     wards = db.query(Ward).options(load_only(Ward.id, Ward.name, Ward.uhs_score)).all()
     return [
         {
-            "id": w.id,
+            "id": str(w.id),
             "name": w.name,
             "uhs_score": float(w.uhs_score),
         }
@@ -483,7 +488,7 @@ def ward_analytics(db: Session = Depends(get_db)):
     ]
 
 
-@app.get("/api/analytics/city-pulse")
+@app.get("/api/analytics/city-pulse", response_model=CityPulseResponse)
 def city_pulse(db: Session = Depends(get_db)):
     """AI City Pulse — ward health summary with trending issues."""
     wards = db.query(Ward).options(load_only(Ward.id, Ward.name, Ward.uhs_score)).order_by(Ward.uhs_score.asc()).all()
@@ -667,7 +672,7 @@ def delete_ticket(
     return {"deleted": ticket_id}
 
 
-@app.get("/api/me")
+@app.get("/api/me", response_model=MeResponse)
 def get_me(current_user: AuthUser = Depends(get_current_user)):
     return {
         "id": current_user.id,
