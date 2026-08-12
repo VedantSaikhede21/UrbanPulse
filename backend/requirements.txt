@@ -11,3 +11,4 @@ psycopg2-binary==2.9.12
 geoalchemy2==0.20.0
 pyjwt[crypto]==2.13.0
 alembic==1.18.0
+pytest==8.3.5

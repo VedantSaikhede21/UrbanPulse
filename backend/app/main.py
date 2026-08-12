@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session, load_only
 from sqlalchemy import text, func
+from sqlalchemy.exc import IntegrityError
 import jwt
 
 from app.config import settings
@@ -88,11 +89,29 @@ def get_current_user(
                 raise HTTPException(status_code=500, detail="JWT_SECRET not configured. Set SUPABASE_JWT_SECRET in .env")
         else:
             decode_options = {}
-        payload = jwt.decode(token, JWT_SECRET, algorithms=decode_algorithms, options=decode_options)
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=decode_algorithms,
+            options=decode_options,
+            # Supabase Auth user tokens always carry aud="authenticated".
+            # PyJWT >= 2.13 rejects tokens that HAVE an aud claim when no
+            # audience is specified, so this is required for real tokens.
+            audience="authenticated",
+        )
         user_id = payload.get("sub")
         email = payload.get("email")
         phone = payload.get("phone")
         user_metadata = payload.get("user_metadata", {})
+        # Supabase Auth subjects are always UUIDs (auth.users.id). A token
+        # whose sub is missing or not a UUID has an invalid identity claim —
+        # reject it outright instead of degrading to anonymous/unowned
+        # behavior. This is the single gate that keeps malformed JWT
+        # identities from ever reaching ticket creation.
+        try:
+            uuid.UUID(user_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=401, detail="Invalid user identity in token")
         role = user_metadata.get("role")
         # Hardening: never trust arbitrary/absent roles. Only the known role set
         # is accepted and anything else (or nothing) resolves to the least
@@ -102,7 +121,7 @@ def get_current_user(
             role = "citizen"
         name = "Unknown User"
         if role == "citizen":
-            citizen = db.query(Citizen).filter(Citizen.id == user_id).first()
+            citizen = _get_or_create_citizen(db, user_id, email, user_metadata)
             if citizen:
                 name = citizen.name
         else:
@@ -114,6 +133,57 @@ def get_current_user(
         raise
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Could not validate credentials: {str(e)}")
+
+
+def _get_or_create_citizen(
+    db: Session,
+    user_id: str,
+    email: Optional[str],
+    user_metadata: dict,
+) -> Optional[Citizen]:
+    """Idempotently link an authenticated Supabase Auth user to a Citizen row.
+
+    Supabase Auth user IDs are the source of truth for citizen identity. A
+    real authenticated user may not have a Citizen row yet (fresh Google
+    login, or a dev re-seed removed it). Provision the row on first
+    authenticated access so ticket ownership (tickets.citizen_id FK) and
+    per-user filtering keep working without weakening auth: the user still
+    needs a valid Supabase JWT, and the row is scoped to their own UUID.
+    """
+    if user_id == "00000000-0000-0000-0000-000000000000":
+        return None
+    # get_current_user validates the sub as a UUID before calling this, so a
+    # malformed identity raises here rather than silently degrading.
+    citizen_uuid = uuid.UUID(user_id)
+    citizen = db.query(Citizen).filter(Citizen.id == citizen_uuid).first()
+    if citizen:
+        return citizen
+    display_name = (
+        user_metadata.get("name")
+        or user_metadata.get("full_name")
+        or (email.split("@")[0] if email else None)
+        or "Citizen"
+    )
+    citizen = Citizen(
+        id=citizen_uuid,
+        email=email or f"{user_id}@local.urbanpulse",
+        name=display_name[:100],
+        reputation_score=100,
+    )
+    db.add(citizen)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # Only the concurrent first-access race is expected: another request
+        # provisioned the same UUID between our SELECT and INSERT. If the row
+        # is still absent the IntegrityError came from something else (e.g. a
+        # unique-email conflict) and must propagate, not be swallowed.
+        existing = db.query(Citizen).filter(Citizen.id == citizen_uuid).first()
+        if existing is None:
+            raise
+        citizen = existing
+    return citizen
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -393,13 +463,22 @@ def find_nearby_tickets(
 
 
 @app.get("/api/tickets/{ticket_id}")
-def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
+def get_ticket(
+    ticket_id: str,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
     try:
         ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     except Exception:
         raise HTTPException(status_code=404, detail="Ticket not found")
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
+    # Citizens may only view their own tickets; staff roles may view any.
+    # 404 (not 403) avoids revealing whether a ticket exists.
+    if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
+        if ticket.citizen_id is None or str(ticket.citizen_id) != current_user.id:
+            raise HTTPException(status_code=404, detail="Ticket not found")
     return serialize_ticket(ticket)
 
 
@@ -411,7 +490,13 @@ def create_ticket(
 ):
     citizen_id = None
     if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
-        citizen_id = uuid.UUID(current_user.id)
+        # Defense in depth: get_current_user already rejects non-UUID subs,
+        # but a malformed citizen identity must never produce an unowned
+        # ticket even if a future code path constructs AuthUser differently.
+        try:
+            citizen_id = uuid.UUID(current_user.id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=401, detail="Invalid citizen identity")
     else:
         try:
             first_citizen = db.query(Citizen).first()
