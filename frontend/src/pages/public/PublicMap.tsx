@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { AlertTriangle, Loader, MapPin, Activity } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
+import { avgUhs } from '../../lib/uhs';
 import type { Ticket } from '../../lib/types';
 import type { Ward, CityPulse } from '../../lib/types';
 
@@ -24,11 +25,6 @@ const STATUS_RADIUS: Record<string, number> = {
   resolved: 8,
   verified: 6,
 };
-
-function avgUhs(wards: Ward[]): number {
-  if (!wards.length) return 0;
-  return wards.reduce((s, w) => s + w.uhs_score, 0) / wards.length;
-}
 
 export const PublicMap: React.FC = () => {
   useDocumentTitle('Incident Map');

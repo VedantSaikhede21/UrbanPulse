@@ -7,6 +7,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
+import { avgUhs } from '../../lib/uhs';
 import type { Ward, CityPulse } from '../../lib/types';
 
 
@@ -27,11 +28,6 @@ function uhsTextColor(score: number): string {
   if (score >= 80) return 'text-green-400';
   if (score >= 60) return 'text-yellow-400';
   return 'text-red-400';
-}
-
-function avgUhs(wards: Ward[]): number {
-  if (!wards.length) return 0;
-  return wards.reduce((s, w) => s + w.uhs_score, 0) / wards.length;
 }
 
 export const WardHealth: React.FC = () => {
