@@ -137,7 +137,7 @@ Wire frontend to real backend endpoints. Without this, nothing works end-to-end.
 | 4.3 | Add agent timing per step | 4.1 | — | Demo | 15-20m | LiveAgentTrace.tsx | Vijay |
 
 **Done when:**
-- ✓ SSE stream displays all 9 agents in sequence
+- ✓ SSE stream displays all 8 agents in sequence
 - ✓ Auto-scrolls as steps arrive
 - ✓ Final result card shows category/severity/priority/status
 - ✓ Error state shows connection lost message

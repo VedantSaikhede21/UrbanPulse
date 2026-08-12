@@ -127,10 +127,10 @@ curl http://localhost:8000/api/health
 UrbanPulse/
 ├── backend/                  # FastAPI + LangGraph
 │   ├── app/
-│   │   ├── main.py          # API endpoints (19 routes)
+│   │   ├── main.py          # API endpoints (18 routes)
 │   │   ├── config.py        # Settings (reads .env)
 │   │   ├── agents/
-│   │   │   └── graph.py     # 9-agent LangGraph pipeline
+│   │   │   └── graph.py     # 8-agent LangGraph pipeline
 │   │   └── db/
 │   │       ├── models.py    # SQLAlchemy ORM (5 models)
 │   │       ├── schema.sql   # PostGIS schema reference

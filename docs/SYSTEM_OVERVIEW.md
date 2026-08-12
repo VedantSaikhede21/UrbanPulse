@@ -25,8 +25,8 @@
  ┌──────────────────────────────────────────────────────────────┐
  │                     FastAPI + Uvicorn                        │
  │                                                              │
- │   19 endpoints: /health, /api/tickets/*, /api/officers/*,   │
- │                 /api/analytics/*, /api/auth/*                │
+ │   18 endpoints: /api/health, /api/tickets/*, /api/officers/*, │
+ │                 /api/analytics/*, /api/me, /api/upload        │
  │                                                              │
  │   Pydantic v2 validation, SSE streaming                     │
  └────────────────────────────────┬─────────────────────────────┘
@@ -77,8 +77,8 @@
 
 | Path | Purpose |
 |------|---------|
-| `backend/app/main.py` | FastAPI app, 19 endpoints |
-| `backend/app/agents/graph.py` | 9-agent LangGraph pipeline |
+| `backend/app/main.py` | FastAPI app, 18 endpoints |
+| `backend/app/agents/graph.py` | 8-agent LangGraph pipeline (triage) + 2-agent verification graph |
 | `backend/app/config.py` | Pydantic settings, `.env` loading |
 | `frontend/src/` | React app (27 pages, 7 role groups) |
 | `frontend/src/context/AuthContext.tsx` | Auth state (Vedant) |

@@ -64,7 +64,7 @@
 - **LangChain LCEL:** Better for linear chains, awkward for branching graphs.
 
 **Consequences:**
-- ✅ State schema (`TicketState`) flows through all 9 agents cleanly.
+- ✅ State schema (`TicketState`) flows through all 8 agents cleanly.
 - ✅ Built-in `.stream()` for SSE output to frontend.
 - ✅ Easy to add/remove agents (just add nodes + edges).
 - ⚠️ LangGraph is fast-moving API (breaking changes between versions).

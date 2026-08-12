@@ -1,30 +1,31 @@
 # API Matrix
 
 > Maps every backend endpoint to its frontend consumer(s), status, and owner.
+> Reconciled against release baseline `806dc7a` (backend) — 18 routes verified
+> in `backend/app/main.py`. Endpoints not listed here do not exist.
 
 ---
 
 | Method | Endpoint | Frontend Page(s) | Status | Owner | Notes |
 |--------|----------|------------------|--------|-------|-------|
-| GET | `/health` | — | ✅ Ready | Backend | Health check, used by deployment |
+| GET | `/api/health` | — | ✅ Ready | Backend | Health check, used by deployment |
+| GET | `/api/health/ready` | — | ✅ Ready | Backend | Readiness probe (503 while DB unreachable) |
+| POST | `/api/demo/seed` | — | ✅ Ready | Backend | Dev-only re-seed (403 outside development) |
+| POST | `/api/upload` | ReportIssue | ✅ Ready | Backend | Authenticated file upload (photo/voice) |
+| GET | `/api/me` | OfficerProfile, Settings | ✅ Ready | Backend | Current user identity (JWT) |
+| GET | `/api/notifications` | Notifications | ✅ Ready | Backend | Citizen-scoped status notifications |
 | POST | `/api/tickets` | ReportIssue | ✅ Ready | Backend | Creates ticket, triggers agent pipeline |
-| GET | `/api/tickets` | CitizenDashboard, OfficerQueue | ✅ Ready | Backend | List tickets (filtered by role) |
-| GET | `/api/tickets/{id}` | ReportDetail, OfficerDetail | ✅ Ready | Backend | Single ticket with full state |
-| PATCH | `/api/tickets/{id}` | OfficerQueue | ✅ Ready | Backend | Status transitions |
-| POST | `/api/tickets/{id}/resolve` | OfficerQueue | 🔲 Stub | Vijay | Resolution with closure photo |
-| POST | `/api/tickets/{id}/process` | LiveAgentTrace | ⚠️ Ready | Backend | Trigger agent pipeline, returns SSE |
-| GET | `/api/tickets/{id}/stream` | LiveAgentTrace | ⚠️ Ready | Backend | SSE stream for agent trace |
-| POST | `/api/tickets/verify-resolution` | — | ⚠️ Ready | Backend | Verification graph call |
-| GET | `/api/officers/queue` | OfficerQueue | ✅ Ready | Backend | Officer queue with filters |
-| GET | `/api/officers/{id}` | OfficerProfile | 🔲 Stub | Vijay | Officer profile and stats |
-| GET | `/api/analytics/city-pulse` | WardHealth, Navbar ticker | ✅ Ready | Backend | City UHS, category trends |
-| GET | `/api/analytics/wards` | WardHealth | ✅ Ready | Backend | Per-ward UHS scores |
-| GET | `/api/analytics/department/{id}` | DepartmentAnalytics | 🔲 Stub | Vijay | Department-level metrics |
-| GET | `/api/analytics/overview` | AdminDashboard | 🔲 Stub | Vijay | System-wide aggregate metrics |
-| GET | `/api/analytics/heatmap` | Heatmap | 🔲 Stub | Vijay | GeoJSON points for heatmap |
-| GET | `/api/analytics/escalations` | EscalationMonitor | 🔲 Stub | Vijay | SLA breaches and escalations |
-| GET | `/api/auth/me` | Settings, Profile | 🔲 Stub | Vedant | Current user profile |
-| POST | `/api/auth/logout` | — | 🔲 Stub | Vedant | Session invalidation |
+| GET | `/api/tickets` | CitizenDashboard, OfficerQueue, PublicMap, CityAnalytics, EscalationMonitor, IncidentMap, Profile, DepartmentDashboard, DepartmentAnalytics, OfficerManagement, AdminDashboard, AuditLog, UserManagement | ✅ Ready | Backend | List tickets (role-filtered) |
+| GET | `/api/tickets/near` | — | ✅ Ready | Backend | Public spatial query (PostGIS radius) |
+| GET | `/api/tickets/{id}` | ReportDetail | ✅ Ready | Backend | Single ticket (citizen ownership enforced) |
+| PATCH | `/api/tickets/{id}/status` | OfficerQueue | ✅ Ready | Backend | Status transitions (staff only, 403 for citizens) |
+| POST | `/api/tickets/{id}/resolve` | OfficerQueue | ✅ Ready | Backend | Resolution with closure photo + Verification Agent |
+| DELETE | `/api/tickets/{id}` | — | ✅ Ready | Backend | Dev-gated delete (403 outside development) |
+| GET | `/api/tickets/{id}/process` | ProcessingPage, LiveAgentTrace | ✅ Ready | Backend | 8-agent SSE pipeline stream |
+| GET | `/api/trace/{id}` | — | ⚠️ Stub | Backend | Returns empty steps; use `/process` for live SSE |
+| GET | `/api/officers/queue` | OfficerQueue, OfficerProfile, AdminDashboard | ✅ Ready | Backend | Officer queue (staff only, 403 for citizens) |
+| GET | `/api/analytics/wards` | WardHealth, PublicMap, RoleLayout, DepartmentAnalytics | ✅ Ready | Backend | Per-ward UHS scores |
+| GET | `/api/analytics/city-pulse` | WardHealth, PublicMap, CityAnalytics, AgentMonitoring | ✅ Ready | Backend | City UHS, category trends, pulse alerts |
 
 ---
 
@@ -32,8 +33,8 @@
 
 | Status | Meaning |
 |--------|---------|
-| ✅ Ready | Endpoint exists, tested, frontend just needs to call it |
-| ⚠️ Ready | Endpoint exists but may need refinement |
+| ✅ Ready | Endpoint exists and is used by the release build |
+| ⚠️ Stub | Endpoint exists but returns placeholder data |
 | 🔲 Stub | Endpoint not yet created or returns mock data |
 | ❌ Missing | Not yet identified or planned |
 
@@ -41,19 +42,27 @@
 
 ```
 Landing (static) → no API calls
-ReportIssue → POST /api/tickets
+ReportIssue → POST /api/tickets, POST /api/upload
+ProcessingPage → GET /api/tickets/{id}/process (SSE)
 ReportDetail → GET /api/tickets/{id}
 CitizenDashboard → GET /api/tickets
-OfficerQueue → GET /api/officers/queue, PATCH /api/tickets/{id}
-OfficerProfile → GET /api/officers/{id}
-LiveAgentTrace → POST /api/tickets/{id}/process, GET /api/tickets/{id}/stream
-WardHealth → GET /api/analytics/city-pulse, GET /api/analytics/wards
-AdminDashboard → GET /api/analytics/overview
-Heatmap → GET /api/analytics/heatmap
-EscalationMonitor → GET /api/analytics/escalations
-DepartmentDashboard → GET /api/analytics/department/{id}
-Settings → GET /api/auth/me
-Profile → GET /api/auth/me
+Notifications → GET /api/notifications
+OfficerQueue → GET /api/officers/queue, PATCH /api/tickets/{id}/status, POST /api/tickets/{id}/resolve
+OfficerProfile → GET /api/me, GET /api/officers/queue
+PublicMap → GET /api/tickets, GET /api/analytics/wards, GET /api/analytics/city-pulse
+WardHealth → GET /api/analytics/wards, GET /api/analytics/city-pulse
+LiveAgentTrace → GET /api/tickets/{id}/process (SSE)
+CityAnalytics → GET /api/tickets, GET /api/analytics/city-pulse
+EscalationMonitor → GET /api/tickets
+IncidentMap → GET /api/tickets
+DepartmentDashboard → GET /api/tickets
+DepartmentAnalytics → GET /api/tickets, GET /api/analytics/wards
+OfficerManagement → GET /api/tickets
+AdminDashboard → GET /api/tickets, GET /api/officers/queue
+AgentMonitoring → GET /api/analytics/city-pulse
+AuditLog → GET /api/tickets
+UserManagement → GET /api/tickets
+Settings → GET /api/me
 ```
 
 This matrix should be updated whenever a new endpoint is added or a stub is replaced.
