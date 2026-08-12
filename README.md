@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="presentation/brand_kit/urbanpulse-icon.svg" width="64" height="64" alt="UrbanPulse">
+  <img src="archive/presentation/brand_kit/urbanpulse-icon.svg" width="64" height="64" alt="UrbanPulse">
   <h1 align="center">UrbanPulse AI</h1>
   <h3 align="center">AI-Powered Civic Infrastructure Complaint Triage System</h3>
   <p align="center">
@@ -231,13 +231,13 @@ Notes:
 
 | View | Preview |
 |------|---------|
-| **Landing Page** | [`qa-screenshots/landing-current.png`](qa-screenshots/landing-current.png) |
-| **Landing (new)** | [`qa-screenshots/landing-new.png`](qa-screenshots/landing-new.png) |
-| **Citizen Dashboard** | [`qa-screenshots/citizen-dashboard.png`](qa-screenshots/citizen-dashboard.png) |
-| **Citizen Dashboard (final)** | [`qa-screenshots/citizen-dashboard-final.png`](qa-screenshots/citizen-dashboard-final.png) |
-| **Officer Queue** | [`qa-screenshots/officer-queue.png`](qa-screenshots/officer-queue.png) |
-| **Super Admin Dashboard** | [`qa-screenshots/super-admin-dashboard.png`](qa-screenshots/super-admin-dashboard.png) |
-| **Agent Monitoring** | [`qa-screenshots/agent-monitoring.png`](qa-screenshots/agent-monitoring.png) |
+| **Landing Page** | [`archive/qa-screenshots/landing-current.png`](archive/qa-screenshots/landing-current.png) |
+| **Landing (new)** | [`archive/qa-screenshots/landing-new.png`](archive/qa-screenshots/landing-new.png) |
+| **Citizen Dashboard** | [`archive/qa-screenshots/citizen-dashboard.png`](archive/qa-screenshots/citizen-dashboard.png) |
+| **Citizen Dashboard (final)** | [`archive/qa-screenshots/citizen-dashboard-final.png`](archive/qa-screenshots/citizen-dashboard-final.png) |
+| **Officer Queue** | [`archive/qa-screenshots/officer-queue.png`](archive/qa-screenshots/officer-queue.png) |
+| **Super Admin Dashboard** | [`archive/qa-screenshots/super-admin-dashboard.png`](archive/qa-screenshots/super-admin-dashboard.png) |
+| **Agent Monitoring** | [`archive/qa-screenshots/agent-monitoring.png`](archive/qa-screenshots/agent-monitoring.png) |
 
 ---
 
@@ -247,19 +247,13 @@ The [`docs/`](docs/) directory contains comprehensive project documentation:
 
 | Document | Description |
 |----------|-------------|
-| [`SYSTEM_OVERVIEW.md`](docs/SYSTEM_OVERVIEW.md) | One-page architecture walkthrough — read this first |
-| [`ARCHITECTURE_DECISIONS.md`](docs/ARCHITECTURE_DECISIONS.md) | Key ADRs and their rationale |
+| [`RELEASE_TRUTH_MATRIX.md`](docs/RELEASE_TRUTH_MATRIX.md) | Verified current facts — agent counts, routes, demo data |
 | [`DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | 5-minute walkthrough script for judges/stakeholders |
-| [`DEVELOPER_SETUP.md`](docs/DEVELOPER_SETUP.md) | Detailed environment setup guide |
+| [`DEMO_OPERATOR_RUNBOOK.md`](docs/DEMO_OPERATOR_RUNBOOK.md) | Operator decisions and failure recovery for the live demo |
+| [`REHEARSAL_CHECKLIST.md`](docs/REHEARSAL_CHECKLIST.md) | Deterministic rehearsal matrix |
 | [`API_MATRIX.md`](docs/API_MATRIX.md) | Endpoint reference |
-| [`ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) | Coding conventions and quality gates |
-| [`QUALITY_GATE.md`](docs/QUALITY_GATE.md) | QA checklist and test strategy |
-| [`PROJECT_WORKFLOW.md`](docs/PROJECT_WORKFLOW.md) | Development workflow and branching |
-| [`IMPLEMENTATION_QUEUE.md`](docs/IMPLEMENTATION_QUEUE.md) | Backlog and upcoming work |
-| [`RISKS.md`](docs/RISKS.md) | Identified risks and mitigations |
-| [`CHANGELOG.md`](docs/CHANGELOG.md) | Version history |
-| [`VERSION.md`](docs/VERSION.md) | Current version and release info |
-| [`SCHEMA_DRIFT_RCA.md`](docs/SCHEMA_DRIFT_RCA.md) | Schema migration post-mortem |
+| [`CONTRIBUTING_DUO.md`](docs/CONTRIBUTING_DUO.md) | Two-terminal ownership model and development workflow |
+| [`decisions/DECISION_LEDGER.md`](docs/decisions/DECISION_LEDGER.md) | ADR index and decision records |
 
 ### Demo Script
 
@@ -305,8 +299,8 @@ UrbanPulse/
 │   ├── tailwind.config.js        # Dark editorial theme
 │   └── package.json
 ├── docs/                         # Full documentation set
-├── qa-screenshots/               # UI preview images
-├── qa/                           # Playwright E2E tests
+├── qa/                           # Playwright E2E tests & diagnostics (e.g. diagnose_pipeline.mjs)
+├── archive/                      # Archived redundant, personal, and temporary files (gitignored)
 ├── docker-compose.yml
 └── .env.example
 ```
@@ -323,7 +317,7 @@ Contributions are welcome! This is a hackathon/pilot project, and we'd love to s
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-Please read [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) and [`docs/QUALITY_GATE.md`](docs/QUALITY_GATE.md) before submitting.
+Please read [`AGENTS.md`](AGENTS.md) (AI operating contract) and [`docs/CONTRIBUTING_DUO.md`](docs/CONTRIBUTING_DUO.md) (ownership model) before submitting.
 
 ---
 
