@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import { AlertTriangle, Loader, MapPin } from 'lucide-react';
+import { AlertTriangle, Loader, MapPin, Activity } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 
@@ -13,6 +13,19 @@ interface Ticket {
   longitude: number;
   description: string;
   created_at: string;
+}
+
+interface Ward {
+  id: number;
+  name: string;
+  uhs_score: number;
+}
+
+interface Pulse {
+  wards: { name: string; uhs_score: number }[];
+  critical_wards: number;
+  trending_categories: { category: string; count: number }[];
+  pulse_alerts: string[];
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -31,28 +44,50 @@ const STATUS_RADIUS: Record<string, number> = {
   verified: 6,
 };
 
+function avgUhs(wards: Ward[]): number {
+  if (!wards.length) return 0;
+  return wards.reduce((s, w) => s + w.uhs_score, 0) / wards.length;
+}
+
 export const PublicMap: React.FC = () => {
   useDocumentTitle('Incident Map');
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [pulse, setPulse] = useState<Pulse | null>(null);
+  const [guestMode, setGuestMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadData = () => {
+  const loadData = async () => {
     setLoading(true);
     setError(null);
-    apiFetch('/api/tickets')
-      .then(async res => {
-        if (!res.ok) throw new Error(`API error (${res.status})`);
-        return res.json();
-      })
-      .then((data: Ticket[]) => {
-        setTickets(data);
+    try {
+      const res = await apiFetch('/api/tickets');
+      if (res.status === 401) {
+        // Guest visitor: incident data requires authentication. Fall back to
+        // the public ward/city-pulse aggregates (mirrors WardHealth.tsx) so
+        // the map stays explorable without sign-up.
+        const [wardsRes, pulseRes] = await Promise.all([
+          apiFetch('/api/analytics/wards'),
+          apiFetch('/api/analytics/city-pulse'),
+        ]);
+        if (!wardsRes.ok) throw new Error(`Wards API error (${wardsRes.status})`);
+        const [wardsData, pulseData] = await Promise.all([wardsRes.json(), pulseRes.json()]);
+        setWards(wardsData);
+        setPulse(pulseData);
+        setGuestMode(true);
         setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message || 'Failed to load incidents');
-        setLoading(false);
-      });
+        return;
+      }
+      if (!res.ok) throw new Error(`API error (${res.status})`);
+      const data: Ticket[] = await res.json();
+      setTickets(data);
+      setGuestMode(false);
+      setLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load incidents');
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -96,6 +131,69 @@ export const PublicMap: React.FC = () => {
       {loading ? (
         <div role="status" className="flex items-center justify-center py-24">
           <Loader size={24} className="text-brand-lime animate-spin" />
+        </div>
+      ) : guestMode ? (
+        <div className="space-y-6">
+          {/* City summary */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-surface-card border border-border-default p-6 rounded flex items-center justify-between">
+              <div className="space-y-1.5">
+                <span className="text-text-tertiary text-[10px] font-mono uppercase tracking-wider block">City Avg UHS</span>
+                <span className="text-3xl font-serif italic font-bold block">{avgUhs(wards).toFixed(1)}</span>
+              </div>
+              <div className="w-12 h-12 rounded bg-brand-soft flex items-center justify-center text-brand-lime border border-brand-lime/10">
+                <Activity size={20} />
+              </div>
+            </div>
+            <div className="bg-surface-card border border-border-default p-6 rounded flex items-center justify-between">
+              <div className="space-y-1.5">
+                <span className="text-text-tertiary text-[10px] font-mono uppercase tracking-wider block">Wards Monitored</span>
+                <span className="text-3xl font-serif italic font-bold block">{wards.length}</span>
+              </div>
+              <div className="w-12 h-12 rounded bg-surface-raised flex items-center justify-center text-text-secondary border border-border-default">
+                <MapPin size={20} />
+              </div>
+            </div>
+            <div className="bg-surface-card border border-border-default p-6 rounded flex items-center justify-between">
+              <div className="space-y-1.5">
+                <span className="text-text-tertiary text-[10px] font-mono uppercase tracking-wider block">Critical Wards</span>
+                <span className={`text-3xl font-serif italic font-bold block ${pulse && pulse.critical_wards > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  {pulse?.critical_wards ?? 0}
+                </span>
+              </div>
+              <div className="w-12 h-12 rounded bg-surface-raised flex items-center justify-center text-text-secondary border border-border-default">
+                <AlertTriangle size={20} />
+              </div>
+            </div>
+          </div>
+
+          {/* Ward health list */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {wards.map(w => (
+              <div key={w.id} className="bg-surface-card border border-border-default rounded p-5 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold">{w.name}</h3>
+                  <p className="text-[10px] font-mono text-text-tertiary mt-0.5">Urban Health Score</p>
+                </div>
+                <span className={`text-2xl font-serif italic font-bold ${w.uhs_score < 50 ? 'text-red-400' : w.uhs_score < 75 ? 'text-yellow-400' : 'text-green-400'}`}>
+                  {w.uhs_score.toFixed(1)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Pulse alerts */}
+          {pulse && pulse.pulse_alerts.length > 0 && (
+            <div className="bg-panel-card border border-border-default rounded p-5 space-y-3">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-text-tertiary">Pulse Alerts</h3>
+              {pulse.pulse_alerts.map((alert, i) => (
+                <p key={i} className="text-xs text-text-secondary flex items-start gap-2">
+                  <AlertTriangle size={12} className="text-yellow-400 shrink-0 mt-0.5" />
+                  {alert}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       ) : tickets.length === 0 ? (
         <div className="bg-panel-card border border-panel-border rounded flex flex-col items-center justify-center py-20">

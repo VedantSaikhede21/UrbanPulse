@@ -27,11 +27,22 @@ export const ReportIssue: React.FC = () => {
   const [description, setDescription] = useState('');
   const [latitude, setLatitude] = useState(12.9715);
   const [longitude, setLongitude] = useState(77.5945);
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const voice = useMediaRecorder();
 
   const firstFileUrl = files.length > 0 ? files[0].preview : null;
 
   const handleSubmit = async () => {
+    if (!description.trim()) {
+      toast({ type: 'error', title: 'Description required', message: 'Add a short description of the issue before submitting.' });
+      return;
+    }
+    if (!locationConfirmed) {
+      toast({ type: 'error', title: 'Location not confirmed', message: 'Tap the map or use GPS to confirm your location before submitting.' });
+      return;
+    }
     if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
       toast({ type: 'error', title: 'Invalid location', message: 'Coordinates are out of range. Please re-pin the location on the map.' });
       return;
@@ -47,8 +58,14 @@ export const ReportIssue: React.FC = () => {
         if (upRes.ok) {
           const upData = await upRes.json();
           mediaUrl = upData.url;
+          setMediaError(null);
+        } else {
+          const detail = await upRes.text().catch(() => '');
+          setMediaError(`Photo upload failed (HTTP ${upRes.status}). The report will be submitted without the photo.${detail ? ` Server said: ${detail.slice(0, 200)}` : ''}`);
+          toast({ type: 'error', title: 'Photo upload failed', message: `Server returned ${upRes.status}. Continuing without photo attachment.` });
         }
       } catch {
+        setMediaError('Photo upload failed. The report will be submitted without the photo.');
         toast({ type: 'warning', title: 'Media upload failed', message: 'Continuing without photo attachment' });
       }
     }
@@ -62,8 +79,14 @@ export const ReportIssue: React.FC = () => {
         if (upRes.ok) {
           const upData = await upRes.json();
           voiceUrl = upData.url;
+          setVoiceError(null);
+        } else {
+          const detail = await upRes.text().catch(() => '');
+          setVoiceError(`Voice note upload failed (HTTP ${upRes.status}). The report will be submitted without the voice note.${detail ? ` Server said: ${detail.slice(0, 200)}` : ''}`);
+          toast({ type: 'error', title: 'Voice upload failed', message: `Server returned ${upRes.status}. Continuing without voice note.` });
         }
       } catch {
+        setVoiceError('Voice note upload failed. The report will be submitted without the voice note.');
         toast({ type: 'warning', title: 'Voice upload failed', message: 'Continuing without voice note' });
       }
     }
@@ -132,9 +155,13 @@ export const ReportIssue: React.FC = () => {
           <FileUpload
             value={files}
             onChange={setFiles}
-            maxFiles={5}
+            maxFiles={1}
             maxSizeMB={20}
+            multi={false}
           />
+          <p className="text-[10px] font-mono text-text-tertiary">
+            {files.length > 0 ? '1 photo selected — will be attached to the report.' : 'One photo is supported per report.'}
+          </p>
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-default">
             <button
               type="button"
@@ -266,6 +293,13 @@ export const ReportIssue: React.FC = () => {
           </div>
           {voice.error && <p className="text-status-escalated text-[10px] font-mono">{voice.error}</p>}
 
+          {(mediaError || voiceError) && (
+            <div className="space-y-1.5 rounded border border-status-escalated/30 bg-status-escalated/5 p-3">
+              {mediaError && <p className="text-status-escalated text-[10px] font-mono">⚠ {mediaError}</p>}
+              {voiceError && <p className="text-status-escalated text-[10px] font-mono">⚠ {voiceError}</p>}
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-default">
             <button
               type="button"
@@ -295,12 +329,19 @@ export const ReportIssue: React.FC = () => {
           </div>
 
           <MapPicker
-            value={{ latitude, longitude }}
+            value={locationConfirmed ? { latitude, longitude } : undefined}
             onChange={(loc: LocationData) => {
               setLatitude(loc.latitude);
               setLongitude(loc.longitude);
+              setLocationConfirmed(true);
             }}
           />
+
+          {!locationConfirmed && (
+            <p className="text-[10px] font-mono text-status-escalated" role="status">
+              ⚠ Location not confirmed yet — tap the map or use GPS to pin your exact location before submitting.
+            </p>
+          )}
 
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-border-default">
             <button
@@ -314,10 +355,10 @@ export const ReportIssue: React.FC = () => {
             <button
               type="button"
               aria-label="Submit report"
-              disabled={submitting || !description.trim()}
+              disabled={submitting}
               onClick={handleSubmit}
               className={`focus-ring font-semibold px-6 py-2 rounded text-xs flex items-center gap-1.5 ${
-                submitting || !description.trim()
+                submitting
                   ? 'bg-surface-elevated text-text-quaternary cursor-not-allowed'
                   : 'bg-brand-lime text-background hover:bg-brand-lime-hover'
               }`}

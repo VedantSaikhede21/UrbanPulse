@@ -73,7 +73,7 @@ function PublicRoutes() {
   const location = useLocation();
   const isPublicRoute = location.pathname === '/' || location.pathname === '/about' || location.pathname === '/public-map'
     || location.pathname.startsWith('/auth/') || location.pathname === '/support' || location.pathname === '/settings'
-    || location.pathname.startsWith('/trace');
+    || location.pathname.startsWith('/trace') || location.pathname.startsWith('/citizen/processing/');
 
   if (isPublicRoute) {
     return (

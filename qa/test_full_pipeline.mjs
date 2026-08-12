@@ -65,7 +65,16 @@ async function main() {
       console.log('  ✓ Step 2 → Step 3');
     }
 
-    // Step 3 → Submit
+    // Step 3 → Confirm location on map, then submit
+    const mapEl = page.locator('.leaflet-container');
+    if (await mapEl.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await mapEl.click({ position: { x: 200, y: 150 } });
+      await page.waitForTimeout(800);
+      console.log('  ✓ Location confirmed on map');
+    } else {
+      errors.push('Could not find map to confirm location');
+    }
+
     const submitBtn = page.locator('text=Submit & Process with AI');
     if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await submitBtn.click();

@@ -34,6 +34,7 @@ export const ProcessingPage: React.FC = () => {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parseErrors, setParseErrors] = useState(0);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export const ProcessingPage: React.FC = () => {
 
         if (data.status === 'done') {
           setDone(true);
+          setResult(data.result ?? null);
           es.close();
           return;
         }
@@ -171,7 +173,9 @@ export const ProcessingPage: React.FC = () => {
             </span>
             <span className="w-px h-4 bg-panel-border" />
             <span className="text-gray-400">
-              Status: <span className="text-brand-lime font-semibold">Reported</span>
+              Status: <span className="text-brand-lime font-semibold capitalize">
+                {result?.status ? String(result.status).replace('_', ' ') : 'Reported'}
+              </span>
             </span>
           </div>
           <button
