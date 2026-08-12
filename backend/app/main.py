@@ -10,16 +10,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy.orm import Session, load_only
-from sqlalchemy import text, func
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 
+from app.agents import runtime
 from app.auth.deps import AuthUser, get_current_user
 from app.config import settings
 from app.db.session import get_db
-from app.db.models import Ticket, Citizen, Officer, Ward
-from app.schemas.analytics import CityPulseResponse, WardScore
+from app.db.models import Ticket, Citizen, Officer
+from app.routers.analytics import router as analytics_router
+from app.routers.health import router as health_router
 from app.schemas.auth import MeResponse
-from app.schemas.health import HealthResponse, ReadinessResponse
 from app.schemas.tickets import NotificationOut, TicketOut
 from app.schemas.upload import UploadResponse
 
@@ -28,6 +29,9 @@ app = FastAPI(
     description="Multi-agent civic infrastructure triage and routing platform backend",
     version="0.2.0",
 )
+
+app.include_router(health_router)
+app.include_router(analytics_router)
 
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
 
@@ -38,18 +42,9 @@ async def global_exception_handler(request, exc):
     traceback.print_exc()
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
-_triage_graph = None
-_verification_graph = None
-TicketState = None
-
-
 @app.on_event("startup")
 async def load_graphs():
-    global _triage_graph, _verification_graph, TicketState
-    from app.agents.graph import triage_graph, verification_graph, TicketState as TS
-    _triage_graph = triage_graph
-    _verification_graph = verification_graph
-    TicketState = TS
+    runtime.load_graphs()
 
 
 STAFF_ROLES = ("officer", "dept_head", "admin", "super_admin")
@@ -169,49 +164,6 @@ class UpdateTicketStatusRequest(BaseModel):
 
 
 # ── Health ───────────────────────────────────────────────
-
-@app.get("/api/health", response_model=HealthResponse)
-def health_check(db: Session = Depends(get_db)):
-    db_connected = False
-    try:
-        db.execute(text("SELECT 1"))
-        db_connected = True
-    except Exception:
-        pass
-
-    return {
-        "status": "healthy",
-        "environment": settings.ENV,
-        "database_connected": db_connected,
-        "supabase_configured": settings.SUPABASE_ANON_KEY != "placeholder-anon-key",
-        "gemini_configured": settings.GEMINI_API_KEY is not None,
-        "twilio_configured": settings.TWILIO_ACCOUNT_SID is not None,
-        "graphs_loaded": _triage_graph is not None,
-    }
-
-
-@app.get("/api/health/ready", response_model=ReadinessResponse)
-def readiness_check(db: Session = Depends(get_db)):
-    """Readiness probe used by Docker healthchecks. 503 while the database is unreachable."""
-    db_connected = False
-    try:
-        db.execute(text("SELECT 1"))
-        db_connected = True
-    except Exception:
-        pass
-
-    if not db_connected:
-        raise HTTPException(status_code=503, detail="Database unavailable")
-
-    return {
-        "status": "ready",
-        "environment": settings.ENV,
-        "database_connected": True,
-        "graphs_loaded": _triage_graph is not None,
-    }
-
-
-# ── File Upload ───────────────────────────────────────────
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".webm", ".mp3", ".wav", ".m4a", ".pdf"}
 
@@ -441,7 +393,7 @@ async def resolve_ticket(
 ):
     if current_user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="Officer access required")
-    if _verification_graph is None:
+    if runtime.verification_graph is None:
         raise HTTPException(status_code=503, detail="Agent graphs not loaded")
 
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
@@ -452,7 +404,7 @@ async def resolve_ticket(
     ticket.status = "resolved"
     db.commit()
 
-    state = TicketState(
+    state = runtime.TicketState(
         ticket_id=ticket_id,
         citizen_text=ticket.description or "",
         original_media_url=ticket.original_media_url,
@@ -463,7 +415,7 @@ async def resolve_ticket(
         status="resolved",
     )
 
-    final = _verification_graph.invoke(state)
+    final = runtime.verification_graph.invoke(state)
 
     ticket.verification_status = final.get("verification_status")
     ticket.verification_reason = final.get("verification_reason")
@@ -475,66 +427,11 @@ async def resolve_ticket(
 
 # ── Analytics ────────────────────────────────────────────
 
-@app.get("/api/analytics/wards", response_model=List[WardScore])
-def ward_analytics(db: Session = Depends(get_db)):
-    wards = db.query(Ward).options(load_only(Ward.id, Ward.name, Ward.uhs_score)).all()
-    return [
-        {
-            "id": str(w.id),
-            "name": w.name,
-            "uhs_score": float(w.uhs_score),
-        }
-        for w in wards
-    ]
-
-
-@app.get("/api/analytics/city-pulse", response_model=CityPulseResponse)
-def city_pulse(db: Session = Depends(get_db)):
-    """AI City Pulse — ward health summary with trending issues."""
-    wards = db.query(Ward).options(load_only(Ward.id, Ward.name, Ward.uhs_score)).order_by(Ward.uhs_score.asc()).all()
-    critical = [w for w in wards if float(w.uhs_score) < 50]
-
-    trending = (
-        db.query(Ticket.category, func.count(Ticket.id).label("count"))
-        .filter(Ticket.status.in_(["reported", "assigned", "in_progress"]))
-        .group_by(Ticket.category)
-        .order_by(func.count(Ticket.id).desc())
-        .limit(3)
-        .all()
-    )
-
-    alerts = []
-    for w in critical[:3]:
-        ward_tickets = (
-            db.query(Ticket)
-            .filter(Ticket.status.in_(["reported", "assigned", "in_progress"]))
-            .count()
-        )
-        alerts.append(
-            f"{w.name} (Critical): UHS {float(w.uhs_score):.0f}. "
-            f"Review open incidents and dispatch field teams."
-        )
-
-    if not alerts and wards:
-        lowest = wards[0]
-        alerts.append(
-            f"Pulse Alert: {lowest.name} — UHS {float(lowest.uhs_score):.0f}. "
-            f"Monitor for emerging infrastructure issues."
-        )
-
-    return {
-        "wards": [{"name": w.name, "uhs_score": float(w.uhs_score)} for w in wards],
-        "critical_wards": len(critical),
-        "trending_categories": [{"category": c, "count": n} for c, n in trending],
-        "pulse_alerts": alerts,
-    }
-
-
 # ── SSE pipeline ─────────────────────────────────────────
 
 @app.get("/api/tickets/{ticket_id}/process")
 async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
-    if _triage_graph is None:
+    if runtime.triage_graph is None:
         raise HTTPException(status_code=503, detail="Agent graphs not loaded")
 
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
@@ -542,7 +439,7 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     async def event_stream():
-        state = TicketState(
+        state = runtime.TicketState(
             ticket_id=ticket_id,
             citizen_id=str(ticket.citizen_id) if ticket.citizen_id else None,
             citizen_text=ticket.description or "",
@@ -564,7 +461,7 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
                 loop = asyncio.get_running_loop()
 
                 def _sync_stream():
-                    for step in _triage_graph.stream(state):
+                    for step in runtime.triage_graph.stream(state):
                         queue.put_nowait(step)
                     queue.put_nowait(None)
 
