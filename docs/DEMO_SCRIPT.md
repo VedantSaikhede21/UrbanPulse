@@ -151,13 +151,7 @@ live — no black box."
 
 ## Reuse from existing docs
 
-- `presentation/HACKATHON_PREP.md` — slide-by-slide talk track (problem,
-  comparison, architecture, 8 agents). Keep; it matches the verified
-  pipeline.
-- `presentation/Adobe_Express_Input/04_Demo_Script.md` — older draft;
-  superseded by this file.
-- `docs/decisions/ADR-*.md` + `DECISION_LEDGER.md` — architecture/security
+- `docs/decisions/ADR-004.md` + `DECISION_LEDGER.md` — security decision
   evidence for Q&A.
 - `qa/NOTE_routing_auth_2026-08-12.md` — verification evidence for the
   routing/auth fixes.
-- `proposal/proposal.pdf` — pitch deck for the written submission.

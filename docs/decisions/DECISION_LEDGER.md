@@ -18,37 +18,19 @@
 
 | ADR | Title | Category | Date | Status |
 |-----|-------|----------|------|--------|
-| 001 | Landing Hero Redesign | Design | 2026-07-22 | ✅ Accepted (Frozen v4) |
-| 002 | Problem Section Narrative Restructure | Design | 2026-07-24 | ✅ Accepted |
-| 003 | Why Nine, Trust, Today's City — Sprint 1C | Product | 2026-07-24 | ✅ Accepted |
+| 004 | RLS deny-all for alembic_version; spatial_ref_sys documented false positive | Security | 2026-08-12 | ✅ Accepted |
 
 ---
 
 ## Detail
 
-### ADR-001 — Landing Hero Redesign
+### ADR-004 — RLS deny-all for alembic_version; spatial_ref_sys documented false positive
 
-- **Category**: Design
-- **Status**: ✅ Accepted (Frozen v4)
-- **Key decision**: Redesign hero around identity-driven headline, credibility metric, and product fragment. Four iterative revisions (v1→v4). Frozen at v4 with Product Review ≥ 9/10.
-- **Alternatives rejected**: Full-screen cinematic video, interactive map hero, minimal hero, copy-only polish.
-- **Evidence**: `docs/decisions/ADR-001.md`
-
-### ADR-002 — Problem Section Narrative Restructure
-
-- **Category**: Design
+- **Category**: Security
 - **Status**: ✅ Accepted
-- **Key decision**: Replace abstract Problem description with hybrid narrative — "One Street. Two Different Outcomes." side-by-side timeline + emotional closing coda.
-- **Alternatives rejected**: Standalone narrative concepts (A Tuesday Morning, The Invisible City), copy-only polish, cinematic video, wall of text.
-- **Evidence**: `docs/decisions/ADR-002.md`
-
-### ADR-003 — Why Nine, Trust, Today's City — Sprint 1C
-
-- **Category**: Product
-- **Status**: ✅ Accepted
-- **Key decision**: Three linked decisions — (1) Why Nine uses story-flow quotes instead of agent cards, (2) Trust section uses four grounded pillars instead of badges/testimonials, (3) Today's City shows real outcome stats instead of abstract UHS scores.
-- **Alternatives rejected**: Technical agent labels, badge/testimonial carousel, UHS score bars.
-- **Evidence**: `docs/decisions/ADR-003.md`
+- **Key decision**: Enable RLS (zero policies) + revoke anon/authenticated grants on `alembic_version` (Data API exposure closed). `spatial_ref_sys` cannot be secured by the postgres role (owned by supabase_admin, postgres not superuser, REVOKE no-ops) — documented false positive per supabase/supabase#47206; best-effort REVOKE shipped in migration. Shipped as Alembic migration 002.
+- **Alternatives rejected**: RLS + SELECT policy on spatial_ref_sys (impossible: must be owner), ignore both findings, move PostGIS to extensions schema, remove public from exposed schemas, dashboard-only change.
+- **Evidence**: `docs/decisions/ADR-004.md`
 
 ---
 
@@ -56,11 +38,11 @@
 
 | Metric | Count |
 |--------|-------|
-| Total ADRs | 3 |
-| Accepted | 3 |
+| Total ADRs | 1 |
+| Accepted | 1 |
 | Proposed | 0 |
 | Superseded | 0 |
 
 ---
 
-*Last updated: 2026-07-25*
+*Last updated: 2026-08-12*

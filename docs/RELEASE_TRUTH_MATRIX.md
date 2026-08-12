@@ -1,9 +1,13 @@
 # Release Truth Matrix — Audit Claim Reconciliation
 
 > Date: 2026-08-12 · Release baseline: frontend `63b4538` over backend `806dc7a`
-> Purpose: reconcile every disputed claim from `docs/release/PRODUCTION_AUDIT_FINAL.md`
-> (dated 2026-08-06, pre-release) and every stale agent-count/UX claim found in
+> Purpose: reconcile every disputed claim from the pre-release production audit
+> (dated 2026-08-06) and every stale agent-count/UX claim found in
 > docs/presentation/code against actual HEAD evidence.
+> Note: files cited in the disposition tables below (superseded audits, design
+> and sprint records, presentation drafts) have been removed from the
+> repository; the tables are a historical record of corrections. This matrix
+> remains the authoritative reconciliation record.
 > Method: source inspection (App.tsx routes, ReportIssue.tsx steps, main.py
 > decorators, graph.py nodes) + live verification output — not assumptions.
 > Dispositions: **CURRENT** (still true) · **FIXED** (resolved since the audit) ·
