@@ -11,14 +11,14 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 
 from app.agents import runtime
 from app.auth.deps import AuthUser, get_current_user
 from app.config import settings
 from app.db.session import get_db
-from app.db.models import Ticket, Citizen, Officer
+from app.db.models import Ticket, Officer
 from app.routers.analytics import router as analytics_router
+from app.services import notifications, tickets
 from app.routers.health import router as health_router
 from app.schemas.auth import MeResponse
 from app.schemas.tickets import NotificationOut, TicketOut
@@ -83,34 +83,6 @@ async def demo_seed(authorization: str = Header(None)):
         raise HTTPException(status_code=500, detail=f"Seed failed: {str(e)}")
 
 
-# ── Serializers ──────────────────────────────────────────
-
-def serialize_ticket(t: Ticket) -> dict:
-    return {
-        "id": str(t.id),
-        "citizen_id": str(t.citizen_id) if t.citizen_id else None,
-        "latitude": t.latitude,
-        "longitude": t.longitude,
-        "category": t.category,
-        "severity": t.severity,
-        "description": t.description,
-        "status": t.status,
-        "is_spam": t.is_spam,
-        "is_duplicate": t.is_duplicate,
-        "duplicate_of_id": str(t.duplicate_of_id) if t.duplicate_of_id else None,
-        "priority_score": t.priority_score,
-        "priority_reason": t.priority_reason,
-        "assigned_officer_id": str(t.assigned_officer_id) if t.assigned_officer_id else None,
-        "verification_status": t.verification_status,
-        "verification_reason": t.verification_reason,
-        "original_media_url": t.original_media_url,
-        "closure_media_url": t.closure_media_url,
-        "voice_note_url": t.voice_note_url,
-        "created_at": t.created_at.isoformat() if t.created_at else None,
-        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-    }
-
-
 # ── Request models ───────────────────────────────────────
 
 class CreateTicketRequest(BaseModel):
@@ -163,7 +135,7 @@ class UpdateTicketStatusRequest(BaseModel):
     status: str
 
 
-# ── Health ───────────────────────────────────────────────
+# ── File Upload ───────────────────────────────────────────
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".webm", ".mp3", ".wav", ".m4a", ".pdf"}
 
@@ -191,67 +163,16 @@ async def upload_file(
 
 @app.get("/api/notifications", response_model=List[NotificationOut])
 def list_notifications(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
-    from app.agents.graph import CATEGORY_TO_DEPT
-    try:
-        query = db.query(Ticket)
-        if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
-            query = query.filter(Ticket.citizen_id == current_user.id)
-        tickets = query.order_by(Ticket.updated_at.desc()).limit(30).all()
-
-        STATUS_MESSAGES = {
-            "reported": "Your report was received and is being triaged by AI.",
-            "assigned": "Your report has been assigned to the {dept} department.",
-            "in_progress": "An officer has started work on your report.",
-            "resolved": "Your report has been marked resolved — please confirm.",
-            "verified": "Resolution verified — thank you for reporting this issue.",
-        }
-
-        notifications = []
-        for t in tickets:
-            category_key = t.category if isinstance(t.category, str) else ""
-            dept = CATEGORY_TO_DEPT.get(category_key, "the relevant")
-            status = t.status if isinstance(t.status, str) else str(t.status)
-            message = STATUS_MESSAGES.get(status, f"Status updated to {status}.")
-            message = message.format(dept=dept)
-            notifications.append({
-                "id": str(t.id),
-                "ticket_id": str(t.id),
-                "category": t.category,
-                "status": status,
-                "message": message,
-                "timestamp": t.updated_at.isoformat() if t.updated_at is not None else None,
-            })
-        return notifications
-    except Exception as e:
-        print(f"Notifications query failed: {e}")
-        return []
+    citizen_id = current_user.id if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000" else None
+    return notifications.list_notifications(db, citizen_id)
 
 
 # ── Tickets CRUD ─────────────────────────────────────────
 
 @app.get("/api/tickets")
 def list_tickets(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
-    try:
-        query = db.query(Ticket)
-        if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
-            query = query.filter(Ticket.citizen_id == current_user.id)
-        tickets = query.order_by(Ticket.created_at.desc()).all()
-        return [serialize_ticket(t) for t in tickets]
-    except Exception as e:
-        print(f"Database error, falling back to mock: {e}")
-        return [
-            {
-                "id": "e4b2d352-78d1-4db5-bdf9-0db9bfad83ef",
-                "category": "Roads & Potholes",
-                "severity": "medium",
-                "description": "Deep pothole near the bus stop intersection. Hazardous for bikers.",
-                "latitude": 12.9715,
-                "longitude": 77.5945,
-                "status": "assigned",
-                "priority_score": 2,
-                "created_at": "2026-07-14T18:00:00Z",
-            },
-        ]
+    citizen_id = current_user.id if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000" else None
+    return tickets.list_tickets(db, citizen_id)
 
 
 @app.get("/api/tickets/near", response_model=List[TicketOut])
@@ -261,26 +182,7 @@ def find_nearby_tickets(
     radius_meters: float = Query(default=1000.0, ge=1, le=50000),
     db: Session = Depends(get_db),
 ):
-    try:
-        rows = db.execute(
-            text("""
-                SELECT id FROM tickets
-                WHERE ST_DWithin(
-                    location_geom,
-                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
-                    :radius
-                )
-            """),
-            {"lng": longitude, "lat": latitude, "radius": radius_meters},
-        ).fetchall()
-        ids = [str(r[0]) for r in rows]
-        if not ids:
-            return []
-        tickets = db.query(Ticket).filter(Ticket.id.in_(ids)).all()
-        return [serialize_ticket(t) for t in tickets]
-    except Exception as e:
-        print(f"Spatial query error: {e}")
-        return []
+    return tickets.find_nearby_tickets(db, latitude, longitude, radius_meters)
 
 
 @app.get("/api/tickets/{ticket_id}", response_model=TicketOut)
@@ -289,18 +191,7 @@ def get_ticket(
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user),
 ):
-    try:
-        ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    except Exception:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-    # Citizens may only view their own tickets; staff roles may view any.
-    # 404 (not 403) avoids revealing whether a ticket exists.
-    if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
-        if ticket.citizen_id is None or str(ticket.citizen_id) != current_user.id:
-            raise HTTPException(status_code=404, detail="Ticket not found")
-    return serialize_ticket(ticket)
+    return tickets.get_ticket(db, ticket_id, current_user.role, current_user.id)
 
 
 @app.post("/api/tickets", status_code=201, response_model=TicketOut)
@@ -309,40 +200,7 @@ def create_ticket(
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user),
 ):
-    citizen_id = None
-    if current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
-        # Defense in depth: get_current_user already rejects non-UUID subs,
-        # but a malformed citizen identity must never produce an unowned
-        # ticket even if a future code path constructs AuthUser differently.
-        try:
-            citizen_id = uuid.UUID(current_user.id)
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=401, detail="Invalid citizen identity")
-    else:
-        try:
-            first_citizen = db.query(Citizen).first()
-            if first_citizen:
-                citizen_id = first_citizen.id
-        except Exception:
-            db.rollback()
-
-    ticket = Ticket(
-        citizen_id=citizen_id,
-        latitude=body.latitude,
-        longitude=body.longitude,
-        category=body.category,
-        severity=body.severity,
-        description=body.description,
-        original_media_url=body.original_media_url,
-        voice_note_url=body.voice_note_url,
-        status=body.status,
-        priority_score=body.priority_score,
-        priority_reason=body.priority_reason,
-    )
-    db.add(ticket)
-    db.commit()
-    db.refresh(ticket)
-    return serialize_ticket(ticket)
+    return tickets.create_ticket(db, current_user.role, current_user.id, body)
 
 
 # ── Officer endpoints ────────────────────────────────────
@@ -362,8 +220,8 @@ def officer_queue(db: Session = Depends(get_db), current_user: AuthUser = Depend
     except ValueError:
         pass
 
-    tickets = query.order_by(Ticket.priority_score.desc(), Ticket.created_at.asc()).all()
-    return [serialize_ticket(t) for t in tickets]
+    ticket_rows = query.order_by(Ticket.priority_score.desc(), Ticket.created_at.asc()).all()
+    return [tickets.serialize_ticket(t) for t in ticket_rows]
 
 
 @app.patch("/api/tickets/{ticket_id}/status", response_model=TicketOut)
@@ -381,7 +239,7 @@ def update_ticket_status(
     ticket.status = body.status
     db.commit()
     db.refresh(ticket)
-    return serialize_ticket(ticket)
+    return tickets.serialize_ticket(ticket)
 
 
 @app.post("/api/tickets/{ticket_id}/resolve", response_model=TicketOut)
@@ -422,7 +280,7 @@ async def resolve_ticket(
     ticket.status = final.get("status", "verified")
     db.commit()
     db.refresh(ticket)
-    return serialize_ticket(ticket)
+    return tickets.serialize_ticket(ticket)
 
 
 # ── Analytics ────────────────────────────────────────────
@@ -557,16 +415,7 @@ def delete_ticket(
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user),
 ):
-    if not settings.DEV_ALLOW_DELETE:
-        raise HTTPException(status_code=403, detail="DELETE endpoint is disabled outside development")
-    if current_user.role not in ("admin", "super_admin"):
-        raise HTTPException(status_code=403, detail="Admin or super_admin role required")
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-    db.delete(ticket)
-    db.commit()
-    return {"deleted": ticket_id}
+    return tickets.delete_ticket(db, ticket_id, current_user.role)
 
 
 @app.get("/api/me", response_model=MeResponse)
