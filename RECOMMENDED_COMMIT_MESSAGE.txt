@@ -1,0 +1,9 @@
+chore(backend): remove unused direct langchain dependencies and document post-hackathon audit
+
+- Remove `langchain` and `langchain-google-genai` from backend/requirements.txt
+  (verified: no direct imports anywhere in backend/app).
+- `langgraph` and `langchain-core` (transitive via langgraph) are retained.
+- Add audit comments classifying deferred post-hackathon hardening items
+  (rate limiting, upload MIME validation, SSE/job-queue refactor).
+- Verified: 17/17 identity tests pass, docker compose config valid,
+  /api/health healthy, /api/health/ready 200, alembic at 002 (head).

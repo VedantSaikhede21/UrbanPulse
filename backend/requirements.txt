@@ -4,11 +4,36 @@ pydantic==2.13.4
 pydantic-settings==2.14.2
 python-multipart==0.0.20
 langgraph==1.2.10
-langchain==1.3.14
-langchain-google-genai==4.3.2
 sqlalchemy==2.0.51
 psycopg2-binary==2.9.12
 geoalchemy2==0.20.0
 pyjwt[crypto]==2.13.0
 alembic==1.18.0
 pytest==8.3.5
+
+# ── POST-HACKATHON HARDENING AUDIT & CLASSIFICATION ───────────────────
+# 1. Rate Limiting:
+#    - Status: Deferred (High-Risk).
+#    - Details: FastAPI does not have built-in rate-limiting. Introducing slowapi
+#      or standard middleware is high-risk as it could block the judge/demo flow
+#      under load or simulated network traffic.
+# 2. Upload Validation:
+#    - Status: Deferred (High-Risk).
+#    - Details: Currently checks extension only. Implementing MIME-type/content
+#      sniffing via python-magic requires installing the libmagic binary on target
+#      deployment machines, which risks runtime environments breaking.
+# 3. SSE Lifecycle & Job Queue:
+#    - Status: Deferred (High-Risk).
+#    - Details: Currently synchronous SSE sequentially processes the 9-agent
+#      LangGraph graph. Transitioning to a true background job queue (e.g., Celery/
+#      Redis/ARQ) is a massive architectural refactoring, violating the freeze.
+# 4. Direct LangChain Dependency Usage:
+#    - Status: Completed.
+#    - Details: Verified that neither 'langchain' nor 'langchain-google-genai' are
+#      directly imported anywhere in backend/app. Both direct dependencies have been
+#      removed from backend/requirements.txt and root requirements.txt.
+#      Note: 'langchain-core' is transitively retained via langgraph dependency.
+# 5. Alembic Status:
+#    - Status: Verified.
+#    - Details: The database matches version 002 (head), no further migration is
+#      required at this stage.
