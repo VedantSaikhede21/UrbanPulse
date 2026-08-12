@@ -4,8 +4,8 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { apiFetch } from '../../lib/api';
 import {
-  Menu, X, Shield, User, FileText, Map, AlertTriangle, BarChart2, CheckSquare, Settings, Play,
-  HelpCircle, Home, LogIn, Activity, Database, Users, Layers, ShieldCheck, LogOut
+  Menu, X, User, FileText, Map, AlertTriangle, BarChart2, CheckSquare, Settings, Play,
+  HelpCircle, Home, Activity, Database, Users, Layers, ShieldCheck, LogOut
 } from 'lucide-react';
 
 export type UserRole = 'citizen' | 'officer' | 'dept' | 'admin' | 'superadmin' | 'public' | 'auth';
@@ -15,34 +15,17 @@ interface RoleLayoutProps {
 }
 
 export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
-  const { user, role, loading, signOut } = useAuth();
-  const [currentRole, setCurrentRole] = useState<UserRole>('public');
+  const { user, role, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [uhsScore, setUhsScore] = useState<number | null>(null);
   const location = useLocation();
 
-  // Sync currentRole with actual auth session when it loads/changes
-  useEffect(() => {
-    if (!loading) {
-      if (user && role) {
-        let layoutRole: UserRole = 'citizen';
-        if (role === 'officer') layoutRole = 'officer';
-        else if (role === 'dept_head') layoutRole = 'dept';
-        else if (role === 'admin') layoutRole = 'admin';
-        else if (role === 'super_admin') layoutRole = 'superadmin';
-        setCurrentRole(layoutRole);
-      } else {
-        // If not logged in and not on landing pages, show auth nav items
-        if (location.pathname.startsWith('/auth')) {
-          setCurrentRole('auth');
-        } else if (location.pathname === '/' || location.pathname === '/about' || location.pathname === '/public-map') {
-          setCurrentRole('public');
-        } else {
-          setCurrentRole('public');
-        }
-      }
-    }
-  }, [user, role, loading, location.pathname]);
+  const currentRole: UserRole = !user || !role ? 'public'
+    : role === 'officer' ? 'officer'
+    : role === 'dept_head' ? 'dept'
+    : role === 'admin' ? 'admin'
+    : role === 'super_admin' ? 'superadmin'
+    : 'citizen';
 
   // Live UHS ticker: fetch ward avg every 60s
   useEffect(() => {
@@ -64,21 +47,13 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleRoleChange = (role: UserRole) => {
-    setCurrentRole(role);
-  };
-
   const navItemsByRole: Record<UserRole, Array<{ label: string; path: string; icon: React.ReactNode }>> = {
     public: [
       { label: 'Landing Page', path: '/', icon: <Home size={18} /> },
       { label: 'About System', path: '/about', icon: <HelpCircle size={18} /> },
       { label: 'Ward Health Map', path: '/public-map', icon: <Map size={18} /> },
     ],
-    auth: [
-      { label: 'Citizen Login (OTP)', path: '/auth/login', icon: <LogIn size={18} /> },
-      { label: 'Citizen Register', path: '/auth/register', icon: <User size={18} /> },
-      { label: 'Staff Login', path: '/auth/admin-login', icon: <Shield size={18} /> },
-    ],
+    auth: [],
     citizen: [
       { label: 'My Reports', path: '/citizen', icon: <FileText size={18} /> },
       { label: 'Report Issue', path: '/citizen/report', icon: <AlertTriangle size={18} /> },
@@ -97,7 +72,7 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
     ],
     admin: [
       { label: 'City Analytics', path: '/admin/city-analytics', icon: <BarChart2 size={18} /> },
-      { label: 'Incident Map', path: '/admin/heatmap', icon: <Map size={18} /> },
+      { label: 'Incident Map', path: '/admin/incident-map', icon: <Map size={18} /> },
       { label: 'Escalation Monitor', path: '/admin/escalation', icon: <AlertTriangle size={18} /> },
     ],
     superadmin: [
@@ -134,27 +109,6 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
           <span className="font-mono text-[9px] uppercase tracking-widest text-gray-500 ml-0.5">
             Civic Triage Infrastructure
           </span>
-        </div>
-
-        {/* Demo Role Switcher */}
-        <div className="p-4 mx-4 my-3 bg-panel-card border border-panel-border rounded">
-          <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-400 mb-1.5">
-            Demo Context Role:
-          </label>
-          <select
-            aria-label="Demo context role"
-            value={currentRole}
-            onChange={(e) => handleRoleChange(e.target.value as UserRole)}
-            className="w-full bg-background border border-panel-border text-foreground rounded py-1 px-2 text-xs font-mono focus:outline-none focus:border-brand-lime"
-          >
-            <option value="public">Public (Guest)</option>
-            <option value="auth">Authentication</option>
-            <option value="citizen">Citizen Role</option>
-            <option value="officer">Field Officer</option>
-            <option value="dept">Dept Head</option>
-            <option value="admin">City Admin</option>
-            <option value="superadmin">Super Admin</option>
-          </select>
         </div>
 
         {/* Sidebar Menu Items */}
@@ -329,26 +283,6 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
               </button>
             </div>
 
-            {/* Mobile Switcher */}
-            <div className="p-4 bg-panel-card border-b border-panel-border">
-              <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-400 mb-1">
-                Demo Role:
-              </label>
-              <select
-                aria-label="Demo context role"
-                value={currentRole}
-                onChange={(e) => handleRoleChange(e.target.value as UserRole)}
-                className="w-full bg-background border border-panel-border text-foreground rounded py-1 px-2 text-xs font-mono"
-              >
-                <option value="public">Public</option>
-                <option value="auth">Auth</option>
-                <option value="citizen">Citizen</option>
-                <option value="officer">Officer</option>
-                <option value="dept">Dept Head</option>
-                <option value="admin">City Admin</option>
-                <option value="superadmin">Super Admin</option>
-              </select>
-            </div>
 
             {/* Mobile Menu */}
             <div className="flex-1 overflow-y-auto px-4 py-3">

@@ -88,13 +88,9 @@ function PublicRoutes() {
                 <Route path="/auth/citizen-login" element={<CitizenLogin />} />
                 <Route path="/auth/staff-login" element={<StaffLogin />} />
                 <Route path="/auth/staff-register" element={<StaffRegister />} />
-                <Route path="/auth/login" element={<Navigate to="/auth/citizen-login" replace />} />
-                <Route path="/auth/register" element={<Navigate to="/auth/citizen-login" replace />} />
-                <Route path="/auth/admin-login" element={<Navigate to="/auth/staff-login" replace />} />
                 <Route path="/auth/post-login" element={<PostLogin />} />
                 <Route path="/citizen/processing/:ticketId" element={<ProcessingPage />} />
                 <Route path="/trace" element={<LiveAgentTrace />} />
-                <Route path="/trace/:ticketId" element={<LiveAgentTrace />} />
                 <Route path="/shared/trace/:ticketId" element={<LiveAgentTrace />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/support" element={<Support />} />
@@ -125,15 +121,11 @@ function PublicRoutes() {
                 <Route path="/officer/queue" element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerQueue /></RoleGuard>} />
                 <Route path="/officer/profile" element={<RoleGuard allow={['officer','dept_head','admin','super_admin']}><OfficerProfile /></RoleGuard>} />
                 <Route path="/dept" element={<RoleGuard allow={['dept_head','admin','super_admin']}><DepartmentDashboard /></RoleGuard>} />
-                <Route path="/dept/inbox" element={<RoleGuard allow={['dept_head','admin','super_admin']}><DepartmentDashboard /></RoleGuard>} />
                 <Route path="/dept/analytics" element={<RoleGuard allow={['dept_head','admin','super_admin']}><DepartmentAnalytics /></RoleGuard>} />
                 <Route path="/dept/officers" element={<RoleGuard allow={['dept_head','admin','super_admin']}><OfficerManagement /></RoleGuard>} />
                 <Route path="/admin/city-analytics" element={<RoleGuard allow={['admin','super_admin']}><CityAnalytics /></RoleGuard>} />
-                <Route path="/admin/dashboard" element={<RoleGuard allow={['admin','super_admin']}><CityAnalytics /></RoleGuard>} />
-                <Route path="/admin/heatmap" element={<Navigate to="/admin/incident-map" replace />} />
                 <Route path="/admin/escalation" element={<RoleGuard allow={['admin','super_admin']}><EscalationMonitor /></RoleGuard>} />
                 <Route path="/super-admin" element={<RoleGuard allow={['super_admin']}><AdminDashboard /></RoleGuard>} />
-                <Route path="/super-admin/dashboard" element={<RoleGuard allow={['super_admin']}><AdminDashboard /></RoleGuard>} />
                 <Route path="/super-admin/users" element={<RoleGuard allow={['super_admin']}><UserManagement /></RoleGuard>} />
                 <Route path="/super-admin/routing" element={<RoleGuard allow={['super_admin']}><RoutingConfig /></RoleGuard>} />
                 <Route path="/super-admin/audit" element={<RoleGuard allow={['super_admin']}><AuditLog /></RoleGuard>} />
