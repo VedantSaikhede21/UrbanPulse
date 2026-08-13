@@ -1,4 +1,3 @@
-import asyncio
 import json as _json
 import os
 import secrets
@@ -18,7 +17,7 @@ from app.config import settings
 from app.db.session import get_db
 from app.db.models import Ticket, Officer
 from app.routers.analytics import router as analytics_router
-from app.services import notifications, tickets
+from app.services import notifications, pipeline, tickets
 from app.routers.health import router as health_router
 from app.schemas.auth import MeResponse
 from app.schemas.tickets import NotificationOut, TicketOut
@@ -258,29 +257,9 @@ async def resolve_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    ticket.closure_media_url = body.closure_media_url
-    ticket.status = "resolved"
-    db.commit()
-
-    state = runtime.TicketState(
-        ticket_id=ticket_id,
-        citizen_text=ticket.description or "",
-        original_media_url=ticket.original_media_url,
-        closure_media_url=body.closure_media_url,
-        category=ticket.category,
-        latitude=ticket.latitude,
-        longitude=ticket.longitude,
-        status="resolved",
+    return pipeline.run_verification(
+        ticket, body.closure_media_url, runtime.verification_graph, runtime.TicketState, db
     )
-
-    final = runtime.verification_graph.invoke(state)
-
-    ticket.verification_status = final.get("verification_status")
-    ticket.verification_reason = final.get("verification_reason")
-    ticket.status = final.get("status", "verified")
-    db.commit()
-    db.refresh(ticket)
-    return tickets.serialize_ticket(ticket)
 
 
 # ── Analytics ────────────────────────────────────────────
@@ -297,105 +276,8 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     async def event_stream():
-        state = runtime.TicketState(
-            ticket_id=ticket_id,
-            citizen_id=str(ticket.citizen_id) if ticket.citizen_id else None,
-            citizen_text=ticket.description or "",
-            original_media_url=ticket.original_media_url,
-            voice_note_url=ticket.voice_note_url,
-            latitude=ticket.latitude,
-            longitude=ticket.longitude,
-            category=ticket.category,
-            severity=ticket.severity,
-        )
-
-        final_state_dict = state.model_dump()
-
-        try:
-            queue = asyncio.Queue()
-            seen_logs = 0
-
-            async def run_pipeline():
-                loop = asyncio.get_running_loop()
-
-                def _sync_stream():
-                    for step in runtime.triage_graph.stream(state):
-                        queue.put_nowait(step)
-                    queue.put_nowait(None)
-
-                await loop.run_in_executor(None, _sync_stream)
-
-            task = asyncio.create_task(run_pipeline())
-
-            while True:
-                step = await queue.get()
-                if step is None:
-                    break
-
-                for node_name, node_output in step.items():
-                    if isinstance(node_output, dict):
-                        final_state_dict.update(node_output)
-
-                    logs = node_output.get("trace_logs", []) if isinstance(node_output, dict) else []
-                    new_logs = logs[seen_logs:]
-                    seen_logs = len(logs)
-
-                    for log_entry in new_logs:
-                        event_data = _json.dumps({
-                            "agent": log_entry.get("agent", node_name),
-                            "action": log_entry.get("action", "Processing..."),
-                            "reasoning": log_entry.get("reasoning", ""),
-                            "node": node_name,
-                            "status": "running",
-                        })
-                        yield f"data: {event_data}\n\n"
-
-            await task
-
-            try:
-                ticket.category = final_state_dict.get("category") or ticket.category
-                ticket.severity = final_state_dict.get("severity") or ticket.severity
-                ticket.is_spam = final_state_dict.get("is_spam", False)
-                ticket.is_duplicate = final_state_dict.get("is_duplicate", False)
-                dup_id = final_state_dict.get("duplicate_of_id")
-                if dup_id:
-                    ticket.duplicate_of_id = uuid.UUID(dup_id)
-                ticket.priority_score = final_state_dict.get("priority_score", ticket.priority_score)
-                ticket.priority_reason = final_state_dict.get("priority_reason")
-                ticket.status = final_state_dict.get("status", "assigned")
-                officer_id = final_state_dict.get("assigned_officer_id")
-                if officer_id:
-                    ticket.assigned_officer_id = uuid.UUID(officer_id)
-                db.commit()
-            except Exception as db_err:
-                print(f"DB commit error: {db_err}")
-                db.rollback()
-
-            done_data = _json.dumps({
-                "agent": "Pipeline",
-                "action": "Complete",
-                "reasoning": (
-                    f"Ticket {ticket_id} fully processed. "
-                    f"Category: {final_state_dict.get('category')}, "
-                    f"Priority: {final_state_dict.get('priority_score')}."
-                ),
-                "node": "END",
-                "status": "done",
-                "result": {
-                    "category": final_state_dict.get("category"),
-                    "severity": final_state_dict.get("severity"),
-                    "priority_score": final_state_dict.get("priority_score"),
-                    "assigned_department": final_state_dict.get("assigned_department"),
-                    "assigned_officer_id": final_state_dict.get("assigned_officer_id"),
-                    "status": final_state_dict.get("status"),
-                    "is_duplicate": final_state_dict.get("is_duplicate"),
-                },
-            })
-            yield f"data: {done_data}\n\n"
-
-        except Exception as e:
-            err_data = _json.dumps({"agent": "Pipeline", "status": "error", "reasoning": str(e)})
-            yield f"data: {err_data}\n\n"
+        async for event in pipeline.stream_triage_events(ticket, runtime.triage_graph, runtime.TicketState, db):
+            yield f"data: {_json.dumps(event)}\n\n"
 
     return StreamingResponse(
         event_stream(),
