@@ -39,15 +39,34 @@ def city_pulse(db: Session = Depends(get_db)):
         .all()
     )
 
+    # Open-ticket count per critical ward, assigned spatially via PostGIS
+    # boundary containment — never a global count.
+    critical_ids = tuple(str(w.id) for w in critical[:3])
+    ward_counts: dict = {}
+    if critical_ids:
+        rows = db.execute(
+            text("""
+                SELECT w.id, count(t.id)
+                FROM wards w
+                LEFT JOIN tickets t
+                  ON t.status IN ('reported', 'assigned', 'in_progress')
+                 AND ST_Contains(
+                        w.boundary::geometry,
+                        ST_SetSRID(ST_MakePoint(t.longitude, t.latitude), 4326)
+                     )
+                WHERE w.id IN :ids
+                GROUP BY w.id
+            """),
+            {"ids": critical_ids},
+        ).fetchall()
+        ward_counts = {str(r[0]): r[1] for r in rows}
+
     alerts = []
     for w in critical[:3]:
-        ward_tickets = (
-            db.query(Ticket)
-            .filter(Ticket.status.in_(["reported", "assigned", "in_progress"]))
-            .count()
-        )
+        count = ward_counts.get(str(w.id), 0)
         alerts.append(
             f"{w.name} (Critical): UHS {float(w.uhs_score):.0f}. "
+            f"{count} open incident{'s' if count != 1 else ''} in ward. "
             f"Review open incidents and dispatch field teams."
         )
 
