@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db.models import Citizen, Ticket
+from app.services import audit
+
+VALID_TICKET_STATUSES = ("reported", "assigned", "in_progress", "resolved", "verified")
 
 
 def serialize_ticket(t: Ticket) -> dict:
@@ -131,10 +134,52 @@ def create_ticket(db: Session, role: str, user_id: str, body) -> dict:
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
+    audit.record_audit(
+        db,
+        user_id=user_id,
+        action="ticket.create",
+        target_table="tickets",
+        record_id=str(ticket.id),
+        details={
+            "category": ticket.category,
+            "severity": ticket.severity,
+            "status": ticket.status,
+            "citizen_id": str(citizen_id) if citizen_id else None,
+        },
+    )
     return serialize_ticket(ticket)
 
 
-def delete_ticket(db: Session, ticket_id: str, role: str) -> dict:
+def update_ticket_status(db: Session, ticket_id: str, status: str, role: str, user_id: str) -> dict:
+    if role not in ("officer", "dept_head", "admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Officer access required")
+    if status not in VALID_TICKET_STATUSES:
+        raise HTTPException(
+            status_code=422, detail=f"status must be one of {', '.join(VALID_TICKET_STATUSES)}"
+        )
+    try:
+        UUID(ticket_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    previous = ticket.status
+    ticket.status = status
+    db.commit()
+    db.refresh(ticket)
+    audit.record_audit(
+        db,
+        user_id=user_id,
+        action="ticket.status_change",
+        target_table="tickets",
+        record_id=ticket_id,
+        details={"from": previous, "to": status},
+    )
+    return serialize_ticket(ticket)
+
+
+def delete_ticket(db: Session, ticket_id: str, role: str, user_id: Optional[str] = None) -> dict:
     if not settings.DEV_ALLOW_DELETE:
         raise HTTPException(status_code=403, detail="DELETE endpoint is disabled outside development")
     if role not in ("admin", "super_admin"):
@@ -144,4 +189,12 @@ def delete_ticket(db: Session, ticket_id: str, role: str) -> dict:
         raise HTTPException(status_code=404, detail="Ticket not found")
     db.delete(ticket)
     db.commit()
+    audit.record_audit(
+        db,
+        user_id=user_id,
+        action="ticket.delete",
+        target_table="tickets",
+        record_id=ticket_id,
+        details={"deleted_by_role": role},
+    )
     return {"deleted": ticket_id}

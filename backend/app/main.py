@@ -17,10 +17,12 @@ from app.config import settings
 from app.db.session import get_db
 from app.db.models import Ticket, Officer
 from app.routers.analytics import router as analytics_router
-from app.services import notifications, pipeline, tickets
+from app.services import audit, notifications, pipeline, tickets
+from app.services.tickets import VALID_TICKET_STATUSES
 from app.routers.health import router as health_router
 from app.schemas.auth import MeResponse
 from app.schemas.tickets import NotificationOut, TicketOut, PublicTicketOut
+from app.schemas.audit import AuditOut
 from app.schemas.upload import UploadResponse
 
 app = FastAPI(
@@ -240,15 +242,7 @@ def update_ticket_status(
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user),
 ):
-    if current_user.role not in STAFF_ROLES:
-        raise HTTPException(status_code=403, detail="Officer access required")
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-    ticket.status = body.status
-    db.commit()
-    db.refresh(ticket)
-    return tickets.serialize_ticket(ticket)
+    return tickets.update_ticket_status(db, ticket_id, body.status, current_user.role, current_user.id)
 
 
 @app.post("/api/tickets/{ticket_id}/resolve", response_model=TicketOut)
@@ -267,9 +261,21 @@ async def resolve_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    return pipeline.run_verification(
+    result = pipeline.run_verification(
         ticket, body.closure_media_url, runtime.verification_graph, runtime.TicketState, db
     )
+    audit.record_audit(
+        db,
+        user_id=current_user.id,
+        action="ticket.resolve",
+        target_table="tickets",
+        record_id=ticket_id,
+        details={
+            "status": result.get("status"),
+            "verification_status": result.get("verification_status"),
+        },
+    )
+    return result
 
 
 # ── Analytics ────────────────────────────────────────────
@@ -307,7 +313,7 @@ def delete_ticket(
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user),
 ):
-    return tickets.delete_ticket(db, ticket_id, current_user.role)
+    return tickets.delete_ticket(db, ticket_id, current_user.role, current_user.id)
 
 
 @app.get("/api/me", response_model=MeResponse)
@@ -319,3 +325,16 @@ def get_me(current_user: AuthUser = Depends(get_current_user)):
         "phone": current_user.phone,
         "name": current_user.name,
     }
+
+
+# ── Audit trail ─────────────────────────────────────────
+
+@app.get("/api/audit", response_model=List[AuditOut])
+def list_audit(
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return audit.list_audit(db, limit)

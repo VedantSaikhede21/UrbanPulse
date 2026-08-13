@@ -71,6 +71,10 @@ def cleanup(db_engine, test_citizen):
             {"cid": test_citizen["id"]},
         )
         conn.execute(
+            text("DELETE FROM audit_logs WHERE user_id = :cid"),
+            {"cid": test_citizen["id"]},
+        )
+        conn.execute(
             text("DELETE FROM citizens WHERE id = :cid"),
             {"cid": test_citizen["id"]},
         )
