@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.agents import runtime
-from app.auth.deps import AuthUser, get_current_user
+from app.auth.deps import AuthUser, get_current_user, get_optional_user
 from app.config import settings
 from app.db.session import get_db
 from app.db.models import Ticket, Officer
@@ -283,13 +283,31 @@ async def resolve_ticket(
 # ── SSE pipeline ─────────────────────────────────────────
 
 @app.get("/api/tickets/{ticket_id}/process")
-async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
+async def process_ticket_sse(
+    ticket_id: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[AuthUser] = Depends(get_optional_user),
+):
     if runtime.triage_graph is None:
         raise HTTPException(status_code=503, detail="Agent graphs not loaded")
+
+    try:
+        uuid.UUID(ticket_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=404, detail="Ticket not found")
 
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
+
+    # Identity gate: when a Bearer token is present, only the owning citizen
+    # (or staff) may watch/trigger the pipeline; 404 hides other citizens'
+    # tickets. Native EventSource clients cannot send Authorization headers,
+    # so anonymous callers keep the capability-URL path — the ticket UUID is
+    # unguessable and the public nearby API no longer leaks full tickets.
+    if current_user is not None and current_user.role == "citizen" and current_user.id != "00000000-0000-0000-0000-000000000000":
+        if ticket.citizen_id is None or str(ticket.citizen_id) != current_user.id:
+            raise HTTPException(status_code=404, detail="Ticket not found")
 
     async def event_stream():
         async for event in pipeline.stream_triage_events(ticket, runtime.triage_graph, runtime.TicketState, db):
@@ -300,11 +318,6 @@ async def process_ticket_sse(ticket_id: str, db: Session = Depends(get_db)):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-
-@app.get("/api/trace/{ticket_id}")
-async def get_agent_trace(ticket_id: str):
-    return {"ticket_id": ticket_id, "steps": [], "note": "Use /api/tickets/{id}/process for live SSE"}
 
 
 @app.delete("/api/tickets/{ticket_id}")

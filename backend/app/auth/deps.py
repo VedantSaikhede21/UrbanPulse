@@ -24,10 +24,17 @@ class AuthUser:
         self.name = name
 
 
-def get_current_user(
-    authorization: str = Header(None),
-    db: Session = Depends(get_db),
-) -> AuthUser:
+def _resolve_user(
+    authorization: Optional[str],
+    db: Session,
+) -> Optional[AuthUser]:
+    """Resolve an authenticated user from a Bearer token.
+
+    Returns None when no Authorization header was sent (callers decide
+    whether that is an error or an anonymous/capability-URL path). A
+    malformed or invalid token always raises 401 — it never silently
+    degrades to anonymous.
+    """
     if not authorization:
         if settings.ENV == "development" and settings.DEV_ALLOW_ANONYMOUS:
             return AuthUser(
@@ -36,7 +43,7 @@ def get_current_user(
                 email="admin@urbanpulse.ai",
                 name="Developer Admin",
             )
-        raise HTTPException(status_code=401, detail="Authorization header required")
+        return None
 
     try:
         scheme, token = authorization.split()
@@ -94,6 +101,29 @@ def get_current_user(
         raise
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Could not validate credentials: {str(e)}")
+
+
+def get_current_user(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db),
+) -> AuthUser:
+    user = _resolve_user(authorization, db)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authorization header required")
+    return user
+
+
+def get_optional_user(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db),
+) -> Optional[AuthUser]:
+    """Like get_current_user, but anonymous callers (no Authorization header)
+    resolve to None instead of 401. Present-but-invalid tokens still 401.
+
+    Used by capability-URL endpoints that must work from native EventSource
+    clients, which cannot send Authorization headers.
+    """
+    return _resolve_user(authorization, db)
 
 
 def _get_or_create_citizen(
