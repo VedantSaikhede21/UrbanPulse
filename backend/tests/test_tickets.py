@@ -163,3 +163,31 @@ def test_nearby_tickets_are_public_without_auth(client, test_citizen):
     _create_ticket(client, test_citizen)
     res = client.get("/api/tickets/near?latitude=12.9715&longitude=77.5945&radius_meters=5000")
     assert res.status_code == 200
+
+
+# ── Status transition validation ────────────────────────────────────────
+
+
+def test_update_status_rejects_unknown_status(client, test_citizen):
+    created = _create_ticket(client, test_citizen)
+    officer_token = _mint_token(str(uuid.uuid4()), "officer.demo@bbmp.gov.in", "officer")
+
+    res = client.patch(
+        f"/api/tickets/{created['id']}/status",
+        headers=_auth_headers(officer_token),
+        json={"status": "banana"},
+    )
+    assert res.status_code == 422
+
+
+def test_update_status_accepts_valid_transition(client, test_citizen):
+    created = _create_ticket(client, test_citizen)
+    officer_token = _mint_token(str(uuid.uuid4()), "officer.demo@bbmp.gov.in", "officer")
+
+    res = client.patch(
+        f"/api/tickets/{created['id']}/status",
+        headers=_auth_headers(officer_token),
+        json={"status": "in_progress"},
+    )
+    assert res.status_code == 200
+    assert res.json()["status"] == "in_progress"

@@ -130,8 +130,18 @@ class ResolveTicketRequest(BaseModel):
     notes: Optional[str] = None
 
 
+VALID_TICKET_STATUSES = ("reported", "assigned", "in_progress", "resolved", "verified")
+
+
 class UpdateTicketStatusRequest(BaseModel):
     status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v not in VALID_TICKET_STATUSES:
+            raise ValueError(f"status must be one of {', '.join(VALID_TICKET_STATUSES)}")
+        return v
 
 
 # ── File Upload ───────────────────────────────────────────
