@@ -17,12 +17,18 @@ from app.config import settings
 from app.db.session import get_db
 from app.db.models import Ticket, Officer
 from app.routers.analytics import router as analytics_router
-from app.services import audit, notifications, pipeline, tickets
+from app.services import audit, notifications, officers, pipeline, tickets
 from app.services.tickets import VALID_TICKET_STATUSES
 from app.routers.health import router as health_router
 from app.schemas.auth import MeResponse
 from app.schemas.tickets import NotificationOut, TicketOut, PublicTicketOut
 from app.schemas.audit import AuditOut
+from app.schemas.officers import (
+    OfficerOut,
+    CreateOfficerRequest,
+    UpdateOfficerRequest,
+    AssignTicketRequest,
+)
 from app.schemas.upload import UploadResponse
 
 app = FastAPI(
@@ -233,6 +239,46 @@ def officer_queue(db: Session = Depends(get_db), current_user: AuthUser = Depend
 
     ticket_rows = query.order_by(Ticket.priority_score.desc(), Ticket.created_at.asc()).all()
     return [tickets.serialize_ticket(t) for t in ticket_rows]
+
+
+# ── Officer management ───────────────────────────────────
+
+@app.get("/api/officers", response_model=List[OfficerOut])
+def list_officers(db: Session = Depends(get_db), current_user: AuthUser = Depends(get_current_user)):
+    if current_user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Officer access required")
+    return officers.list_officers(db)
+
+
+@app.post("/api/officers", response_model=OfficerOut, status_code=201)
+def create_officer(
+    body: CreateOfficerRequest,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    return officers.create_officer(
+        db, body.name, body.department, current_user.role, current_user.id, body.user_id
+    )
+
+
+@app.patch("/api/officers/{officer_id}", response_model=OfficerOut)
+def update_officer(
+    officer_id: str,
+    body: UpdateOfficerRequest,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    return officers.update_officer(db, officer_id, body.is_active, current_user.role, current_user.id)
+
+
+@app.patch("/api/tickets/{ticket_id}/assign", response_model=TicketOut)
+def assign_ticket(
+    ticket_id: str,
+    body: AssignTicketRequest,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    return officers.assign_ticket(db, ticket_id, body.officer_id, current_user.role, current_user.id)
 
 
 @app.patch("/api/tickets/{ticket_id}/status", response_model=TicketOut)
