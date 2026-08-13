@@ -36,57 +36,57 @@ def serialize_ticket(t: Ticket) -> dict:
 
 
 def list_tickets(db: Session, citizen_id: Optional[str]) -> List[dict]:
-    try:
-        query = db.query(Ticket)
-        if citizen_id:
-            query = query.filter(Ticket.citizen_id == citizen_id)
-        tickets = query.order_by(Ticket.created_at.desc()).all()
-        return [serialize_ticket(t) for t in tickets]
-    except Exception as e:
-        print(f"Database error, falling back to mock: {e}")
-        return [
-            {
-                "id": "e4b2d352-78d1-4db5-bdf9-0db9bfad83ef",
-                "category": "Roads & Potholes",
-                "severity": "medium",
-                "description": "Deep pothole near the bus stop intersection. Hazardous for bikers.",
-                "latitude": 12.9715,
-                "longitude": 77.5945,
-                "status": "assigned",
-                "priority_score": 2,
-                "created_at": "2026-07-14T18:00:00Z",
-            },
-        ]
+    query = db.query(Ticket)
+    if citizen_id:
+        query = query.filter(Ticket.citizen_id == citizen_id)
+    tickets = query.order_by(Ticket.created_at.desc()).all()
+    return [serialize_ticket(t) for t in tickets]
 
 
 def find_nearby_tickets(db: Session, latitude: float, longitude: float, radius_meters: float) -> List[dict]:
-    try:
-        rows = db.execute(
-            text("""
-                SELECT id FROM tickets
-                WHERE ST_DWithin(
-                    location_geom,
-                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
-                    :radius
-                )
-            """),
-            {"lng": longitude, "lat": latitude, "radius": radius_meters},
-        ).fetchall()
-        ids = [str(r[0]) for r in rows]
-        if not ids:
-            return []
-        tickets = db.query(Ticket).filter(Ticket.id.in_(ids)).all()
-        return [serialize_ticket(t) for t in tickets]
-    except Exception as e:
-        print(f"Spatial query error: {e}")
+    rows = db.execute(
+        text("""
+            SELECT id FROM tickets
+            WHERE ST_DWithin(
+                location_geom,
+                ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                :radius
+            )
+        """),
+        {"lng": longitude, "lat": latitude, "radius": radius_meters},
+    ).fetchall()
+    ids = [str(r[0]) for r in rows]
+    if not ids:
         return []
+    tickets = db.query(Ticket).filter(Ticket.id.in_(ids)).all()
+    return [serialize_public_ticket(t) for t in tickets]
+
+
+def serialize_public_ticket(t: Ticket) -> dict:
+    """Guest-facing shape for the public geospatial API.
+
+    Omits citizen identity, officer assignment, media URLs, and verification
+    internals — a guest map only needs the incident itself. Ticket IDs are
+    retained so authenticated users can jump to the owned detail view.
+    """
+    return {
+        "id": str(t.id),
+        "category": t.category,
+        "severity": t.severity,
+        "description": t.description,
+        "status": t.status,
+        "latitude": t.latitude,
+        "longitude": t.longitude,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+    }
 
 
 def get_ticket(db: Session, ticket_id: str, role: str, user_id: str) -> dict:
     try:
-        ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    except Exception:
+        UUID(ticket_id)
+    except (ValueError, TypeError):
         raise HTTPException(status_code=404, detail="Ticket not found")
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     # Citizens may only view their own tickets; staff roles may view any.

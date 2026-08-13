@@ -20,7 +20,7 @@ from app.routers.analytics import router as analytics_router
 from app.services import notifications, pipeline, tickets
 from app.routers.health import router as health_router
 from app.schemas.auth import MeResponse
-from app.schemas.tickets import NotificationOut, TicketOut
+from app.schemas.tickets import NotificationOut, TicketOut, PublicTicketOut
 from app.schemas.upload import UploadResponse
 
 app = FastAPI(
@@ -174,7 +174,7 @@ def list_tickets(db: Session = Depends(get_db), current_user: AuthUser = Depends
     return tickets.list_tickets(db, citizen_id)
 
 
-@app.get("/api/tickets/near", response_model=List[TicketOut])
+@app.get("/api/tickets/near", response_model=List[PublicTicketOut])
 def find_nearby_tickets(
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),

@@ -27,6 +27,19 @@ class TicketOut(BaseModel):
     updated_at: Optional[str] = None
 
 
+class PublicTicketOut(BaseModel):
+    """Guest-facing incident shape for public geospatial APIs."""
+
+    id: str
+    category: str
+    severity: str
+    description: Optional[str] = None
+    status: str
+    latitude: float
+    longitude: float
+    created_at: Optional[str] = None
+
+
 class NotificationOut(BaseModel):
     id: str
     ticket_id: str
