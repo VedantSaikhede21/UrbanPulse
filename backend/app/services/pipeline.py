@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from typing import Any, AsyncGenerator, Dict
+from typing import Any, AsyncGenerator, Dict, List
 
 from sqlalchemy.orm import Session
 
@@ -143,3 +143,71 @@ def run_verification(
     db.commit()
     db.refresh(ticket)
     return serialize_ticket(ticket)
+
+
+def run_triage_sync(
+    ticket: Ticket,
+    graph,
+    TicketState,
+    db: Session,
+) -> dict:
+    """
+    Run the 8-agent triage graph synchronously (no SSE streaming).
+    Used for WhatsApp ingestion where we need the final result immediately.
+    """
+    state = TicketState(
+        ticket_id=str(ticket.id),
+        citizen_id=str(ticket.citizen_id) if ticket.citizen_id else None,
+        citizen_text=ticket.description or "",
+        original_media_url=ticket.original_media_url,
+        voice_note_url=ticket.voice_note_url,
+        latitude=ticket.latitude,
+        longitude=ticket.longitude,
+        category=ticket.category,
+        severity=ticket.severity,
+    )
+
+    final_state_dict = state.model_dump()
+
+    try:
+        # Run graph synchronously
+        for step in graph.stream(state):
+            for node_name, node_output in step.items():
+                if isinstance(node_output, dict):
+                    final_state_dict.update(node_output)
+
+        # Persist results to ticket
+        ticket.category = final_state_dict.get("category") or ticket.category
+        ticket.severity = final_state_dict.get("severity") or ticket.severity
+        ticket.is_spam = final_state_dict.get("is_spam", False)
+        ticket.is_duplicate = final_state_dict.get("is_duplicate", False)
+        dup_id = final_state_dict.get("duplicate_of_id")
+        if dup_id:
+            ticket.duplicate_of_id = uuid.UUID(dup_id)
+        ticket.priority_score = final_state_dict.get("priority_score", ticket.priority_score)
+        ticket.priority_reason = final_state_dict.get("priority_reason")
+        ticket.status = final_state_dict.get("status", "assigned")
+        officer_id = final_state_dict.get("assigned_officer_id")
+        if officer_id:
+            ticket.assigned_officer_id = uuid.UUID(officer_id)
+        db.commit()
+
+        return {
+            "success": True,
+            "category": final_state_dict.get("category"),
+            "severity": final_state_dict.get("severity"),
+            "priority_score": final_state_dict.get("priority_score"),
+            "assigned_department": final_state_dict.get("assigned_department"),
+            "assigned_officer_id": final_state_dict.get("assigned_officer_id"),
+            "status": final_state_dict.get("status"),
+            "is_duplicate": final_state_dict.get("is_duplicate"),
+            "is_spam": final_state_dict.get("is_spam"),
+            "trace_logs": final_state_dict.get("trace_logs", []),
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": str(e),
+        }

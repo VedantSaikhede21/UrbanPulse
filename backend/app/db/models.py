@@ -32,7 +32,8 @@ class Citizen(Base):
     __tablename__ = "citizens"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email = Column(String(255), unique=True, nullable=False)
+    email = Column(String(255), unique=True, nullable=True)
+    phone = Column(String(20), unique=True, nullable=True)
     name = Column(String(100), nullable=False)
     reputation_score = Column(Integer, default=100)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -69,6 +70,7 @@ class Ticket(Base):
     assigned_officer_id = Column(UUID(as_uuid=True), ForeignKey("officers.id", ondelete="SET NULL"), nullable=True)
     verification_status = Column(String(50), nullable=True)
     verification_reason = Column(Text, nullable=True)
+    location_source = Column(String(20), default="gps", nullable=False)  # 'gps' or 'geocoded'
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_WHATSAPP_NUMBER: Optional[str] = "whatsapp:+14155238886"
+    NOMINATIM_USER_AGENT: Optional[str] = "UrbanPulse/1.0"
 
     # Environment
     ENV: str = "development"

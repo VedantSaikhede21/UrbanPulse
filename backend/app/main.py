@@ -17,6 +17,7 @@ from app.config import settings
 from app.db.session import get_db
 from app.db.models import Ticket, Officer
 from app.routers.analytics import router as analytics_router
+from app.routers.whatsapp import router as whatsapp_router
 from app.services import audit, notifications, officers, pipeline, tickets
 from app.services.tickets import VALID_TICKET_STATUSES
 from app.routers.health import router as health_router
@@ -39,6 +40,7 @@ app = FastAPI(
 
 app.include_router(health_router)
 app.include_router(analytics_router)
+app.include_router(whatsapp_router)
 
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
 
