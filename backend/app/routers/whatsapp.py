@@ -197,12 +197,17 @@ async def whatsapp_webhook(
     )
 
     # Run triage pipeline synchronously
-    if runtime.triage_graph is not None and runtime.TicketState is not None:
-        result = pipeline.run_triage_sync(
-            ticket, runtime.triage_graph, runtime.TicketState, db
-        )
-    else:
-        result = {"success": False, "error": "Pipeline not available"}
+    try:
+        if runtime.triage_graph is not None and runtime.TicketState is not None:
+            result = pipeline.run_triage_sync(
+                ticket, runtime.triage_graph, runtime.TicketState, db
+            )
+        else:
+            result = {"success": False, "error": "Pipeline not available"}
+    except Exception as e:
+        # Pipeline crashed unexpectedly - log and use fallback
+        print(f"Pipeline error: {e}")
+        result = {"success": False, "error": str(e)}
 
     # Send confirmation reply
     if result.get("success"):
