@@ -6,7 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.geocoding import GeocodingService
 
 
-# Fixture responses from Nominatim
+# Fixture responses from Nominatim (realistic importance values based on actual Nominatim responses)
+# MG Road - highway/primary typically gets importance ~0.05, but with class/type boosting logic
 CONFIDENT_MATCH_RESPONSE = [
     {
         "place_id": 123456,
@@ -19,10 +20,11 @@ CONFIDENT_MATCH_RESPONSE = [
         "display_name": "MG Road, Bangalore, Karnataka, India",
         "class": "highway",
         "type": "primary",
-        "importance": 0.85,
+        "importance": 0.05,  # Realistic Nominatim importance for highway
     }
 ]
 
+# Market area - place/suburb typically gets importance ~0.15, medium boost (0.2) -> 0.35
 LOW_CONFIDENCE_MATCH_RESPONSE = [
     {
         "place_id": 123457,
@@ -35,7 +37,7 @@ LOW_CONFIDENCE_MATCH_RESPONSE = [
         "display_name": "Market, Bangalore, Karnataka, India",
         "class": "place",
         "type": "suburb",
-        "importance": 0.45,
+        "importance": 0.15,  # Realistic Nominatim importance for suburb
     }
 ]
 
@@ -53,8 +55,8 @@ class TestGeocodingService:
         return svc
 
     @pytest.mark.asyncio
-    async def test_geocode_confident_match(self, service):
-        """Geocoding a clear address should return coordinates with high confidence."""
+    async def test_geocode_highway_gets_low_confidence(self, service):
+        """Geocoding a highway (road) returns low confidence - no class/type boost."""
         mock_response = MagicMock()
         mock_response.json.return_value = CONFIDENT_MATCH_RESPONSE
         mock_response.raise_for_status = MagicMock()
@@ -66,13 +68,14 @@ class TestGeocodingService:
         lat, lng, confidence, display_name = result
         assert lat == 12.9715
         assert lng == 77.5945
-        assert confidence == 0.85
+        # highway/primary gets 0 boost: 0.05 + 0 = 0.05
+        assert confidence == 0.05
         assert display_name == "MG Road, Bangalore, Karnataka, India"
-        assert service.is_confident(confidence) is True
+        assert service.is_confident(confidence) is False
 
     @pytest.mark.asyncio
-    async def test_geocode_low_confidence_match(self, service):
-        """Geocoding a vague landmark should return coordinates with low confidence."""
+    async def test_geocode_place_suburb_gets_medium_confidence(self, service):
+        """Geocoding a place/suburb gets medium boost (0.2) and IS confident with threshold 0.3."""
         mock_response = MagicMock()
         mock_response.json.return_value = LOW_CONFIDENCE_MATCH_RESPONSE
         mock_response.raise_for_status = MagicMock()
@@ -84,9 +87,10 @@ class TestGeocodingService:
         lat, lng, confidence, display_name = result
         assert lat == 12.95
         assert lng == 77.60
-        assert confidence == 0.45
+        # place/suburb gets 0.2 boost: 0.15 + 0.2 = 0.35
+        assert confidence == 0.35
         assert display_name == "Market, Bangalore, Karnataka, India"
-        assert service.is_confident(confidence) is False
+        assert service.is_confident(confidence) is True
 
     @pytest.mark.asyncio
     async def test_geocode_zero_results(self, service):
@@ -155,9 +159,9 @@ class TestGeocodingService:
         assert service.is_confident(1.0) is True
 
     def test_confidence_threshold_default(self):
-        """Default confidence threshold should be 0.7."""
+        """Default confidence threshold should be 0.3 (lowered for Nominatim's importance scale)."""
         svc = GeocodingService()
-        assert svc.confidence_threshold == 0.7
+        assert svc.confidence_threshold == 0.3
 
 
 # Additional test with different OSM types/classes to verify classification behavior
@@ -171,8 +175,8 @@ class TestGeocodingClassification:
         return svc
 
     @pytest.mark.asyncio
-    async def test_amenity_type_high_importance(self, service):
-        """Amenity type (shop, restaurant) with good importance."""
+    async def test_amenity_type_gets_no_boost(self, service):
+        """Amenity type (shop, restaurant) gets no boost even with high importance."""
         response = [
             {
                 "lat": "12.9715",
@@ -191,13 +195,14 @@ class TestGeocodingClassification:
         result = await service.geocode("coffee shop on MG Road")
         assert result is not None
         _, _, confidence, _ = result
+        # amenity/cafe gets 0 boost: 0.65 + 0 = 0.65
         assert confidence == 0.65
-        # With default threshold 0.7, this would NOT be confident
-        assert service.is_confident(confidence) is False
+        # With threshold 0.3, this IS confident
+        assert service.is_confident(confidence) is True
 
     @pytest.mark.asyncio
-    async def test_building_type(self, service):
-        """Building type result."""
+    async def test_building_type_gets_high_boost(self, service):
+        """Building type gets high boost (0.4)."""
         response = [
             {
                 "lat": "12.9715",
@@ -216,12 +221,13 @@ class TestGeocodingClassification:
         result = await service.geocode("Building 123")
         assert result is not None
         _, _, confidence, _ = result
-        assert confidence == 0.55
-        assert service.is_confident(confidence) is False
+        # building/yes gets 0.4 boost: 0.55 + 0.4 = 0.95
+        assert confidence == pytest.approx(0.95)
+        assert service.is_confident(confidence) is True
 
     @pytest.mark.asyncio
     async def test_place_type_city(self, service):
-        """Place type (city) - typically high importance."""
+        """Place type (city) - typically high importance (capped at 1.0)."""
         response = [
             {
                 "lat": "12.9715",
@@ -240,5 +246,217 @@ class TestGeocodingClassification:
         result = await service.geocode("Bangalore")
         assert result is not None
         _, _, confidence, _ = result
-        assert confidence == 0.92
+        # 0.92 + 0.4 boost = 1.32, capped at 1.0
+        assert confidence == 1.0
         assert service.is_confident(confidence) is True
+
+
+# New tests for enhanced confidence calculation with class/type boosting
+class TestGeocodingEnhancedConfidence:
+    """Tests for the enhanced confidence calculation using OSM class/type signals."""
+
+    @pytest.fixture
+    def service(self):
+        svc = GeocodingService()
+        svc._client = MagicMock()
+        return svc
+
+    @pytest.mark.asyncio
+    async def test_leisure_park_gets_high_boost(self, service):
+        """Leisure/park should get high confidence boost (0.4) even with moderate importance."""
+        response = [
+            {
+                "lat": "12.9743",
+                "lon": "77.5922",
+                "display_name": "Cubbon Park, Bangalore",
+                "class": "leisure",
+                "type": "park",
+                "importance": 0.37,
+            }
+        ]
+        mock_response = MagicMock()
+        mock_response.json.return_value = response
+        mock_response.raise_for_status = MagicMock()
+        service._client.get = AsyncMock(return_value=mock_response)
+
+        result = await service.geocode("Cubbon Park")
+        assert result is not None
+        _, _, confidence, _ = result
+        # 0.37 + 0.4 boost = 0.77 (capped at 1.0)
+        assert confidence == 0.77
+        assert service.is_confident(confidence) is True
+
+    @pytest.mark.asyncio
+    async def test_water_lake_gets_high_boost(self, service):
+        """Water/lake should get high confidence boost."""
+        response = [
+            {
+                "lat": "12.9371",
+                "lon": "77.6720",
+                "display_name": "Bellandur Lake, Bangalore",
+                "class": "water",
+                "type": "lake",
+                "importance": 0.43,
+            }
+        ]
+        mock_response = MagicMock()
+        mock_response.json.return_value = response
+        mock_response.raise_for_status = MagicMock()
+        service._client.get = AsyncMock(return_value=mock_response)
+
+        result = await service.geocode("Bellandur Lake")
+        assert result is not None
+        _, _, confidence, _ = result
+        # 0.43 + 0.4 boost = 0.83
+        assert confidence == pytest.approx(0.83)
+        assert service.is_confident(confidence) is True
+
+    @pytest.mark.asyncio
+    async def test_railway_station_gets_high_boost(self, service):
+        """Railway station should get high confidence boost."""
+        response = [
+            {
+                "lat": "12.9759",
+                "lon": "77.5654",
+                "display_name": "Krantivira Sangolli Rayanna Railway Station, Bangalore",
+                "class": "railway",
+                "type": "station",
+                "importance": 0.25,
+            }
+        ]
+        mock_response = MagicMock()
+        mock_response.json.return_value = response
+        mock_response.raise_for_status = MagicMock()
+        service._client.get = AsyncMock(return_value=mock_response)
+
+        result = await service.geocode("Bangalore City Railway Station")
+        assert result is not None
+        _, _, confidence, _ = result
+        # 0.25 + 0.4 boost = 0.65
+        assert confidence == 0.65
+        # With threshold 0.3, this IS confident now
+        assert service.is_confident(confidence) is True
+
+    @pytest.mark.asyncio
+    async def test_place_suburb_gets_medium_boost(self, service):
+        """Place/suburb should get medium confidence boost (0.2)."""
+        response = [
+            {
+                "lat": "12.9357",
+                "lon": "77.6241",
+                "display_name": "Koramangala, Bangalore",
+                "class": "place",
+                "type": "suburb",
+                "importance": 0.15,
+            }
+        ]
+        mock_response = MagicMock()
+        mock_response.json.return_value = response
+        mock_response.raise_for_status = MagicMock()
+        service._client.get = AsyncMock(return_value=mock_response)
+
+        result = await service.geocode("Koramangala")
+        assert result is not None
+        _, _, confidence, _ = result
+        # 0.15 + 0.2 boost = 0.35
+        assert confidence == 0.35
+        assert service.is_confident(confidence) is True
+
+    @pytest.mark.asyncio
+    async def test_highway_primary_gets_no_boost(self, service):
+        """Highway/primary (road) should get no boost - low confidence."""
+        response = [
+            {
+                "lat": "12.9748",
+                "lon": "77.6097",
+                "display_name": "MG Road, Bangalore",
+                "class": "highway",
+                "type": "primary",
+                "importance": 0.05,
+            }
+        ]
+        mock_response = MagicMock()
+        mock_response.json.return_value = response
+        mock_response.raise_for_status = MagicMock()
+        service._client.get = AsyncMock(return_value=mock_response)
+
+        result = await service.geocode("MG Road")
+        assert result is not None
+        _, _, confidence, _ = result
+        # 0.05 + 0.0 boost = 0.05
+        assert confidence == 0.05
+        assert service.is_confident(confidence) is False
+
+    @pytest.mark.asyncio
+    async def test_amenity_cafe_gets_no_boost(self, service):
+        """Amenity/cafe should get no boost - low confidence."""
+        response = [
+            {
+                "lat": "12.9756",
+                "lon": "77.6052",
+                "display_name": "Cafe Coffee Day, MG Road, Bangalore",
+                "class": "amenity",
+                "type": "cafe",
+                "importance": 0.0,
+            }
+        ]
+        mock_response = MagicMock()
+        mock_response.json.return_value = response
+        mock_response.raise_for_status = MagicMock()
+        service._client.get = AsyncMock(return_value=mock_response)
+
+        result = await service.geocode("Coffee Day MG Road")
+        assert result is not None
+        _, _, confidence, _ = result
+        # 0.0 + 0.0 boost = 0.0
+        assert confidence == 0.0
+        assert service.is_confident(confidence) is False
+
+    @pytest.mark.asyncio
+    async def test_geocode_uses_viewbox_and_bounded_params(self, service):
+        """Geocode should call Nominatim with viewbox and bounded parameters for Bangalore."""
+        response = [
+            {
+                "lat": "12.9715",
+                "lon": "77.5945",
+                "display_name": "MG Road, Bangalore",
+                "class": "highway",
+                "type": "primary",
+                "importance": 0.05,
+            }
+        ]
+        mock_response = MagicMock()
+        mock_response.json.return_value = response
+        mock_response.raise_for_status = MagicMock()
+        service._client.get = AsyncMock(return_value=mock_response)
+
+        await service.geocode("MG Road")
+
+        call_args = service._client.get.call_args
+        params = call_args[1]["params"]
+        assert params["viewbox"] == "77.5,13.0,77.7,12.9"
+        assert params["bounded"] == 1
+
+    @pytest.mark.asyncio
+    async def test_confidence_capped_at_1_0(self, service):
+        """Confidence should be capped at 1.0 even with high importance + boost."""
+        response = [
+            {
+                "lat": "12.9715",
+                "lon": "77.5945",
+                "display_name": "Bangalore City Center",
+                "class": "place",
+                "type": "city",
+                "importance": 0.92,
+            }
+        ]
+        mock_response = MagicMock()
+        mock_response.json.return_value = response
+        mock_response.raise_for_status = MagicMock()
+        service._client.get = AsyncMock(return_value=mock_response)
+
+        result = await service.geocode("Bangalore")
+        assert result is not None
+        _, _, confidence, _ = result
+        # 0.92 + 0.4 boost = 1.32, capped at 1.0
+        assert confidence == 1.0

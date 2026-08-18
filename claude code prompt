@@ -1,0 +1,118 @@
+You're working in the UrbanPulse repo on the `ui-update` branch. A WhatsApp ingestion feature (citizens report issues via Twilio WhatsApp) was already built — migration, router, services — and is functionally working. Your job is to harden it and close the gaps below. Work phase by phase, in order, and don't move to the next phase until the current one's exit criteria is met.
+
+Relevant existing files (read these first before changing anything):
+
+- `backend/app/routers/whatsapp.py` — the webhook endpoint
+- `backend/app/services/twilio_service.py` — signature validation, media download, outbound messages
+- `backend/app/services/geocoding.py` — Nominatim geocoding + confidence scoring
+- `backend/app/services/pipeline.py` — `run_triage_sync()`
+- `backend/app/db/models.py` — `Citizen`, `Ticket` models
+- `backend/alembic/versions/b37fa6b93dc6_*.py` — existing migration (phone, email nullable, location_source)
+- `IMPLEMENTATION_PLAN_WHATSAPP.md` — original spec, including a testing checklist at the bottom
+- `backend/tests/` — look at `test_tickets.py` and `test_officers.py` first to learn the existing pytest fixture/DB setup pattern before writing new tests, so you match conventions instead of inventing a new one
+
+---
+
+## Phase 1 — Test Coverage (do this first)
+
+Currently there is zero test coverage for whatsapp/twilio/geocoding. Add:
+
+1. `backend/tests/test_twilio_service.py`
+   - `validate_signature()`: valid signature passes; a tampered form param fails; missing `X-Twilio-Signature` header fails; dev-mode bypass only applies when `ENV=development` AND `TWILIO_AUTH_TOKEN` is unset — confirm it does NOT bypass when `ENV != development` even without a token
+   - `parse_webhook()`: text-only message, location-pin message, multi-media message, malformed/missing lat-lng
+   - `download_media()`: mock httpx success path (writes file, returns `/uploads/...` path) and failure path (returns `None`, does not raise)
+   - `send_whatsapp_message()`: success, API failure, and missing-credentials cases all return bool without raising
+
+2. `backend/tests/test_geocoding.py`
+   - Confident match, low-confidence match, zero results, network/timeout failure
+   - Use recorded fixture responses (mock httpx), not live calls to Nominatim — tests must pass with no network access
+
+3. `backend/tests/test_whatsapp_webhook.py` (integration test using the existing `TestClient` pattern from `test_tickets.py`)
+   - Location pin in payload → ticket created with `location_source=gps`
+   - Text with high-confidence geocode → ticket created with `location_source=geocoded`
+   - Text with low-confidence geocode → retry prompt sent via `send_whatsapp_message`, no ticket created, retry state recorded
+   - Second message from same phone after a failed retry → error message sent, still no ticket, retry state cleared afterward
+   - Same phone number messaging twice → citizen looked up and reused, not duplicated
+   - Invalid/missing Twilio signature in a non-development environment → 403, no ticket created
+   - Pipeline (`run_triage_sync`) raising an exception → ticket still persists, a generic fallback confirmation is sent, endpoint does not 500
+
+Mock all outbound Twilio HTTP calls and Nominatim calls — no real network access in these tests. Run the full new test suite and fix anything red before moving on.
+
+**Exit criteria:** `pytest backend/tests/test_whatsapp_webhook.py backend/tests/test_twilio_service.py backend/tests/test_geocoding.py` passes with no network calls required.
+
+---
+
+## Phase 2 — Geocoding Accuracy Pass
+
+The current `confidence_threshold = 0.7` in `GeocodingService` is likely too strict — Nominatim's `importance` field rarely exceeds ~0.5–0.6 even for good landmark matches.
+
+1. Write a small throwaway script (not a permanent file — put it somewhere temporary or in a scratch location, clean it up after) that queries Nominatim for ~15-20 representative inputs: full addresses, named landmarks, and vague text like "near the market." Print the `importance`, `type`, `class`, and `osm_type` for each result.
+2. Based on that data, decide whether to lower the threshold, or use a smarter signal — e.g. treat results with `type`/`class` like `amenity`, `shop`, `building` as more trustworthy than generic `place` results, rather than relying on `importance` alone.
+3. Add a `viewbox`/`bounded` param to the Nominatim query scoped to the city UrbanPulse operates in, so ambiguous landmark names common across multiple cities don't geocode to the wrong place. (Check `README.md` / `DESIGN.md` for the target city if it's not obvious from context — ask me if you can't find it rather than guessing.)
+4. Update `GeocodingService` with the new threshold/logic and add a regression test in `test_geocoding.py` that locks in the chosen behavior.
+
+**Exit criteria:** manually simulate ~10 realistic WhatsApp messages through the geocoding function and confirm the retry prompt only fires for genuinely ambiguous or empty input.
+
+---
+
+## Phase 3 — Ticket Source Visibility
+
+`Ticket` has no `source` column today — WhatsApp origin is only recorded inside the audit log's JSON `details` blob, which the officer dashboard doesn't surface.
+
+1. Add an Alembic migration: `tickets.source VARCHAR(20) NOT NULL DEFAULT 'web'` — backfill existing rows to `'web'`.
+2. Update the `Ticket` model in `backend/app/db/models.py`.
+3. Set `source="whatsapp"` when the WhatsApp router creates a ticket.
+4. Add `source` to `serialize_ticket()` and any other ticket serialization/response schemas so it reaches the frontend.
+5. In the frontend officer/admin ticket list and ticket detail view, show a small WhatsApp badge/icon when `source === "whatsapp"`. Match the existing badge/icon patterns already used elsewhere in the ticket UI rather than introducing a new style.
+
+**Exit criteria:** creating a ticket via the WhatsApp webhook results in a ticket visibly tagged "WhatsApp" in the officer dashboard; existing web-created tickets still show correctly.
+
+---
+
+## Phase 4 — Retry State Persistence
+
+`_retry_state: dict[str, bool]` in `whatsapp.py` is in-process memory — it won't work across multiple workers/instances and never expires if a citizen abandons the conversation.
+
+1. Check whether Redis is already used elsewhere in the codebase. If yes, move retry state there with a TTL (~10 minutes). If no Redis exists in the stack, create a simple DB-backed table (e.g. `whatsapp_retry_state(phone PRIMARY KEY, created_at)`) with a migration, and treat any row older than 10 minutes as expired.
+2. Replace the in-memory dict usage in `whatsapp.py` with calls to the new persistence layer.
+3. Add a test confirming retry state survives what simulates a "different worker" (e.g., a fresh instance/session reading the same persisted state) and confirming it expires after the TTL.
+
+**Exit criteria:** retry state is not lost on process restart and expires after 10 minutes of inactivity.
+
+---
+
+## Phase 5 — Media Completeness
+
+Currently only the first `image/*` attachment is kept in `whatsapp.py`; voice notes and additional media are dropped, despite `voice_note_url` already existing on `Ticket`.
+
+1. Extend the media-handling loop in `whatsapp.py` to also capture the first `audio/*` attachment into `ticket.voice_note_url`, using the existing `download_media` service function.
+2. For the "more than one image" case, default to keeping the first image only (matching current scope) but add a one-line note in `IMPLEMENTATION_PLAN_WHATSAPP.md` documenting that this is a deliberate v1 limitation, not an oversight, so it isn't "fixed" as a bug later without a product decision.
+3. Add a test case confirming a voice note attachment ends up on `ticket.voice_note_url`.
+
+**Exit criteria:** a WhatsApp message with a voice note produces a ticket with `voice_note_url` populated, matching web/app ticket behavior.
+
+---
+
+## Phase 6 — Abuse & Cost Controls
+
+Each inbound WhatsApp message can trigger a full LLM-backed triage pipeline run. This is currently unprotected.
+
+1. Add a per-phone-number rate limit on the webhook (e.g. max N messages per minute — reuse whatever rate-limiting pattern, if any, already secures other public endpoints in this codebase; if none exists, implement a simple token bucket keyed by phone number, persisted the same way as Phase 4's retry state).
+2. When rate-limited, return a TwiML response with no pipeline execution — just log it, don't send an extra WhatsApp message back (to avoid making the spam problem worse).
+3. Add a test simulating a burst of messages from one number and confirming the pipeline only runs the allowed number of times.
+4. Double check `validate_signature`'s failure path can't be bypassed by omitting the header entirely when `ENV != development` — add an explicit test if Phase 1 didn't already cover this exact case.
+
+**Exit criteria:** a burst of 50 messages from one number in under a minute does not trigger 50 pipeline executions.
+
+---
+
+## Ground rules for the whole session
+
+- Read the relevant existing file(s) before editing — don't guess at function signatures or model fields.
+- Match existing code style and patterns in this repo (e.g. how other routers/services are structured, how other tests are written) rather than introducing new conventions.
+- After each phase, run the relevant test file(s) and show me the output before moving to the next phase.
+- If a phase requires a product decision you can't infer from the codebase (e.g. the target city for geocoding bounding, or the desired rate limit threshold), stop and ask me instead of guessing.
+- Don't touch frontend styling/layout beyond what's needed for the Phase 3 source badge — this is a backend hardening pass, not a redesign.
+- At the end of each phase, briefly summarize what changed and confirm the exit criteria was met before continuing.
+
+Start with Phase 1.

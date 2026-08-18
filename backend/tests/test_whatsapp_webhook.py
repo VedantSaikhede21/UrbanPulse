@@ -148,9 +148,9 @@ class TestWhatsAppWebhook:
             "NumMedia": "0",
         }
 
-        # Mock geocoding to return low confidence
+        # Mock geocoding to return low confidence (below new threshold 0.3)
         with patch("app.routers.whatsapp.geocoding_service.geocode", new_callable=AsyncMock) as mock_geocode:
-            mock_geocode.return_value = (12.95, 77.60, 0.45, "Market, Bangalore")
+            mock_geocode.return_value = (12.95, 77.60, 0.25, "Market, Bangalore")
             with patch("app.routers.whatsapp.twilio_service.send_whatsapp_message", new_callable=AsyncMock) as mock_send:
                 mock_send.return_value = True
                 response = _make_webhook_request(client, form_data, env="development")
@@ -180,9 +180,9 @@ class TestWhatsAppWebhook:
             "NumMedia": "0",
         }
 
-        # First message - low confidence geocode
+        # First message - low confidence geocode (below new threshold 0.3)
         with patch("app.routers.whatsapp.geocoding_service.geocode", new_callable=AsyncMock) as mock_geocode:
-            mock_geocode.return_value = (12.95, 77.60, 0.45, "Market, Bangalore")
+            mock_geocode.return_value = (12.95, 77.60, 0.25, "Market, Bangalore")
             with patch("app.routers.whatsapp.twilio_service.send_whatsapp_message", new_callable=AsyncMock) as mock_send:
                 mock_send.return_value = True
                 response1 = _make_webhook_request(client, form_data, env="development")
