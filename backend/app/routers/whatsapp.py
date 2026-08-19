@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db.session import get_db
 from app.db.models import Citizen, Ticket
-from app.services import audit, twilio_service, geocoding_service, pipeline
+from app.services import audit, twilio_service, geocoding_service, run_triage_sync
 from app.agents import runtime
 
 router = APIRouter(prefix="/api/whatsapp", tags=["whatsapp"])
@@ -199,7 +199,7 @@ async def whatsapp_webhook(
     # Run triage pipeline synchronously
     try:
         if runtime.triage_graph is not None and runtime.TicketState is not None:
-            result = pipeline.run_triage_sync(
+            result = run_triage_sync(
                 ticket, runtime.triage_graph, runtime.TicketState, db
             )
         else:
