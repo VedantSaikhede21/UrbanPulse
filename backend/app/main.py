@@ -1,3 +1,4 @@
+import asyncio
 import json as _json
 import os
 import secrets
@@ -9,6 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
 from app.agents import runtime
@@ -19,7 +23,6 @@ from app.db.models import Ticket, Officer
 from app.routers.analytics import router as analytics_router
 from app.routers.whatsapp import router as whatsapp_router
 from app.services import audit, notifications, officers, pipeline, tickets
-from app.services.tickets import VALID_TICKET_STATUSES
 from app.routers.health import router as health_router
 from app.schemas.auth import MeResponse
 from app.schemas.tickets import NotificationOut, TicketOut, PublicTicketOut
@@ -32,11 +35,23 @@ from app.schemas.officers import (
 )
 from app.schemas.upload import UploadResponse
 
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
+# Constants
+ANONYMOUS_USER_ID = "00000000-0000-0000-0000-000000000000"
+STAFF_ROLES = ("officer", "dept_head", "admin", "super_admin")
+MANAGER_ROLES = ("admin", "super_admin")
+
 app = FastAPI(
     title="UrbanPulse AI Backend",
     description="Multi-agent civic infrastructure triage and routing platform backend",
     version="0.2.0",
 )
+
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(health_router)
 app.include_router(analytics_router)
@@ -54,9 +69,6 @@ async def global_exception_handler(request, exc):
 @app.on_event("startup")
 async def load_graphs():
     runtime.load_graphs()
-
-
-STAFF_ROLES = ("officer", "dept_head", "admin", "super_admin")
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -135,12 +147,12 @@ class CreateTicketRequest(BaseModel):
         return v
 
 
+from app.services.tickets import VALID_TICKET_STATUSES
+
+
 class ResolveTicketRequest(BaseModel):
     closure_media_url: str
     notes: Optional[str] = None
-
-
-VALID_TICKET_STATUSES = ("reported", "assigned", "in_progress", "resolved", "verified")
 
 
 class UpdateTicketStatusRequest(BaseModel):
@@ -157,13 +169,24 @@ class UpdateTicketStatusRequest(BaseModel):
 # ── File Upload ───────────────────────────────────────────
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".webm", ".mp3", ".wav", ".m4a", ".pdf"}
+ALLOWED_MIME_TYPES = {
+    "image/jpeg", "image/png", "image/webp",
+    "video/mp4", "video/quicktime", "video/webm",
+    "audio/mpeg", "audio/wav", "audio/mp4", "audio/x-m4a",
+    "application/pdf"
+}
 
 @app.post("/api/upload", response_model=UploadResponse)
+@limiter.limit("10/minute")
 async def upload_file(
     request: Request,
     file: UploadFile = File(...),
     current_user: AuthUser = Depends(get_current_user),
 ):
+    # MIME type validation
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(status_code=400, detail=f"MIME type {content_type} not allowed")
     ext = (os.path.splitext(file.filename or "file")[1] or ".bin").lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type {ext} not allowed")
@@ -214,7 +237,9 @@ def get_ticket(
 
 
 @app.post("/api/tickets", status_code=201, response_model=TicketOut)
+@limiter.limit("20/minute")
 def create_ticket(
+    request: Request,
     body: CreateTicketRequest,
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user),
