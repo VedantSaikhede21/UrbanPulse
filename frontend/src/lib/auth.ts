@@ -32,6 +32,14 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+// Password reset
+export async function sendPasswordResetEmail(email: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/reset-password`
+  });
+  return { error: error?.message ?? null };
+}
+
 // Get current session
 export async function getSession(): Promise<Session | null> {
   const { data } = await supabase.auth.getSession();

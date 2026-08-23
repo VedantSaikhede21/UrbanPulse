@@ -41,4 +41,5 @@ export const SkeletonAvatar: React.FC<{ className?: string }> = ({ className = '
   </div>
 );
 
+export { Skeleton };
 export default Skeleton;

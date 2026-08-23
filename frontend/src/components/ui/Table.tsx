@@ -1,5 +1,5 @@
-import React, { useState, useMemo, createContext, useContext } from 'react';
-import { ChevronUp, ChevronDown, ChevronUpDown } from 'lucide-react';
+import React, { useState, useMemo, useCallback, useRef, useEffect, createContext, useContext } from 'react';
+import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import { Skeleton } from './Skeleton';
 
@@ -7,6 +7,7 @@ interface Column<T> {
   key: string;
   header: string;
   accessor: (row: T) => React.ReactNode;
+  sortValue?: (row: T) => string | number | Date | null | undefined;
   sortable?: boolean;
   align?: 'left' | 'center' | 'right';
   width?: string;
@@ -16,7 +17,7 @@ interface Column<T> {
 
 type SortDirection = 'asc' | 'desc' | null;
 
-interface TableContextValue<T> {
+interface TableContextValue {
   sortKey: string | null;
   sortDirection: SortDirection;
   onSort: (key: string) => void;
@@ -25,12 +26,13 @@ interface TableContextValue<T> {
   onSelectAll: (selected: boolean) => void;
   striped: boolean;
   hoverable: boolean;
+  selectable: boolean;
 }
 
-const TableContext = createContext<TableContextValue<any> | null>(null);
+const TableContext = createContext<TableContextValue<unknown> | null>(null);
 
-const useTableContext = <T>() => {
-  const ctx = useContext(TableContext) as TableContextValue<T> | null;
+const useTableContext = () => {
+  const ctx = useContext(TableContext) as TableContextValue | null;
   if (!ctx) throw new Error('Table components must be used within a Table provider');
   return ctx;
 };
@@ -53,6 +55,20 @@ interface TableProps<T> {
   className?: string;
 }
 
+function getSortValue<T>(column: Column<T>, row: T): string {
+  if (column.sortValue) {
+    const val = column.sortValue(row);
+    return val == null ? '' : String(val);
+  }
+  const accessorVal = column.accessor(row);
+  if (typeof accessorVal === 'string') return accessorVal;
+  if (typeof accessorVal === 'number') return String(accessorVal);
+  if (accessorVal instanceof Date) return accessorVal.toISOString();
+  if (Array.isArray(accessorVal)) return accessorVal.map(String).join(',');
+  if (accessorVal == null) return '';
+  return String(accessorVal);
+}
+
 export function Table<T>({
   columns,
   data,
@@ -70,24 +86,22 @@ export function Table<T>({
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
-  const handleSort = (key: string) => {
+  const handleSort = useCallback((key: string) => {
     const column = columns.find(c => c.key === key);
     if (!column?.sortable) return;
 
-    if (sortKey === key) {
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else if (sortDirection === 'desc') {
-        setSortKey(null);
-        setSortDirection(null);
-      } else {
-        setSortDirection('asc');
-      }
-    } else {
-      setSortKey(key);
-      setSortDirection('asc');
-    }
-  };
+    setSortKey(prevKey => {
+      setSortDirection(prevDir => {
+        if (prevKey === key) {
+          if (prevDir === 'asc') return 'desc';
+          if (prevDir === 'desc') return null;
+          return 'asc';
+        }
+        return 'asc';
+      });
+      return prevKey === key && sortDirection === 'desc' ? null : key;
+    });
+  }, [columns, sortKey, sortDirection]);
 
   const sortedData = useMemo(() => {
     if (!sortKey || !sortDirection) return data;
@@ -95,16 +109,14 @@ export function Table<T>({
     if (!column?.sortable) return data;
 
     return [...data].sort((a, b) => {
-      const aVal = column.accessor(a);
-      const bVal = column.accessor(b);
-      const aStr = String(aVal);
-      const bStr = String(bVal);
+      const aStr = getSortValue(column, a);
+      const bStr = getSortValue(column, b);
       const comparison = aStr.localeCompare(bStr, undefined, { numeric: true });
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   }, [data, sortKey, sortDirection, columns]);
 
-  const handleRowSelect = (id: string, selected: boolean) => {
+  const handleRowSelect = useCallback((id: string, selected: boolean) => {
     setSelectedRows(prev => {
       const next = new Set(prev);
       if (selected) next.add(id);
@@ -112,20 +124,20 @@ export function Table<T>({
       onSelectionChange?.(Array.from(next));
       return next;
     });
-  };
+  }, [onSelectionChange]);
 
-  const handleSelectAll = (selected: boolean) => {
+  const handleSelectAll = useCallback((selected: boolean) => {
     if (selected) {
-      const allIds = new Set(sortedData.map(keyAccessor));
+      const allIds = new Set(data.map(keyAccessor));
       setSelectedRows(allIds);
       onSelectionChange?.(Array.from(allIds));
     } else {
       setSelectedRows(new Set());
       onSelectionChange?.([]);
     }
-  };
+  }, [data, keyAccessor, onSelectionChange]);
 
-  const contextValue: TableContextValue<T> = {
+  const contextValue = useMemo<TableContextValue>(() => ({
     sortKey,
     sortDirection,
     onSort: handleSort,
@@ -134,31 +146,136 @@ export function Table<T>({
     onSelectAll: handleSelectAll,
     striped,
     hoverable,
-  };
+    selectable,
+  }), [sortKey, sortDirection, handleSort, selectedRows, handleRowSelect, handleSelectAll, striped, hoverable, selectable]);
 
-  if (loading) {
-    return (
-      <div className={`overflow-x-auto ${className}`} role="table" aria-label="Data table">
-        <div className="min-w-full divide-y divide-border-subtle">
-          <div className="bg-surface-elevated">
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = selectedRows.size > 0 && selectedRows.size < data.length;
+    }
+  }, [selectedRows, data.length]);
+
+  const renderHeader = () => (
+    <div className="bg-surface-elevated" role="row">
+      {selectable && (
+        <div className="flex items-center px-4 py-3 w-12" role="cell">
+          <input
+            ref={selectAllRef}
+            type="checkbox"
+            checked={selectedRows.size === data.length && data.length > 0}
+            onChange={(e) => handleSelectAll(e.target.checked)}
+            className="w-4 h-4 rounded border-border-default text-brand-lime focus:ring-brand-lime focus:ring-2"
+            aria-label="Select all rows"
+          />
+        </div>
+      )}
+      {columns.map((col) => (
+        <button
+          key={col.key}
+          type="button"
+          onClick={() => col.sortable && handleSort(col.key)}
+          disabled={!col.sortable}
+          className={`
+            px-4 py-3 text-overline font-semibold uppercase tracking-wider text-text-tertiary
+            ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''}
+            ${col.sortable ? 'hover:text-text-primary cursor-pointer transition-colors select-none' : ''}
+            ${col.className || ''}
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime focus-visible:ring-inset
+          `}
+          style={{ width: col.width, minWidth: col.width }}
+          aria-sort={sortKey === col.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+          role="columnheader"
+          tabIndex={col.sortable ? 0 : -1}
+        >
+          <div className="flex items-center justify-center gap-1">
+            {col.header}
+            {col.sortable && (
+              <span className="flex-shrink-0" aria-hidden="true">
+                {sortKey === col.key ? (
+                  sortDirection === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />
+                ) : (
+                  <ChevronsUpDown size={10} className="text-text-quaternary" />
+                )}
+              </span>
+            )}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderBody = () => (
+    <div className="bg-surface-card" role="rowgroup">
+      {sortedData.map((row, rowIndex) => {
+        const rowKey = keyAccessor(row);
+        const isSelected = selectedRows.has(rowKey);
+        const isStriped = striped && rowIndex % 2 === 1;
+
+        return (
+          <div
+            key={rowKey}
+            className={`
+              flex items-center transition-colors duration-100
+              ${isSelected ? 'bg-brand-soft border-l-2 border-brand-lime' : ''}
+              ${isStriped ? 'bg-surface-hover/50' : ''}
+              ${hoverable && !isSelected ? 'hover:bg-surface-hover' : ''}
+              ${selectable ? 'cursor-pointer' : ''}
+            `}
+            role="row"
+            onClick={selectable ? () => handleRowSelect(rowKey, !isSelected) : undefined}
+          >
+            {selectable && (
+              <div className="flex items-center px-4 py-3 w-12" role="cell">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handleRowSelect(rowKey, e.target.checked);
+                  }}
+                  className="w-4 h-4 rounded border-border-default text-brand-lime focus:ring-brand-lime focus:ring-2"
+                  aria-label={`Select row ${rowIndex + 1}`}
+                />
+              </div>
+            )}
             {columns.map((col) => (
               <div
                 key={col.key}
-                className={`px-4 py-3 text-overline font-semibold uppercase tracking-wider text-text-tertiary ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''} ${col.className || ''}`}
+                className={`
+                  px-4 py-3 font-body-sm text-text-primary
+                  ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''}
+                  ${col.className || ''}
+                  ${col.sticky ? 'sticky left-0 z-10 bg-surface-card' : ''}
+                `}
                 style={{ width: col.width, minWidth: col.width }}
+                role="cell"
               >
-                <Skeleton className="h-3 w-1/2" />
+                {col.accessor(row)}
               </div>
             ))}
           </div>
-          <div className="bg-surface-card">
+        );
+      })}
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className={`overflow-x-auto ${className}`} role="table" aria-label="Data table" aria-busy="true">
+        <div className="min-w-full divide-y divide-border-subtle">
+          <div className="bg-surface-elevated" role="rowgroup">
+            {renderHeader().props.children}
+          </div>
+          <div className="bg-surface-card" role="rowgroup">
             {Array.from({ length: loadingRows }).map((_, i) => (
-              <div key={i} className="flex items-center">
+              <div key={i} className="flex items-center" role="row">
                 {columns.map((col) => (
                   <div
                     key={col.key}
                     className={`px-4 py-3 font-body-sm text-text-primary ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''} ${col.className || ''}`}
                     style={{ width: col.width, minWidth: col.width }}
+                    role="cell"
                   >
                     <Skeleton className="h-4 w-3/4" />
                   </div>
@@ -175,6 +292,9 @@ export function Table<T>({
     return (
       <div className={`overflow-x-auto ${className}`} role="table" aria-label="Data table">
         <div className="min-w-full">
+          <div className="bg-surface-elevated" role="rowgroup">
+            {renderHeader().props.children}
+          </div>
           <EmptyState
             title={emptyState?.title || 'No data available'}
             message={emptyState?.message || 'There are no items to display.'}
@@ -188,99 +308,11 @@ export function Table<T>({
   return (
     <TableContext.Provider value={contextValue}>
       <div className={`overflow-x-auto ${className}`} role="table" aria-label="Data table">
-        <div className="min-w-full divide-y divide-border-subtle">
-          {/* Header */}
-          <div className="bg-surface-elevated">
-            {selectable && (
-              <div className="flex items-center px-4 py-3 w-12">
-                <input
-                  type="checkbox"
-                  checked={selectedRows.size === sortedData.length && sortedData.length > 0}
-                  indeterminate={selectedRows.size > 0 && selectedRows.size < sortedData.length}
-                  onChange={(e) => handleSelectAll(e.target.checked)}
-                  className="w-4 h-4 rounded border-border-default text-brand-lime focus:ring-brand-lime focus:ring-2"
-                  aria-label="Select all rows"
-                />
-              </div>
-            )}
-            {columns.map((col) => (
-              <button
-                key={col.key}
-                type="button"
-                onClick={() => col.sortable && handleSort(col.key)}
-                disabled={!col.sortable}
-                className={`
-                  px-4 py-3 text-overline font-semibold uppercase tracking-wider text-text-tertiary
-                  ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''}
-                  ${col.sortable ? 'hover:text-text-primary cursor-pointer transition-colors select-none' : ''}
-                  ${col.className || ''}
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime focus-visible:ring-inset
-                `}
-                style={{ width: col.width, minWidth: col.width }}
-                aria-sort={sortKey === col.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-              >
-                <div className="flex items-center justify-center gap-1">
-                  {col.header}
-                  {col.sortable && (
-                    <span className="flex-shrink-0">
-                      {sortKey === col.key ? (
-                        sortDirection === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />
-                      ) : (
-                        <ChevronUpDown size={10} className="text-text-quaternary" />
-                      )}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
+        <div className="min-w-full divide-y divide-border-subtle relative">
+          <div role="rowgroup">
+            {renderHeader()}
           </div>
-
-          {/* Body */}
-          <div className="bg-surface-card">
-            {sortedData.map((row, rowIndex) => {
-              const rowKey = keyAccessor(row);
-              const isSelected = selectedRows.has(rowKey);
-              const isStriped = striped && rowIndex % 2 === 1;
-
-              return (
-                <div
-                  key={rowKey}
-                  className={`
-                    flex items-center transition-colors duration-100
-                    ${isSelected ? 'bg-brand-soft border-l-2 border-brand-lime' : ''}
-                    ${isStriped ? 'bg-surface-hover/50' : ''}
-                    ${hoverable && !isSelected ? 'hover:bg-surface-hover' : ''}
-                  `}
-                >
-                  {selectable && (
-                    <div className="flex items-center px-4 py-3 w-12">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => handleRowSelect(rowKey, e.target.checked)}
-                        className="w-4 h-4 rounded border-border-default text-brand-lime focus:ring-brand-lime focus:ring-2"
-                        aria-label={`Select row ${rowIndex + 1}`}
-                      />
-                    </div>
-                  )}
-                  {columns.map((col) => (
-                    <div
-                      key={col.key}
-                      className={`
-                        px-4 py-3 font-body-sm text-text-primary
-                        ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''}
-                        ${col.className || ''}
-                        ${col.sticky ? 'sticky left-0 z-10 bg-surface-card' : ''}
-                      `}
-                      style={{ width: col.width, minWidth: col.width }}
-                    >
-                      {col.accessor(row)}
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
+          {renderBody()}
         </div>
       </div>
     </TableContext.Provider>
@@ -291,51 +323,66 @@ interface TableBodyProps {
   children: React.ReactNode;
 }
 
-function TableBodyComponent({ children }: TableBodyProps) {
-  return <div className="bg-surface-card">{children}</div>;
-}
+const TableBody = ({ children }: TableBodyProps) => (
+  <div className="bg-surface-card" role="rowgroup">{children}</div>
+);
 
-TableBodyComponent.displayName = 'TableBody';
-
-interface TableRowProps<T> {
+interface TableRowProps {
   children: React.ReactNode;
   className?: string;
+  selected?: boolean;
+  striped?: boolean;
+  hoverable?: boolean;
+  onClick?: () => void;
 }
 
-function TableRowComponent<T>({ children, className = '' }: TableRowProps<T>) {
-  return <div className={`flex items-center ${className}`}>{children}</div>;
-}
-
-TableRowComponent.displayName = 'TableRow';
+const TableRow = ({ children, className = '', selected, striped, hoverable, onClick }: TableRowProps) => (
+  <div
+    className={`
+      flex items-center transition-colors duration-100
+      ${selected ? 'bg-brand-soft border-l-2 border-brand-lime' : ''}
+      ${striped ? 'bg-surface-hover/50' : ''}
+      ${hoverable && !selected ? 'hover:bg-surface-hover' : ''}
+      ${onClick ? 'cursor-pointer' : ''}
+      ${className}
+    `}
+    role="row"
+    onClick={onClick}
+  >
+    {children}
+  </div>
+);
 
 interface TableCellProps {
   children: React.ReactNode;
   className?: string;
   align?: 'left' | 'center' | 'right';
+  sticky?: boolean;
+  width?: string;
 }
 
-function TableCellComponent({ children, className = '', align = 'left' }: TableCellProps) {
-  return (
-    <div className={`px-4 py-3 font-body-sm text-text-primary ${align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : ''} ${className}`}>
-      {children}
-    </div>
-  );
-}
-
-TableCellComponent.displayName = 'TableCell';
+const TableCell = ({ children, className = '', align = 'left', sticky, width }: TableCellProps) => (
+  <div
+    className={`
+      px-4 py-3 font-body-sm text-text-primary
+      ${align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : ''}
+      ${sticky ? 'sticky left-0 z-10 bg-surface-card' : ''}
+      ${className}
+    `}
+    style={{ width, minWidth: width }}
+    role="cell"
+  >
+    {children}
+  </div>
+);
 
 interface TableHeaderProps {
   children: React.ReactNode;
   className?: string;
 }
 
-function TableHeaderComponent({ children, className = '' }: TableHeaderProps) {
-  return <div className={`bg-surface-elevated ${className}`}>{children}</div>;
-}
+const TableHeader = ({ children, className = '' }: TableHeaderProps) => (
+  <div className={`bg-surface-elevated ${className}`} role="rowgroup">{children}</div>
+);
 
-TableHeaderComponent.displayName = 'TableHeader';
-
-export const TableBody = TableBodyComponent;
-export const TableRow = TableRowComponent;
-export const TableCell = TableCellComponent;
-export const TableHeader = TableHeaderComponent;
+export { TableBody, TableRow, TableCell, TableHeader };
