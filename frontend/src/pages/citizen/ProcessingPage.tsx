@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader, CheckCircle2, AlertCircle, Sparkles, Activity } from 'lucide-react';
+import { Loader, CheckCircle2, AlertCircle, Sparkles, Activity, Wifi, WifiOff } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiUrl } from '../../lib/api';
+import { Skeleton, SkeletonCard } from '../../components/ui/Skeleton';
 
 interface AgentStep {
   agent: string;
@@ -26,6 +27,28 @@ const AGENT_ICONS: Record<string, string> = {
   'Pipeline': '🤖',
 };
 
+function ProcessingSkeleton() {
+  return (
+    <div className="p-5 space-y-4 max-h-[420px] overflow-y-auto" role="status" aria-label="Loading pipeline steps">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex gap-4">
+          <div className="flex flex-col items-center">
+            <Skeleton className="w-8 h-8 rounded-full" />
+            <Skeleton className="w-px h-12 bg-panel-border/60 mt-2" />
+          </div>
+          <div className="pb-4 flex-1 min-w-0">
+            <SkeletonText lines={2} className="w-full" />
+          </div>
+        </div>
+      ))}
+      <div className="flex items-center gap-3 text-gray-400 py-2">
+        <Loader size={16} className="animate-spin text-brand-lime" />
+        <SkeletonText lines={1} className="w-48" />
+      </div>
+    </div>
+  );
+}
+
 export const ProcessingPage: React.FC = () => {
   useDocumentTitle('Processing Report');
   const { ticketId } = useParams<{ ticketId: string }>();
@@ -35,12 +58,26 @@ export const ProcessingPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [parseErrors, setParseErrors] = useState(0);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     if (!ticketId) return;
 
+    setConnectionStatus('connecting');
+    setSteps([]);
+    setDone(false);
+    setError(null);
+    setParseErrors(0);
+    setResult(null);
+
     const es = new EventSource(apiUrl(`/api/tickets/${ticketId}/process`));
+    esRef.current = es;
+
+    es.onopen = () => {
+      setConnectionStatus('connected');
+    };
 
     es.onmessage = (event) => {
       try {
@@ -66,7 +103,10 @@ export const ProcessingPage: React.FC = () => {
     };
 
     es.onerror = () => {
-      setError('Connection to pipeline lost. Make sure the backend is running on port 8000.');
+      setConnectionStatus('error');
+      if (!done && steps.length === 0) {
+        setError('Connection to pipeline lost. Make sure the backend is running on port 8000.');
+      }
       es.close();
     };
 
@@ -96,11 +136,26 @@ export const ProcessingPage: React.FC = () => {
             {done ? 'AI Pipeline Complete' : 'Processing Your Report...'}
           </h1>
         </div>
-        <p className="text-gray-500 text-xs">
-          {done
-            ? 'Your report has been fully processed by the AI pipeline.'
-            : `Running 8-agent LangGraph pipeline for ticket ${ticketId?.slice(0, 8)}...`}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-gray-500 text-xs flex-1">
+            {done
+              ? 'Your report has been fully processed by the AI pipeline.'
+              : `Running 8-agent LangGraph pipeline for ticket ${ticketId?.slice(0, 8)}...`}
+          </p>
+          {!done && (
+            <span className={`flex items-center gap-1 text-[9px] font-mono ${
+              connectionStatus === 'connected' ? 'text-green-400' :
+              connectionStatus === 'error' ? 'text-red-400' : 'text-yellow-400'
+            }`}>
+            {connectionStatus === 'connected' && <Wifi size={10} />}
+            {connectionStatus === 'connecting' && <Loader size={10} className="animate-spin" />}
+            {connectionStatus === 'error' && <WifiOff size={10} />}
+            {connectionStatus === 'connected' && 'Connected'}
+            {connectionStatus === 'connecting' && 'Connecting...'}
+            {connectionStatus === 'error' && 'Disconnected'}
+          </span>
+        )}
+        </div>
       </div>
 
       <div
@@ -119,47 +174,46 @@ export const ProcessingPage: React.FC = () => {
         </div>
 
         <div className="p-5 space-y-4 max-h-[420px] overflow-y-auto">
-          {steps.length === 0 && !done && !error && (
-            <div className="flex items-center gap-3 text-gray-400 py-8 justify-center">
-              <Loader size={20} className="animate-spin text-brand-lime" />
-              <span className="text-sm font-mono">Connecting to AI pipeline...</span>
-            </div>
-          )}
-
-          {steps.map((step, i) => (
-            <div key={`step-${i}`} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-brand-soft border border-brand-lime/20 flex items-center justify-center text-base shrink-0">
-                  {AGENT_ICONS[step.agent] || '🤖'}
+          {steps.length === 0 && !done && !error ? (
+            <ProcessingSkeleton />
+          ) : (
+            <>
+              {steps.map((step, i) => (
+                <div key={`step-${i}`} className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 rounded-full bg-brand-soft border border-brand-lime/20 flex items-center justify-center text-base shrink-0">
+                      {AGENT_ICONS[step.agent] || '🤖'}
+                    </div>
+                    {i < steps.length - 1 && (
+                      <div className="w-px flex-1 bg-panel-border/60 mt-2" />
+                    )}
+                  </div>
+                  <div className="pb-4 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-gray-100">{step.agent}</span>
+                      <span className="text-[10px] font-mono text-brand-lime bg-brand-soft px-2 py-0.5 rounded-full border border-brand-lime/10">
+                        {step.action}
+                      </span>
+                      <CheckCircle2 size={12} className="text-brand-lime ml-auto shrink-0" />
+                    </div>
+                    <p className="text-[11px] text-gray-400 leading-relaxed">{step.reasoning}</p>
+                  </div>
                 </div>
-                {i < steps.length - 1 && (
-                  <div className="w-px flex-1 bg-panel-border/60 mt-2" />
-                )}
-              </div>
-              <div className="pb-4 flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-bold text-gray-100">{step.agent}</span>
-                  <span className="text-[10px] font-mono text-brand-lime bg-brand-soft px-2 py-0.5 rounded-full border border-brand-lime/10">
-                    {step.action}
-                  </span>
-                  <CheckCircle2 size={12} className="text-brand-lime ml-auto shrink-0" />
-                </div>
-                <p className="text-[11px] text-gray-400 leading-relaxed">{step.reasoning}</p>
-              </div>
-            </div>
-          ))}
+              ))}
 
-          {!done && !error && (
-            <div className="flex items-center gap-3 text-gray-400 py-2">
-              <Loader size={16} className="animate-spin text-brand-lime" />
-              <span className="text-xs font-mono">AI agents analyzing your report...</span>
-              {parseErrors > 0 && (
-                <span className="text-[9px] text-yellow-500 font-mono ml-auto">{parseErrors} parse warnings</span>
+              {!done && !error && (
+                <div className="flex items-center gap-3 text-gray-400 py-2">
+                  <Loader size={16} className="animate-spin text-brand-lime" />
+                  <span className="text-xs font-mono">AI agents analyzing your report...</span>
+                  {parseErrors > 0 && (
+                    <span className="text-[9px] text-yellow-500 font-mono ml-auto">{parseErrors} parse warnings</span>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          <div ref={bottomRef} />
+              <div ref={bottomRef} />
+            </>
+          )}
         </div>
       </div>
 

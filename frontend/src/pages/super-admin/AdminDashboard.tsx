@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  AlertTriangle, FileText, CheckCircle2, Users, TrendingUp,
+  AlertTriangle, FileText, CheckCircle2, Users, TrendingUp, RotateCcw,
 } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { MetricCard } from '../../components/ui/Card';
+import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 import type { Ticket } from '../../lib/types';
@@ -75,7 +76,14 @@ export const AdminDashboard: React.FC = () => {
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load dashboard</h3>
           <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
-          <button type="button" aria-label="Retry loading dashboard" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
+          <button
+            type="button"
+            aria-label="Retry loading dashboard"
+            onClick={loadData}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim transition-all disabled:opacity-50"
+          >
+            <RotateCcw size={14} className={loading ? 'animate-spin' : ''} />
             Retry
           </button>
         </div>
@@ -96,10 +104,7 @@ export const AdminDashboard: React.FC = () => {
       {loading ? (
         <div role="status" className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-panel-card border border-panel-border rounded-lg p-5 space-y-4 animate-pulse">
-              <div className="h-3 w-2/5 bg-gray-700/50 rounded" />
-              <div className="h-8 w-1/4 bg-gray-700/50 rounded" />
-            </div>
+            <SkeletonCard key={i} />
           ))}
         </div>
       ) : (

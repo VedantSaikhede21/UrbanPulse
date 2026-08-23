@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   Activity, AlertTriangle, FileText, TrendingUp, MapPin,
-  CheckCircle2, Clock, BarChart2,
+  CheckCircle2, Clock, BarChart2, RotateCcw,
 } from 'lucide-react';
-import { SkeletonCard } from '../../components/ui/Skeleton';
+import { SkeletonCard, Skeleton } from '../../components/ui/Skeleton';
 import { Badge } from '../../components/ui/Badge';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
@@ -90,7 +90,13 @@ export const CityAnalytics: React.FC = () => {
           </div>
           <h2 className="text-base font-semibold mb-1.5">Failed to load analytics</h2>
           <p className="text-sm text-text-secondary max-w-xs mb-5">{error}</p>
-          <button type="button" onClick={loadData} className="focus-ring px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 focus-ring px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim transition-all disabled:opacity-50"
+          >
+            <RotateCcw size={14} className={loading ? 'animate-spin' : ''} />
             Retry
           </button>
         </div>
@@ -110,8 +116,25 @@ export const CityAnalytics: React.FC = () => {
       </div>
 
       {loading ? (
-        <div role="status" aria-live="polite" className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        <div role="status" aria-live="polite" className="space-y-8">
+          {/* Summary metrics skeleton - 4 cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+          {/* Charts skeleton - 2 cards side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          {/* Ward leaderboard skeleton */}
+          <SkeletonCard />
+          {/* Trending + Alerts skeleton - 2 cards side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
         </div>
       ) : (
         <>

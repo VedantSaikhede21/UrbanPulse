@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle, FileText, Clock, CheckCircle2, Users,
-  Calendar, Loader,
+  Calendar, Loader, RotateCcw,
 } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 import type { Ticket } from '../../lib/types';
@@ -68,7 +69,13 @@ export const DepartmentDashboard: React.FC = () => {
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load dashboard</h3>
           <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
-          <button type="button" onClick={loadData} className="px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim transition-all disabled:opacity-50"
+          >
+            <RotateCcw size={14} className={loading ? 'animate-spin' : ''} />
             Retry
           </button>
         </div>
@@ -86,14 +93,24 @@ export const DepartmentDashboard: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <Loader size={32} className="text-brand-lime animate-spin" />
+        <div role="status" aria-live="polite" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
         </div>
       ) : tickets.length === 0 ? (
         <EmptyState
           icon={CheckCircle2}
           title="No tickets in the system"
           message="Tickets will appear here once residents submit reports."
+          action={{ label: 'Retry', onClick: loadData }}
         />
       ) : (
         <>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FileText, CheckCircle2, AlertTriangle, Plus, MapPin, Calendar, AlertCircle, TrendingUp } from 'lucide-react';
+import { FileText, CheckCircle2, AlertTriangle, Plus, MapPin, Calendar, AlertCircle, TrendingUp, RotateCcw } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { MetricCard } from '../../components/ui/Card';
 import { SkeletonCard } from '../../components/ui/Skeleton';
@@ -37,14 +37,21 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
+function MetricSkeleton() {
+  return (
+    <MetricCard label="" icon={<div className="w-5 h-5" />}>
+      <SkeletonCard />
+    </MetricCard>
+  );
+}
+
 export const CitizenDashboard: React.FC = () => {
   useDocumentTitle('Dashboard');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadTickets = () => {
     setLoading(true);
     setError(null);
     apiFetch('/api/tickets')
@@ -53,18 +60,17 @@ export const CitizenDashboard: React.FC = () => {
         return res.json();
       })
       .then(data => {
-        if (!cancelled) {
-          setTickets(data);
-          setLoading(false);
-        }
+        setTickets(data);
+        setLoading(false);
       })
       .catch(err => {
-        if (!cancelled) {
-          setError(err.message || 'Could not load tickets');
-          setLoading(false);
-        }
+        setError(err.message || 'Could not load tickets');
+        setLoading(false);
       });
-    return () => { cancelled = true; };
+  };
+
+  useEffect(() => {
+    loadTickets();
   }, []);
 
   const totalReports = tickets.length;
@@ -83,9 +89,11 @@ export const CitizenDashboard: React.FC = () => {
           <p className="text-sm text-gray-400 max-w-xs mb-5 leading-relaxed">{error}</p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim transition-all duration-200"
+            onClick={loadTickets}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim transition-all duration-200 disabled:opacity-50"
           >
+            <RotateCcw size={14} className={loading ? 'animate-spin' : ''} />
             Retry
           </button>
         </div>
@@ -113,15 +121,19 @@ export const CitizenDashboard: React.FC = () => {
 
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <MetricCard label="My Total Reports" icon={<FileText size={20} />}>
-          {loading ? <div className="h-8 w-16 shimmer rounded" /> : totalReports}
-        </MetricCard>
-        <MetricCard label="Open Reports" icon={<TrendingUp size={20} />}>
-          {loading ? <div className="h-8 w-16 shimmer rounded" /> : openReports}
-        </MetricCard>
-        <MetricCard label="Issues Resolved" icon={<CheckCircle2 size={20} />} accent>
-          {loading ? <div className="h-8 w-16 shimmer rounded" /> : resolvedReports}
-        </MetricCard>
+        {loading ? (
+          <>
+            <MetricCard label="My Total Reports" icon={<FileText size={20} />}><SkeletonCard /></MetricCard>
+            <MetricCard label="Open Reports" icon={<TrendingUp size={20} />}><SkeletonCard /></MetricCard>
+            <MetricCard label="Issues Resolved" icon={<CheckCircle2 size={20} />} accent><SkeletonCard /></MetricCard>
+          </>
+        ) : (
+          <>
+            <MetricCard label="My Total Reports" icon={<FileText size={20} />}>{totalReports}</MetricCard>
+            <MetricCard label="Open Reports" icon={<TrendingUp size={20} />}>{openReports}</MetricCard>
+            <MetricCard label="Issues Resolved" icon={<CheckCircle2 size={20} />} accent>{resolvedReports}</MetricCard>
+          </>
+        )}
       </div>
 
       {/* Recent Reports */}
