@@ -3,3 +3,8 @@
 # paths are workspace-relative. Pointing at "backend" lets it resolve
 # `app.main` (lives at backend/app/main.py).
 search-path = ["backend"]
+
+# Point Pyrefly at the project venv so it can resolve third-party
+# imports (slowapi, fastapi, langgraph, ...). Relative to the workspace
+# root, which is where Pyrefly is invoked.
+python-interpreter-path = "backend/venv/Scripts/python.exe"
