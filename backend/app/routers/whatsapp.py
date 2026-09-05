@@ -4,6 +4,7 @@ Handles incoming WhatsApp messages from citizens, processes them through
 the AI triage pipeline, and sends confirmation replies.
 """
 
+import re
 import uuid
 from typing import Optional
 
@@ -24,6 +25,60 @@ router = APIRouter(prefix="/api/whatsapp", tags=["whatsapp"])
 
 logger = structlog.get_logger(__name__)
 
+# ── status-check routing (Phase 4) ────────────────────────────
+# A citizen can text "status", "track", or "where" (case-insensitive
+# whole-word) to ask about their most recent report, or paste the
+# 8-char ticket reference shown in the confirm message (e.g.
+# "ABC12345"). Anything else falls through to the existing
+# report-creation flow. Reused by _classify_incoming_body and tested
+# in tests/test_whatsapp_status.py.
+STATUS_CHECK_KEYWORDS = ("status", "track", "where")
+_TICKET_REF_PATTERN = re.compile(r"^[A-F0-9]{6,12}$", re.IGNORECASE)
+
+
+def _classify_incoming_body(body: str) -> str:
+    """Return one of: "status_keyword", "ticket_ref", "report"."""
+    cleaned = (body or "").strip()
+    if not cleaned:
+        return "report"
+    first = cleaned.split(maxsplit=1)[0].lower().rstrip(",.;:!?")
+    if first in STATUS_CHECK_KEYWORDS:
+        return "status_keyword"
+    if _TICKET_REF_PATTERN.match(cleaned):
+        return "ticket_ref"
+    return "report"
+
+
+def _format_status_reply(ticket: Ticket) -> str:
+    """Build the human-readable status reply for a citizen's ticket.
+
+    Mirrors the fields a citizen would see in the web ReportDetail
+    view: reference, category, status, priority, officer (if
+    assigned), and a one-line last-update timestamp.
+    """
+    ref = str(ticket.id)[:8].upper()
+    lines = [f"📋 Report {ref}"]
+    lines.append(f"Category: {ticket.category or 'Uncategorized'}")
+    status_label = (ticket.status or "reported").replace("_", " ")
+    if ticket.status == "verified":
+        status_label = "✅ verified — resolved"
+    lines.append(f"Status: {status_label}")
+    priority_label = {3: "High", 2: "Medium", 1: "Low"}.get(
+        ticket.priority_score or 0, "—"
+    )
+    lines.append(f"Priority: {priority_label}")
+    if ticket.assigned_officer_id:
+        lines.append(f"Officer: assigned")
+    else:
+        lines.append("Officer: not yet assigned")
+    if ticket.priority_reason:
+        reason = (ticket.priority_reason or "").strip()
+        if reason:
+            short = reason if len(reason) <= 80 else reason[:77] + "..."
+            lines.append(f"Note: {short}")
+    if ticket.updated_at:
+        lines.append(f"Last update: {ticket.updated_at.strftime('%Y-%m-%d %H:%M UTC')}")
+    return "\n".join(lines)
 
 
 def _normalize_phone(from_number: str) -> str:
@@ -115,6 +170,76 @@ async def whatsapp_webhook(
         # Record this MessageSid as processed
         db.add(ProcessedMessage(message_sid=message_sid))
         db.commit()
+
+    # ── Phase 4: status-check branch ──────────────────────────
+    # A citizen can text "status", "track", "where" or a ticket
+    # reference to query the current state of their reports
+    # without filing a new one. We classify the body BEFORE
+    # parse_webhook so the message-sid and Body fields are
+    # already in form_dict.
+    body_text_raw = (form_dict.get("Body") or "").strip()
+    intent = _classify_incoming_body(body_text_raw)
+    if intent in ("status_keyword", "ticket_ref"):
+        from_number_raw = form_dict.get("From", "")
+        phone_raw = _normalize_phone(from_number_raw)
+        # Look up the citizen WITHOUT creating a row — status
+        # queries from unknown numbers must never produce a
+        # citizen record. The existing report path is the
+        # citizen-creation surface; the status path is read-only.
+        citizen = (
+            db.query(Citizen)
+            .filter(Citizen.phone == phone_raw)
+            .first()
+        )
+        if citizen is None:
+            await twilio_service.send_whatsapp_message(
+                from_number_raw,
+                "We couldn't find any reports for your number. "
+                "Send the issue and your location to file a new one.",
+            )
+            return Response(content="", media_type="application/xml")
+        ticket: Optional[Ticket] = None
+        if intent == "status_keyword":
+            ticket = (
+                db.query(Ticket)
+                .filter(Ticket.citizen_id == citizen.id)
+                .order_by(Ticket.created_at.desc())
+                .first()
+            )
+        else:  # ticket_ref
+            ref = body_text_raw.upper()
+            # The confirm message shows str(id)[:8] uppercased; the
+            # column is a UUID so we filter by prefix on the cast.
+            tickets_with_prefix = (
+                db.query(Ticket)
+                .filter(Ticket.citizen_id == citizen.id)
+                .order_by(Ticket.created_at.desc())
+                .limit(20)
+                .all()
+            )
+            ticket = next(
+                (t for t in tickets_with_prefix
+                 if str(t.id).upper().startswith(ref)),
+                None,
+            )
+        if ticket is None:
+            await twilio_service.send_whatsapp_message(
+                from_number_raw,
+                "Report not found. Reply 'status' to check your "
+                "most recent report, or send a new issue to file one.",
+            )
+            return Response(content="", media_type="application/xml")
+        await twilio_service.send_whatsapp_message(
+            from_number_raw, _format_status_reply(ticket)
+        )
+        logger.info(
+            "whatsapp_status_check",
+            phone=phone_raw,
+            intent=intent,
+            ticket_id=str(ticket.id),
+        )
+        return Response(content="", media_type="application/xml")
+    # ── end status-check branch ───────────────────────────────
 
     # Parse webhook payload
     parsed = twilio_service.parse_webhook(form_dict)
