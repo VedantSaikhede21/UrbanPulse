@@ -23,6 +23,7 @@ from app.db.models import Ticket, Officer
 from app.logging import configure_logging
 from app.routers.analytics import router as analytics_router
 from app.routers.whatsapp import router as whatsapp_router
+from app.sentry import init_sentry
 from app.services import agent_logs, audit, notifications, officers, pipeline, tickets
 from app.services.storage import get_storage
 from app.routers.health import router as health_router
@@ -42,6 +43,14 @@ from app.services.tickets import VALID_TICKET_STATUSES
 ANONYMOUS_USER_ID = "00000000-0000-0000-0000-000000000000"
 STAFF_ROLES = ("officer", "dept_head", "admin", "super_admin")
 MANAGER_ROLES = ("admin", "super_admin")
+
+# Sentry first — must run before any module-level work that could
+# raise (FastAPI app construction, structlog init). The function is
+# a no-op when SENTRY_DSN is unset, so dev / CI / tests are
+# unaffected. Initialising the API process with runtime="api" so
+# the worker process can later init with runtime="worker" and the
+# two streams are separable in the dashboard.
+init_sentry(runtime="api")
 
 app = FastAPI(
     title="UrbanPulse AI Backend",
@@ -70,6 +79,12 @@ CHUNK_SIZE = 1024 * 1024  # 1 MB chunks for streaming upload
 async def global_exception_handler(request, exc):
     import traceback
     traceback.print_exc()
+    # Forward to Sentry if initialised. The function is a no-op when
+    # SENTRY_DSN is unset, so dev / tests are unaffected. The
+    # ``before_send`` scrubber in app.sentry strips request bodies so
+    # the citizen's phone number does not leave the process.
+    from app.sentry import capture_exception
+    capture_exception(exc, path=str(request.url), method=request.method)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 

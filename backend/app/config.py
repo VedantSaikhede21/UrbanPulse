@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     TWILIO_WHATSAPP_NUMBER: str = "whatsapp:+14155238886"
     NOMINATIM_USER_AGENT: str = "UrbanPulse/1.0"
 
+    # Sentry error tracking. When SENTRY_DSN is unset, init_sentry()
+    # is a no-op — dev / CI never sends events. The DSN lives in
+    # the secrets manager in staging and production, never in
+    # the .env file that ships with the repo.
+    SENTRY_DSN: Optional[str] = None
+    # Default 10% keeps cost bounded; raise deliberately when
+    # chasing a specific incident.
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+
     # Environment
     ENV: str = "development"
     # Must be explicitly enabled — even in dev

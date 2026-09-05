@@ -49,6 +49,8 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
         logger.warning("gemini_call_failed", error=str(e))
+        from app.sentry import capture_exception
+        capture_exception(e, agent="cx")
         return fallback
 
 
@@ -69,6 +71,8 @@ def _ask_gemini_with_images(prompt: str, image_urls: List[str], fallback: str) -
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
         logger.warning("gemini_multimodal_call_failed", error=str(e))
+        from app.sentry import capture_exception
+        capture_exception(e, agent="vision")
         return fallback
     
 def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
@@ -88,6 +92,8 @@ def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
         logger.warning("gemini_audio_call_failed", error=str(e))
+        from app.sentry import capture_exception
+        capture_exception(e, agent="audio")
         return fallback
 
 def _get_db_session():
