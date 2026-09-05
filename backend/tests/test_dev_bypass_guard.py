@@ -50,10 +50,16 @@ class TestDevBypassPermittedInDevelopment:
 class TestBypassOffIsAlwaysSafe:
     @pytest.mark.parametrize("env", ["development", "staging", "production", "test"])
     def test_bypass_off_in_any_env(self, env):
-        # production also requires SUPABASE_JWT_SECRET (different validator);
-        # supply it so the anonymous-bypass check is the only one exercised.
-        s = _settings(ENV=env, DEV_ALLOW_ANONYMOUS=False,
-                      SUPABASE_JWT_SECRET="dummy-secret-for-test")
+        # production also requires SUPABASE_JWT_SECRET + a non-placeholder
+        # SUPABASE_URL/ANON_KEY (different validators). Supply them so the
+        # anonymous-bypass check is the only one exercised.
+        s = _settings(
+            ENV=env,
+            DEV_ALLOW_ANONYMOUS=False,
+            SUPABASE_JWT_SECRET="dummy-secret-for-test",
+            SUPABASE_URL="https://abcd1234.supabase.co",
+            SUPABASE_ANON_KEY="real-anon-key-not-placeholder",
+        )
         assert s.DEV_ALLOW_ANONYMOUS is False
         assert s.ENV == env
 

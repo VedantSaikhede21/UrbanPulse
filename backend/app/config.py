@@ -55,9 +55,57 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_jwt_secret_in_prod(self) -> "Settings":
-        """JWT secret is required in production."""
-        if self.ENV == "production" and not self.SUPABASE_JWT_SECRET:
-            raise ValueError("SUPABASE_JWT_SECRET is required in production")
+        """JWT secret must be set AND must be a real value in production.
+
+        The bare presence check is not enough: an operator who copies
+        `.env.example` to `.env` without filling in real values would
+        otherwise boot the production app with placeholder-secret as the
+        JWT signing key, which silently breaks every authenticated
+        request. Reject placeholder values explicitly.
+        """
+        if self.ENV == "production":
+            secret = self.SUPABASE_JWT_SECRET
+            if not secret:
+                raise ValueError("SUPABASE_JWT_SECRET is required in production")
+            if secret == "placeholder-secret" or secret == "your-supabase-jwt-secret":
+                raise ValueError(
+                    "SUPABASE_JWT_SECRET is set to a placeholder/example value. "
+                    "Configure a real JWT signing key from Supabase → Settings → "
+                    "API → JWT Secret before deploying."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _reject_placeholders_in_production(self) -> "Settings":
+        """Refuse to boot production with any placeholder secret.
+
+        This is a defense-in-depth pass on top of
+        `_require_jwt_secret_in_prod`. Each optional secret has a default
+        in `Settings` so dev/test can run without it; the same default
+        must never reach a production build. Failure here means the
+        process exits at import time with a list of every secret that
+        still needs to be set — far better than a quiet half-working
+        deploy.
+        """
+        if self.ENV != "production":
+            return self
+
+        placeholders = {
+            "SUPABASE_URL": ("http://localhost:54321", "https://your-project.supabase.co"),
+            "SUPABASE_ANON_KEY": ("placeholder-anon-key", "your-supabase-anon-key"),
+        }
+        problems: list[str] = []
+        for field, bad_values in placeholders.items():
+            value = getattr(self, field, None)
+            if not value or value in bad_values:
+                problems.append(
+                    f"{field} is set to a placeholder ({value!r}). Configure a real value."
+                )
+        if problems:
+            raise ValueError(
+                "Cannot boot production with placeholder secrets:\n  - "
+                + "\n  - ".join(problems)
+            )
         return self
 
     @model_validator(mode="after")
