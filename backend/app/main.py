@@ -314,6 +314,17 @@ async def upload_file(
     if not validate_file_signature_bytes(content, ext):
         raise HTTPException(status_code=400, detail=f"File content does not match extension {ext} — possible type spoofing")
 
+    # Phase 5: downscale / recompress image uploads before they
+    # hit storage or get sent to Gemini. A 5 MB phone photo
+    # becomes ~300 KB at 1600px long-edge JPEG q85. The
+    # optimizer is a no-op for non-image content types and
+    # returns the original bytes when Pillow is unavailable.
+    try:
+        from app.services.image_opt import optimize_image
+        content, content_type = optimize_image(content, content_type)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
+
     storage = get_storage()
     # Save the validated bytes through the configured backend. The
     # returned key is what gets stored in the database; main.py

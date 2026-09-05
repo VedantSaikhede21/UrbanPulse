@@ -25,6 +25,16 @@ limits[redis]>=3.0
 # silently drop it.
 redis>=5.0
 
+# Phase 5: image optimization at the upload boundary. Citizen
+# photos are downscaled to 1600px long-edge JPEG q85 before they
+# hit storage and before they are sent to Gemini. Cuts the median
+# photo from ~5 MB to ~300 KB, which is the difference between a
+# Gemini call that times out and one that returns a category
+# label. Optional at runtime: if Pillow is not importable the
+# image_opt module is a no-op (the upload still works, just
+# without resize).
+Pillow>=10.0
+
 # Supabase Python client (Phase 2.2: media uploads move from local
 # disk to a private Supabase Storage bucket). The service-role key
 # is used server-side only; anon key stays frontend-only.

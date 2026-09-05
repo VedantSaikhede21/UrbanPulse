@@ -160,11 +160,25 @@ class TwilioService:
                 logger.error("media_signature_mismatch", ext=ext, media_url=media_url)
                 return None
 
+            # Phase 5: downscale / recompress image content. A
+            # no-op for non-image content types and for runs
+            # where Pillow is missing.
+            payload = resp.content
+            payload_type = media_content_type
+            if media_content_type.lower().startswith("image/"):
+                try:
+                    from app.services.image_opt import optimize_image
+                    payload, payload_type = optimize_image(payload, payload_type)
+                except ValueError as e:
+                    logger.warning("twilio_image_opt_failed", error=str(e), media_url=media_url)
+                    # Fall through with original bytes; storage
+                    # will accept them.
+
             # Hand the validated bytes to the configured storage
             # backend. The returned key is what the caller (the
             # WhatsApp webhook) stores in the database.
             storage = get_storage()
-            key = storage.save_bytes(resp.content, ext, media_content_type, prefix="twilio")
+            key = storage.save_bytes(payload, ext, payload_type, prefix="twilio")
             return key
 
         except Exception as e:
