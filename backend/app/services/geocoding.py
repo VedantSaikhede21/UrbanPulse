@@ -3,9 +3,12 @@
 Provides address/landmark to coordinates conversion with confidence scoring.
 """
 
-import httpx
+import structlog
 from typing import Optional, Tuple
+import httpx
 from app.config import settings
+
+logger = structlog.get_logger(__name__)
 
 
 class GeocodingService:
@@ -114,6 +117,13 @@ class GeocodingService:
         """
         Geocode a text query to coordinates.
 
+        Bounded by the client's ``timeout`` (10s, see ``self.client``).
+        On any failure — network timeout, HTTP error, malformed JSON,
+        empty result — returns ``None`` so the caller can fall through
+        to the location-retry prompt. Failures are logged with the
+        exception class so a hung upstream is distinguishable from a
+        zero-results response in production.
+
         Args:
             query: Address, landmark, or place name (e.g., "pothole near MG Road market")
 
@@ -153,8 +163,21 @@ class GeocodingService:
 
             return (lat, lng, confidence, display_name)
 
+        except httpx.TimeoutException as e:
+            logger.warning("geocoding_timeout", query=query, error=str(e))
+            return None
+        except httpx.HTTPError as e:
+            logger.warning("geocoding_http_error", query=query, error=str(e))
+            return None
+        except (ValueError, KeyError) as e:
+            logger.warning("geocoding_bad_response", query=query, error=str(e))
+            return None
         except Exception as e:
-            print(f"Geocoding failed for '{query}': {e}")
+            # ponytail: catch-all kept for true unknowns; tight exception
+            # ladder above covers the expected classes (timeout / HTTP /
+            # bad JSON). Upgrade when a new exception class is seen in
+            # production logs.
+            logger.error("geocoding_unexpected_failure", query=query, error=str(e))
             return None
 
     def is_confident(self, confidence: float) -> bool:
