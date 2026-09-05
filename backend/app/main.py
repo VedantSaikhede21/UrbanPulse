@@ -22,6 +22,7 @@ from app.db.session import get_db
 from app.db.models import Ticket, Officer
 from app.logging import configure_logging
 from app.routers.analytics import router as analytics_router
+from app.routers.agents import router as agents_router
 from app.routers.whatsapp import router as whatsapp_router
 from app.sentry import init_sentry
 from app.services import agent_logs, audit, notifications, officers, pipeline, tickets
@@ -69,6 +70,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(health_router)
 app.include_router(analytics_router)
+app.include_router(agents_router)
 app.include_router(whatsapp_router)
 
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
