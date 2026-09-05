@@ -90,13 +90,22 @@ class TestOtherPlaceholdersInProduction:
 
 
 class TestDevelopmentIsPermissive:
-    @pytest.mark.parametrize("env", ["development", "staging", "test", "preview"])
-    def test_placeholders_allowed_outside_production(self, env):
-        # Only the JWT-secret check fires outside production; it only
-        # requires a real secret when ENV == 'production'. Other envs
-        # are allowed to use placeholders for local dev/test.
+    @pytest.mark.parametrize("env", ["development", "test", "preview"])
+    def test_placeholders_allowed_outside_production_like(self, env):
+        # Production-like envs (production, staging) reject placeholder
+        # secrets at import time. True dev/test envs (development,
+        # test, preview) are allowed to use placeholders for local work.
         s = _settings(ENV=env, SUPABASE_JWT_SECRET="placeholder-secret")
         assert s.ENV == env
+
+    @pytest.mark.parametrize("env", ["production", "staging"])
+    def test_placeholders_rejected_in_production_like(self, env):
+        # staging joined production in the strict-env class. A real
+        # staging deploy is supposed to have real secrets; refusing to
+        # boot on a placeholder is the correct behavior.
+        with pytest.raises(ValidationError) as exc:
+            _settings(ENV=env, SUPABASE_JWT_SECRET="placeholder-secret")
+        assert "SUPABASE_JWT_SECRET" in str(exc.value)
 
 
 class TestEnvFileNotCommitted:

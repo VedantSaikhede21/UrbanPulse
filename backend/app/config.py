@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     # restart and do not span multiple workers.
     REDIS_URL: Optional[str] = None
 
+    # Environments that must behave like production for safety checks.
+    # Both "production" and "staging" reject placeholder secrets at
+    # import time and refuse to enable dev-bypass flags. "staging"
+    # exists so a real staging deploy (separate DB, separate Twilio
+    # number, real JWT) gets the same guardrails as prod without
+    # requiring a separate config profile.
+    PROD_LIKE_ENVS: tuple[str, ...] = ("production", "staging")
+
     @field_validator("ALLOWED_ORIGINS", mode="after")
     @classmethod
     def _validate_cors_origins(cls, v: str) -> str:
@@ -55,39 +63,43 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_jwt_secret_in_prod(self) -> "Settings":
-        """JWT secret must be set AND must be a real value in production.
+        """JWT secret must be set AND must be a real value in production-like envs.
 
         The bare presence check is not enough: an operator who copies
         `.env.example` to `.env` without filling in real values would
-        otherwise boot the production app with placeholder-secret as the
-        JWT signing key, which silently breaks every authenticated
-        request. Reject placeholder values explicitly.
+        otherwise boot the app with placeholder-secret as the JWT
+        signing key, which silently breaks every authenticated
+        request. Reject placeholder values explicitly in both
+        production and staging (anything in `PROD_LIKE_ENVS`).
         """
-        if self.ENV == "production":
-            secret = self.SUPABASE_JWT_SECRET
-            if not secret:
-                raise ValueError("SUPABASE_JWT_SECRET is required in production")
-            if secret == "placeholder-secret" or secret == "your-supabase-jwt-secret":
-                raise ValueError(
-                    "SUPABASE_JWT_SECRET is set to a placeholder/example value. "
-                    "Configure a real JWT signing key from Supabase → Settings → "
-                    "API → JWT Secret before deploying."
-                )
+        if self.ENV not in self.PROD_LIKE_ENVS:
+            return self
+        secret = self.SUPABASE_JWT_SECRET
+        if not secret:
+            raise ValueError(
+                f"SUPABASE_JWT_SECRET is required when ENV={self.ENV!r}"
+            )
+        if secret == "placeholder-secret" or secret == "your-supabase-jwt-secret":
+            raise ValueError(
+                "SUPABASE_JWT_SECRET is set to a placeholder/example value. "
+                "Configure a real JWT signing key from Supabase → Settings → "
+                "API → JWT Secret before deploying."
+            )
         return self
 
     @model_validator(mode="after")
     def _reject_placeholders_in_production(self) -> "Settings":
-        """Refuse to boot production with any placeholder secret.
+        """Refuse to boot any production-like env with placeholder secrets.
 
         This is a defense-in-depth pass on top of
         `_require_jwt_secret_in_prod`. Each optional secret has a default
         in `Settings` so dev/test can run without it; the same default
-        must never reach a production build. Failure here means the
-        process exits at import time with a list of every secret that
-        still needs to be set — far better than a quiet half-working
-        deploy.
+        must never reach a production-like build. Failure here means
+        the process exits at import time with a list of every secret
+        that still needs to be set — far better than a quiet
+        half-working deploy.
         """
-        if self.ENV != "production":
+        if self.ENV not in self.PROD_LIKE_ENVS:
             return self
 
         placeholders = {
@@ -103,7 +115,7 @@ class Settings(BaseSettings):
                 )
         if problems:
             raise ValueError(
-                "Cannot boot production with placeholder secrets:\n  - "
+                f"Cannot boot ENV={self.ENV!r} with placeholder secrets:\n  - "
                 + "\n  - ".join(problems)
             )
         return self
