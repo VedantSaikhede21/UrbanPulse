@@ -151,3 +151,26 @@ class AgentLog(Base):
     details = Column(JSON, nullable=True)
     latency_ms = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class Notification(Base):
+    """Persisted notification for a citizen about a ticket event.
+
+    Replaces the previous on-the-fly derivation from
+    `tickets.status`. A real table is required for the server-side
+    read flag (so unread state survives a new device/browser), for
+    typed event categories ('status' | 'alert' | 'info'), and for
+    per-event history (a single ticket can now produce many
+    notifications over its lifetime, not just one "current state"
+    derived row).
+    """
+    __tablename__ = "notifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    citizen_id = Column(UUID(as_uuid=True), ForeignKey("citizens.id", ondelete="CASCADE"), nullable=False, index=True)
+    ticket_id = Column(UUID(as_uuid=True), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    type = Column(String(20), nullable=False, default="status")
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    read = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

@@ -271,6 +271,38 @@ def list_notifications(db: Session = Depends(get_db), current_user: AuthUser = D
     return notifications.list_notifications(db, citizen_id)
 
 
+@app.patch("/api/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: str,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Mark a single notification read. Citizens may only mark
+    their own notifications (the WHERE clause enforces this)."""
+    if current_user.role != "citizen":
+        raise HTTPException(status_code=403, detail="Only citizens can mark notifications read")
+    if current_user.id == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=401, detail="Authorization required")
+    ok = notifications.mark_read(db, current_user.id, notification_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Notification not found or already read")
+    return {"status": "ok"}
+
+
+@app.post("/api/notifications/mark-all-read")
+def mark_all_notifications_read(
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Mark every unread notification for the current citizen read."""
+    if current_user.role != "citizen":
+        raise HTTPException(status_code=403, detail="Only citizens can mark notifications read")
+    if current_user.id == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=401, detail="Authorization required")
+    n = notifications.mark_all_read(db, current_user.id)
+    return {"status": "ok", "marked": n}
+
+
 # ── Tickets CRUD ─────────────────────────────────────────
 
 @app.get("/api/tickets")

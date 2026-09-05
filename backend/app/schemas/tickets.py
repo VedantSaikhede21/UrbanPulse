@@ -47,3 +47,5 @@ class NotificationOut(BaseModel):
     status: str
     message: str
     timestamp: Optional[str] = None
+    read: bool = False
+    type: str = "status"
