@@ -236,13 +236,29 @@ Carrying forward the specific, already-identified gaps from the current build:
       `_ask_gemini_with_audio` when `voice_note_url` is set and `citizen_text` is empty;
       transcription flows into `state.transcription` so downstream agents see real text.
       `tests/test_cx_voice.py` — 6 tests. Commit `d04f165`.)*
-- [ ] **Complete the Citizen Dashboard richness pass** — embedded mini-map of the citizen's own
+- [x] **Complete the Citizen Dashboard richness pass** — embedded mini-map of the citizen's own
       ticket pins, per-ticket visual progress timeline, circular UHS gauge instead of a bare number.
-- [ ] **Real heatmap layer** — integrate Leaflet.heat (or equivalent) on the Public Map / Incident
+      *(`CitizenDashboard.tsx` now fetches `/api/analytics/wards` alongside tickets, renders a
+      `CircularProgress` city-UHS tile, a `react-leaflet` `MapContainer` of the citizen's
+      recent-ticket pins (mean-centered, 6 markers max, dark Carto basemap, no controls), and a
+      4-stage horizontal progress bar (Filed → Assigned → In Progress → Resolved) on every
+      recent-report card. Vite build clean. Commit `16b3011`.)*
+- [x] **Real heatmap layer** — integrate Leaflet.heat (or equivalent) on the Public Map / Incident
       Map, replacing basic CircleMarkers, with intensity weighted by priority score and open-ticket
-      density.
-- [ ] **Landing page "wow" pass** — animated live-demo section, embedded hero map, count-up
-      statistics — per the already-agreed reform plan.
+      density. *(`leaflet.heat@0.2.0` + `@types/leaflet.heat` installed.
+      `frontend/src/components/map/HeatmapLayer.tsx` wraps `L.heatLayer` in a `useMap()` hook,
+      re-creates the layer on prop change and cleans up on unmount. Weights = `(open ? 0.5 : 0) +
+      (priority / 3) * 0.5`, capped at 1.0. Toggleable "Heatmap on/off" pill on both maps
+      (default on). Existing CircleMarkers stay for per-ticket popups. Commits `9d88ea1`.)*
+- [x] **Landing page "wow" pass** — animated live-demo section, embedded hero map, count-up
+      statistics — per the already-agreed reform plan. *(Landing ownership was unblocked for
+      full-access mode. Three additions: (1) a `<CountUp>` component (framer-motion
+      `animate()` driven by `useInView`) animates the two numeric stats tiles from 0 → real
+      value; (2) an embedded 176-px-tall `MapContainer` at the bottom of the "Today's
+      Snapshot" card renders the most-recent 60 ticket pins color-coded by status; (3) the
+      "Why Existing Systems Fail" contrast section now staggers each step in with
+      `whileInView` motion and the right card has a pulsing "live" dot beside its title.
+      Vite build clean. Commit `4e3a6be`.)*
 - [x] **Verify and, if needed, deepen officer/dept-head/admin dashboards** — confirm these are at
       genuine feature parity with the citizen side, not just "no longer a literal stub."
       *(Read-only audit: `docs/dashboard_gap_audit.md` lists 14 real gaps across the four
@@ -250,7 +266,8 @@ Carrying forward the specific, already-identified gaps from the current build:
       next-round plan. Officer Queue is at parity; Department Dashboard has a hard-coded
       `OFFICER_COUNT` stub and no department-scoped filter; Department Analytics shows the
       city's view instead of the dept's; Admin Dashboard reads like a citizen dashboard with
-      the wrong audience. Commit `a19f252`.)*
+      the wrong audience. Commit `a19f252`. Cross-cutting gap #1 — "no SLA countdown
+      anywhere" — was closed in `3c4c978`.)*
 - [x] **Citizen-facing SLA countdown** — surface expected resolution time directly on the citizen's
       own ticket view, turning an internal metric into a public accountability signal (identified
       earlier as a strong differentiator versus existing government portals). *(Backend
@@ -258,8 +275,10 @@ Carrying forward the specific, already-identified gaps from the current build:
       (`alembic/versions/007_sla_settings.py`); `app.services.sla.compute_expected_resolution`
       reads the per-category map with 24h fallback; `GET /api/sla` (public) and
       `PUT /api/sla` (staff-only, audit-logged) expose the configurable values. Frontend
-      countdown rendering is the next-round item flagged in the dashboard gap audit. Commit
-      `c63df61`. Tests: `tests/test_sla.py` — 12 tests.)*
+      `SlaCountdown` component (compact/full variants, 30s self-tick, `data-tone` attribute,
+      boundary-tested by `frontend/sla_selfcheck.mjs`) renders on Officer Queue, Department
+      Dashboard, Admin Dashboard, Citizen Dashboard recent-report cards, and the citizen
+      Report Detail (header pill + Complaint Info grid). Commit `3c4c978`.)*
 - [x] **WhatsApp status-check** — allow a citizen to text something like "status" or a ticket
       reference back to the WhatsApp number and get a reply with current status, without needing to
       open the web app. Explicitly deferred from the initial WhatsApp build; revisit now.
@@ -275,13 +294,14 @@ Carrying forward the specific, already-identified gaps from the current build:
       auto-link by email match in `whatsapp.py:48-61`. Noted here so the Phase 4 list
       reflects the actual state.)*
 
-> Status as of 2026-09-05: **4 of 8 items closed in this round (3 backend slices + 1 audit).
-> 3 items are explicitly frontend (citizen dashboard richness, heatmap, landing page
-> "wow" pass — the last frozen by ownership); 1 item (account linking) was already
-> closed in Phase 1.** The dashboard gap audit at `docs/dashboard_gap_audit.md` is the
-> priority-ordered backlog for the next frontend round, with the SLA-countdown tile
-> flagged as the highest-impact-per-effort starting point because the backend is now
-> ready.
+> Status as of 2026-09-06: **8 of 8 closed.** Three frontend slices (citizen dashboard
+> richness, real heatmap layer, landing "wow" pass) plus the SLA-countdown render that
+> the dashboard gap audit had flagged as priority #1. One-line `type(scope): what —
+> why` commits, no bundler-bundled runtime check-in, no scope creep into Phases 5–7.
+> Phase 4 is now **met.** The other 3 audit gaps (department-scoped Department
+> Dashboard, "tickets needing attention" tile on Admin Dashboard, time-window selector
+> on the two analytics pages) remain — they are still in `docs/dashboard_gap_audit.md`
+> items 2–4 and are a Phase 5 candidate alongside caching and the index audit.
 
 **Done when:** every dashboard and every promised feature in the product blueprint is genuinely,
 verifiably built — not just routed.
