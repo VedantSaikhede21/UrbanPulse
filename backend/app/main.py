@@ -20,6 +20,7 @@ from app.auth.deps import AuthUser, get_current_user, get_optional_user
 from app.config import settings
 from app.db.session import get_db
 from app.db.models import Ticket, Officer
+from app.logging import configure_logging
 from app.routers.analytics import router as analytics_router
 from app.routers.whatsapp import router as whatsapp_router
 from app.services import agent_logs, audit, notifications, officers, pipeline, tickets
@@ -47,6 +48,11 @@ app = FastAPI(
     description="Multi-agent civic infrastructure triage and routing platform backend",
     version="0.2.0",
 )
+
+# Install the central structlog configuration before any module emits
+# a log line. Idempotent — calling again is a no-op, so the ARQ worker
+# (which reimports app.main) is safe.
+configure_logging()
 
 # Rate limiting
 app.state.limiter = limiter

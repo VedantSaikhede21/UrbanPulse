@@ -1,6 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
+import structlog
 from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -10,6 +11,8 @@ from app.config import settings
 from app.db.models import Citizen, Ticket
 from app.services import audit
 from app.services.storage import get_storage
+
+logger = structlog.get_logger(__name__)
 
 VALID_TICKET_STATUSES = ("reported", "assigned", "in_progress", "resolved", "verified")
 
@@ -217,10 +220,7 @@ async def _enqueue_triage_async(ticket_id: str) -> None:
     try:
         await enqueue_triage(ticket_id)
     except Exception as e:  # pragma: no cover (defensive)
-        import logging
-        logging.getLogger(__name__).warning(
-            "enqueue_triage_async_failed ticket_id=%s err=%s", ticket_id, e
-        )
+        logger.warning("enqueue_triage_async_failed", ticket_id=ticket_id, error=str(e))
 
 
 def update_ticket_status(db: Session, ticket_id: str, status: str, role: str, user_id: str) -> dict:

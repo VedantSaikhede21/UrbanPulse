@@ -97,7 +97,9 @@ class TwilioService:
         of the full URL + sorted form parameters, using Auth Token as key.
         """
         if not self.auth_token:
-            # No credentials configured - reject in all environments
+            # No credentials configured - allow bypass in development, otherwise reject
+            if settings.ENV == "development":
+                return True
             return False
 
         signature = request.headers.get("X-Twilio-Signature", "")

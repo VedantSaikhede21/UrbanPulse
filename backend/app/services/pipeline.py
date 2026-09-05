@@ -2,11 +2,14 @@ import asyncio
 import uuid
 from typing import Any, AsyncGenerator, Dict, List
 
+import structlog
 from sqlalchemy.orm import Session
 
 from app.db.models import Ticket
 from app.services import agent_logs
 from app.services.tickets import serialize_ticket
+
+logger = structlog.get_logger(__name__)
 
 
 async def stream_triage_events(
@@ -99,7 +102,7 @@ async def stream_triage_events(
                 ticket.department_id = uuid.UUID(dept_id)
             db.commit()
         except Exception as db_err:
-            print(f"DB commit error: {db_err}")
+            logger.warning("pipeline_db_commit_error", ticket_id=str(ticket.id), error=str(db_err))
             db.rollback()
 
         yield {

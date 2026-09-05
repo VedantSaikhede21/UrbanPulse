@@ -13,19 +13,20 @@ WhatsApp router. Its storage backend is chosen at import time from
   single-instance dev only; the log line below makes the fallback
   visible so it cannot be silently mistaken for the production path.
 """
-import logging
-
+import structlog
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.config import settings
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 if settings.REDIS_URL:
     logger.info(
-        "rate limiter storage: redis (%s) — counters shared across instances",
-        settings.REDIS_URL,
+        "rate_limiter_storage",
+        backend="redis",
+        redis_url=settings.REDIS_URL,
+        note="counters shared across instances",
     )
     limiter = Limiter(
         key_func=get_remote_address,
@@ -33,8 +34,8 @@ if settings.REDIS_URL:
     )
 else:
     logger.warning(
-        "rate limiter storage: in-memory (REDIS_URL unset) — counters do not "
-        "survive restarts and do not span multiple backend instances. Set "
-        "REDIS_URL before deploying more than one backend instance."
+        "rate_limiter_storage",
+        backend="in_memory",
+        note="counters do not survive restarts and do not span multiple backend instances; set REDIS_URL before deploying more than one backend instance",
     )
     limiter = Limiter(key_func=get_remote_address)

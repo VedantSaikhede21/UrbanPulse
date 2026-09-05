@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 
+import structlog
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, END
 from sqlalchemy import text, func
@@ -24,6 +25,8 @@ except Exception:
     GEMINI_AVAILABLE = False
     types = None
 
+logger = structlog.get_logger(__name__)
+
 
 def _parse_json_response(raw: str, fallback: dict) -> dict:
     try:
@@ -45,7 +48,7 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
         text_response = getattr(resp, "text", None)
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
-        print(f"Gemini call failed: {e}")
+        logger.warning("gemini_call_failed", error=str(e))
         return fallback
 
 
@@ -65,7 +68,7 @@ def _ask_gemini_with_images(prompt: str, image_urls: List[str], fallback: str) -
         text_response = getattr(resp, "text", None)
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
-        print(f"Gemini multimodal call failed: {e}")
+        logger.warning("gemini_multimodal_call_failed", error=str(e))
         return fallback
     
 def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
@@ -84,7 +87,7 @@ def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
         text_response = getattr(resp, "text", None)
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
-        print(f"Gemini audio call failed: {e}")
+        logger.warning("gemini_audio_call_failed", error=str(e))
         return fallback
 
 def _get_db_session():
@@ -290,7 +293,7 @@ def deduplication_agent(state: TicketState) -> Dict[str, Any]:
                     f"within 100m radius for '{state.category}'."
                 )
         except Exception as e:
-            print(f"Deduplication query failed: {e}")
+            logger.warning("deduplication_query_failed", error=str(e))
             reasoning = "Spatial dedup check skipped (DB unavailable). Treating as unique."
         finally:
             db.close()
@@ -381,7 +384,7 @@ def routing_agent(state: TicketState) -> Dict[str, Any]:
                 loads.sort(key=lambda x: x[0])
                 officer_id = str(loads[0][1].id)
     except Exception as e:
-        print(f"Routing query failed: {e}")
+        logger.warning("routing_query_failed", error=str(e))
     finally:
         db.close()
 
@@ -502,7 +505,7 @@ def analytics_agent(state: TicketState, mode: str = "triage") -> Dict[str, Any]:
                     f"({'+' if delta >= 0 else ''}{delta:.1f} from {mode})."
                 )
         except Exception as e:
-            print(f"Analytics UHS update failed: {e}")
+            logger.warning("analytics_uhs_update_failed", error=str(e))
             db.rollback()
             reasoning = f"UHS recalculation skipped: {e}"
         finally:

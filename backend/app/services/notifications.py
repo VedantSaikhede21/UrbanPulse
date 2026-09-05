@@ -24,9 +24,12 @@ written from two paths:
 import uuid as _uuid
 from typing import Optional, Union
 
+import structlog
 from sqlalchemy.orm import Session
 
 from app.db.models import Notification, Ticket
+
+logger = structlog.get_logger(__name__)
 
 
 # Keep the message map from the previous implementation so the
@@ -105,7 +108,7 @@ def record_notification(
         return n
     except Exception as e:
         db.rollback()
-        print(f"notification record failed: {e}")
+        logger.warning("notification_record_failed", error=str(e))
         raise
 
 
@@ -163,7 +166,7 @@ def backfill_for_citizen(
             created += 1
         except Exception as e:
             db.rollback()
-            print(f"notification backfill failed for ticket {t.id}: {e}")
+            logger.warning("notification_backfill_failed", ticket_id=str(t.id), error=str(e))
     return created
 
 

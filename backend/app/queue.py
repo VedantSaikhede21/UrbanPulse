@@ -28,15 +28,15 @@ by the time the worker runs. The function must be idempotent
 """
 from __future__ import annotations
 
-import logging
 import os
 from typing import Optional
 
+import structlog
 from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
 from arq.worker import Retry
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 # ── Redis connection settings (derived from app.config) ────────
@@ -111,16 +111,16 @@ async def enqueue_triage(ticket_id: str) -> bool:
     """
     pool = await _get_pool()
     if pool is None:
-        logger.info("arq_disabled_no_redis_url ticket_id=%s", ticket_id)
+        logger.info("arq_disabled_no_redis_url", ticket_id=ticket_id)
         return False
     try:
         await pool.enqueue_job("triage_ticket", ticket_id)
-        logger.info("arq_enqueued ticket_id=%s", ticket_id)
+        logger.info("arq_enqueued", ticket_id=ticket_id)
         return True
     except Exception as e:
         # The job will not run for this ticket. Log loudly so an
         # operator sees the gap; the request still returns 201.
-        logger.error("arq_enqueue_failed ticket_id=%s error=%s", ticket_id, e)
+        logger.error("arq_enqueue_failed", ticket_id=ticket_id, error=str(e))
         return False
 
 
@@ -157,7 +157,7 @@ def triage_ticket(ctx: dict, ticket_id: str) -> dict:
         if ticket is None:
             # Idempotency: the ticket was deleted between enqueue
             # and pickup (admin cleanup, for example). No-op.
-            logger.info("arq_ticket_missing ticket_id=%s", ticket_id)
+            logger.info("arq_ticket_missing", ticket_id=ticket_id)
             return {"ok": True, "skipped": "missing"}
         ticket.processing_state = "processing"
         db.commit()

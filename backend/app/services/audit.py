@@ -7,9 +7,12 @@ swallowed.
 """
 from typing import List, Optional
 
+import structlog
 from sqlalchemy.orm import Session
 
 from app.db.models import AuditLog
+
+logger = structlog.get_logger(__name__)
 
 
 def record_audit(
@@ -33,7 +36,7 @@ def record_audit(
         db.commit()
     except Exception as e:
         db.rollback()
-        print(f"Audit record failed ({action}): {e}")
+        logger.warning("audit_record_failed", action=action, error=str(e))
 
 
 def list_audit(db: Session, limit: int = 100) -> List[dict]:

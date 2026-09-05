@@ -15,9 +15,12 @@ import time
 import uuid as _uuid
 from typing import Any, Dict, Iterable, List, Optional, Union
 
+import structlog
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentLog
+
+logger = structlog.get_logger(__name__)
 
 
 def _coerce_ticket_id(ticket_id: Union[str, _uuid.UUID]) -> _uuid.UUID:
@@ -66,7 +69,7 @@ def record_trace_entries(
         return len(rows)
     except Exception as e:
         db.rollback()
-        print(f"agent_logs write failed for ticket {tid}: {e}")
+        logger.warning("agent_logs_write_failed", ticket_id=str(tid), error=str(e))
         return 0
 
 
