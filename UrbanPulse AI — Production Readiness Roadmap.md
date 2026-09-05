@@ -197,28 +197,28 @@ balancer, without losing in-flight work, uploaded files, or retry state.
 
 ## Phase 3 — Observability & Testing
 
-- [ ] **Structured logging** — replace ad hoc `print()` debug statements (several exist in the
+- [x] **Structured logging** — replace ad hoc `print()` debug statements (several exist in the
       agent fallback paths) with real structured logging (JSON logs, log levels), so production
       issues are diagnosable without SSH-ing in to read raw stdout.
-- [ ] **Error tracking** — Sentry or equivalent, wired into both frontend and backend, so
+- [x] **Error tracking** — Sentry or equivalent, wired into both frontend and backend, so
       exceptions in production surface proactively instead of only being found when a user reports
       "it's stuck."
-- [ ] **Real metrics behind the Agent Monitoring page** — the UI page exists; confirm it's backed
+- [x] **Real metrics behind the Agent Monitoring page** — the UI page exists; confirm it's backed
       by actually-collected latency/error-rate/volume metrics per agent, not placeholder numbers.
-- [ ] **Uptime monitoring + alerting** for the backend, database, and the external services it
+- [x] **Uptime monitoring + alerting** for the backend, database, and the external services it
       depends on (Gemini, Twilio, Supabase reachability).
-- [ ] **Unit test coverage for services** — `tickets.py`, `officers.py`, `notifications.py`,
+- [x] **Unit test coverage for services** — `tickets.py`, `officers.py`, `notifications.py`,
       `audit.py`, `twilio_service.py`, `geocoding.py` — the existing `backend/tests/` directory
       should be expanded to genuinely exercise business logic, not just smoke-test endpoints exist.
-- [ ] **Integration tests for the full agent pipeline** — feed known inputs, assert on structural
+- [x] **Integration tests for the full agent pipeline** — feed known inputs, assert on structural
       properties of the output (not exact LLM text, which will vary), catching regressions in the
       graph wiring itself.
-- [ ] **Expand the `qa/*.mjs` Playwright suite** to cover officer, dept-head, admin, and super-admin
+- [x] **Expand the `qa/*.mjs` Playwright suite** to cover officer, dept-head, admin, and super-admin
       flows — currently strongest on the citizen path.
-- [ ] **CI/CD pipeline** — GitHub Actions running `tsc --noEmit`, `npm run build`, backend tests,
+- [x] **CI/CD pipeline** — GitHub Actions running `tsc --noEmit`, `npm run build`, backend tests,
       and the Playwright QA suite on every PR, blocking merge on failure. This also solves the
       "did the QA script actually pass" verification gap that came up more than once this session.
-- [ ] **Load testing** — before claiming "production ready," actually simulate realistic concurrent
+- [x] **Load testing** — before claiming "production ready," actually simulate realistic concurrent
       ticket submission volume and see where it breaks (likely candidates: synchronous pipeline
       execution from Phase 2, database connection pool limits, Gemini rate limits).
 
