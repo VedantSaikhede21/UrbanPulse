@@ -53,7 +53,7 @@ export const OfficerQueue: React.FC = () => {
   const loadQueue = useCallback(() => {
     apiFetch('/api/officers/queue')
       .then(res => {
-        if (!res.ok) throw new Error('Failed to load queue');
+        if (!res.ok) throw new Error(`Failed to load queue (${res.status})`);
         return res.json();
       })
       .then(data => {
@@ -62,13 +62,17 @@ export const OfficerQueue: React.FC = () => {
         hasLoadedOnce.current = true;
         setError(null);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         setLoading(false);
+        const message = err instanceof Error ? err.message : 'Unknown error';
         if (!hasLoadedOnce.current) {
-          setError('Could not load officer queue. Is the backend running?');
+          setError(`Could not load officer queue: ${message}`);
+        } else {
+          // Show toast for silent refresh failures
+          toast({ type: 'error', title: 'Queue refresh failed', message });
         }
       });
-  }, []);
+  }, [toast]);
 
   const loadQueueRef = useRef(loadQueue);
   loadQueueRef.current = loadQueue;

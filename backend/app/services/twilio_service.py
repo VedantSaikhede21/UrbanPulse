@@ -10,13 +10,58 @@ Handles:
 import hmac
 import hashlib
 import base64
-import os
-import httpx
+import secrets
+from pathlib import Path
 from urllib.parse import urlencode
 from typing import Optional, List, Dict, Any
-from fastapi import Request, HTTPException
+from fastapi import Request
+
+import httpx
+import structlog
 
 from app.config import settings
+
+# File signature (magic bytes) validation for actual file type verification
+FILE_SIGNATURES = {
+    ".jpg": [b"\xFF\xD8\xFF"],
+    ".jpeg": [b"\xFF\xD8\xFF"],
+    ".png": [b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"],
+    ".webp": [b"RIFF"],
+    ".mp4": [b"\x00\x00\x00\x18ftypmp4", b"\x00\x00\x00\x1Cftypmp4", b"\x00\x00\x00\x20ftypmp4"],
+    ".mov": [b"\x00\x00\x00\x14ftypqt"],
+    ".webm": [b"\x1A\x45\xDF\xA3"],
+    ".mp3": [b"ID3", b"\xFF\xFB", b"\xFF\xF3", b"\xFF\xF2"],
+    ".wav": [b"RIFF"],
+    ".m4a": [b"\x00\x00\x00\x18ftypM4A", b"\x00\x00\x00\x1CftypM4A"],
+    ".ogg": [b"OggS"],
+    ".pdf": [b"%PDF"],
+}
+
+def validate_file_signature(content: bytes, ext: str) -> bool:
+    """Verify file matches its extension by checking magic bytes."""
+    signatures = FILE_SIGNATURES.get(ext.lower())
+    if not signatures:
+        return True  # No signature check defined for this type
+
+    header = content[:32]  # Read enough bytes for all signatures
+
+    # Special handling for WebP (RIFF + WEBP at offset 8)
+    if ext.lower() == ".webp":
+        return header.startswith(b"RIFF") and b"WEBP" in header[:16]
+
+    # Special handling for WAV (RIFF + WAVE at offset 8)
+    if ext.lower() == ".wav":
+        return header.startswith(b"RIFF") and b"WAVE" in header[:16]
+
+    # Special handling for OGG (OggS)
+    if ext.lower() == ".ogg":
+        return header.startswith(b"OggS")
+
+    # Check other signatures
+    for sig in signatures:
+        if header.startswith(sig):
+            return True
+    return False
 
 
 class TwilioService:
@@ -51,9 +96,7 @@ class TwilioService:
         of the full URL + sorted form parameters, using Auth Token as key.
         """
         if not self.auth_token:
-            # In development without real credentials, skip validation
-            if settings.ENV == "development":
-                return True
+            # No credentials configured - reject in all environments
             return False
 
         signature = request.headers.get("X-Twilio-Signature", "")
@@ -86,6 +129,8 @@ class TwilioService:
         if not media_url:
             return None
 
+        logger = structlog.get_logger(__name__)
+
         try:
             # Twilio media URLs require auth
             resp = await self.client.get(media_url)
@@ -103,22 +148,25 @@ class TwilioService:
             }
             ext = ext_map.get(media_content_type, ".bin")
 
-            # Save to uploads directory
-            import secrets
+            # Save to uploads directory using pathlib
             filename = f"{secrets.token_hex(12)}{ext}"
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            upload_dir = os.path.join(base_dir, "uploads")
-            os.makedirs(upload_dir, exist_ok=True)
-            filepath = os.path.join(upload_dir, filename)
+            base_dir = Path(__file__).parent.parent
+            upload_dir = base_dir / "uploads"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            filepath = upload_dir / filename
 
-            with open(filepath, "wb") as f:
-                f.write(resp.content)
+            # Validate file signature before saving
+            if not validate_file_signature(resp.content, ext):
+                logger.error("media_signature_mismatch", ext=ext, media_url=media_url)
+                return None
 
-            # Return absolute URL (will be constructed by caller with request.base_url)
+            filepath.write_bytes(resp.content)
+
+            # Return relative URL (will be constructed by caller with request.base_url)
             return f"/uploads/{filename}"
 
         except Exception as e:
-            print(f"Media download failed: {e}")
+            logger.error("media_download_failed", error=str(e), media_url=media_url)
             return None
 
     async def send_whatsapp_message(self, to: str, body: str) -> bool:
@@ -132,8 +180,10 @@ class TwilioService:
         Returns:
             True if sent successfully, False otherwise
         """
+        logger = structlog.get_logger(__name__)
+
         if not self.account_sid or not self.auth_token:
-            print("Twilio credentials not configured")
+            logger.warning("twilio_credentials_not_configured")
             return False
 
         try:
@@ -147,9 +197,10 @@ class TwilioService:
                 data=data,
             )
             resp.raise_for_status()
+            logger.info("whatsapp_message_sent", to=to)
             return True
         except Exception as e:
-            print(f"Failed to send WhatsApp message: {e}")
+            logger.error("whatsapp_message_send_failed", error=str(e), to=to)
             return False
 
     def parse_webhook(self, form_data: Dict[str, Any]) -> Dict[str, Any]:

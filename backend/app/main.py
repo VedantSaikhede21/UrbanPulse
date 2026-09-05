@@ -10,9 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+
+from app.limiter import limiter
 from sqlalchemy.orm import Session
 
 from app.agents import runtime
@@ -34,9 +35,7 @@ from app.schemas.officers import (
     AssignTicketRequest,
 )
 from app.schemas.upload import UploadResponse
-
-# Rate limiter
-limiter = Limiter(key_func=get_remote_address)
+from app.services.tickets import VALID_TICKET_STATUSES
 
 # Constants
 ANONYMOUS_USER_ID = "00000000-0000-0000-0000-000000000000"
@@ -58,6 +57,7 @@ app.include_router(analytics_router)
 app.include_router(whatsapp_router)
 
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
+CHUNK_SIZE = 1024 * 1024  # 1 MB chunks for streaming upload
 
 
 @app.exception_handler(Exception)
@@ -66,9 +66,15 @@ async def global_exception_handler(request, exc):
     traceback.print_exc()
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
+
 @app.on_event("startup")
 async def load_graphs():
-    runtime.load_graphs()
+    try:
+        runtime.load_graphs()
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to load agent graphs: {e}")
+        raise
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -79,7 +85,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()],
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -176,6 +182,49 @@ ALLOWED_MIME_TYPES = {
     "application/pdf"
 }
 
+# File signature (magic bytes) validation for actual file type verification
+# Maps extension -> list of valid magic byte sequences at file start
+FILE_SIGNATURES = {
+    ".jpg": [b"\xFF\xD8\xFF"],
+    ".jpeg": [b"\xFF\xD8\xFF"],
+    ".png": [b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"],
+    ".webp": [b"RIFF"],  # RIFF header, check for WEBP at offset 8
+    ".mp4": [b"\x00\x00\x00\x18ftypmp4", b"\x00\x00\x00\x1Cftypmp4", b"\x00\x00\x00\x20ftypmp4"],
+    ".mov": [b"\x00\x00\x00\x14ftypqt"],
+    ".webm": [b"\x1A\x45\xDF\xA3"],  # EBML header
+    ".mp3": [b"ID3", b"\xFF\xFB", b"\xFF\xF3", b"\xFF\xF2"],
+    ".wav": [b"RIFF"],
+    ".m4a": [b"\x00\x00\x00\x18ftypM4A", b"\x00\x00\x00\x1CftypM4A"],
+    ".pdf": [b"%PDF"],
+}
+
+def validate_file_signature(filepath: str, ext: str) -> bool:
+    """Verify file matches its extension by checking magic bytes."""
+    signatures = FILE_SIGNATURES.get(ext.lower())
+    if not signatures:
+        return True  # No signature check defined for this type
+
+    try:
+        with open(filepath, "rb") as f:
+            header = f.read(32)  # Read enough bytes for all signatures
+
+        # Special handling for WebP (RIFF + WEBP at offset 8)
+        if ext.lower() == ".webp":
+            return header.startswith(b"RIFF") and b"WEBP" in header[:16]
+
+        # Special handling for WAV (RIFF + WAVE at offset 8)
+        if ext.lower() == ".wav":
+            return header.startswith(b"RIFF") and b"WAVE" in header[:16]
+
+        # Check other signatures
+        for sig in signatures:
+            if header.startswith(sig):
+                return True
+        return False
+    except Exception:
+        return False
+
+
 @app.post("/api/upload", response_model=UploadResponse)
 @limiter.limit("10/minute")
 async def upload_file(
@@ -190,13 +239,26 @@ async def upload_file(
     ext = (os.path.splitext(file.filename or "file")[1] or ".bin").lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type {ext} not allowed")
-    content = await file.read()
-    if len(content) > MAX_UPLOAD_SIZE:
-        raise HTTPException(status_code=413, detail=f"File exceeds maximum size of {MAX_UPLOAD_SIZE // (1024*1024)} MB")
+
     filename = f"{secrets.token_hex(12)}{ext}"
     filepath = os.path.join(UPLOAD_DIR, filename)
+
+    # Stream file in chunks to avoid memory issues
+    total_size = 0
     with open(filepath, "wb") as f:
-        f.write(content)
+        while chunk := await file.read(CHUNK_SIZE):
+            total_size += len(chunk)
+            if total_size > MAX_UPLOAD_SIZE:
+                f.close()
+                os.remove(filepath)
+                raise HTTPException(status_code=413, detail=f"File exceeds maximum size of {MAX_UPLOAD_SIZE // (1024*1024)} MB")
+            f.write(chunk)
+
+    # Validate actual file type via magic bytes (signature check)
+    if not validate_file_signature(filepath, ext):
+        os.remove(filepath)
+        raise HTTPException(status_code=400, detail=f"File content does not match extension {ext} — possible type spoofing")
+
     base_url = str(request.base_url).rstrip("/")
     return {"url": f"{base_url}/uploads/{filename}"}
 
@@ -218,7 +280,9 @@ def list_tickets(db: Session = Depends(get_db), current_user: AuthUser = Depends
 
 
 @app.get("/api/tickets/near", response_model=List[PublicTicketOut])
+@limiter.limit("60/minute")
 def find_nearby_tickets(
+    request: Request,
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),
     radius_meters: float = Query(default=1000.0, ge=1, le=50000),
@@ -284,7 +348,7 @@ def create_officer(
     current_user: AuthUser = Depends(get_current_user),
 ):
     return officers.create_officer(
-        db, body.name, body.department, current_user.role, current_user.id, body.user_id
+        db, body.name, body.department, current_user.role, current_user.id, body.user_id, body.role
     )
 
 
@@ -411,6 +475,68 @@ def get_me(current_user: AuthUser = Depends(get_current_user)):
         "phone": current_user.phone,
         "name": current_user.name,
     }
+
+
+# ── Account Linking ───────────────────────────────────────
+
+class LinkPhoneRequest(BaseModel):
+    phone: str = Field(..., pattern=r"^\+?[1-9]\d{1,14}$", description="Phone number in E.164 format")
+
+    @field_validator("phone")
+    @classmethod
+    def normalize_phone(cls, v: str) -> str:
+        """Normalize phone to E.164 format without leading +."""
+        v = v.strip()
+        if v.startswith("+"):
+            v = v[1:]
+        if v.startswith("whatsapp:"):
+            v = v[9:]
+        return v
+
+
+@app.post("/api/citizen/link-phone")
+def link_phone(
+    body: LinkPhoneRequest,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Link a phone number to the current citizen account.
+
+    If the phone number belongs to an existing WhatsApp-only citizen,
+    that citizen's tickets and data are merged into the current account.
+    """
+    if current_user.role != "citizen" or current_user.id == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=403, detail="Only authenticated citizens can link phone numbers")
+
+    citizen_uuid = uuid.UUID(current_user.id)
+    citizen = db.query(Citizen).filter(Citizen.id == citizen_uuid).first()
+    if not citizen:
+        raise HTTPException(status_code=404, detail="Citizen not found")
+
+    # Check if this phone is already linked to another citizen
+    existing = db.query(Citizen).filter(
+        Citizen.phone == body.phone,
+        Citizen.merged_into_id.is_(None),
+        Citizen.id != citizen_uuid
+    ).first()
+
+    if existing:
+        # Merge the existing WhatsApp citizen into this one
+        from app.auth.deps import _merge_citizens
+        merged = _merge_citizens(db, existing, citizen_uuid, citizen.email, {"name": citizen.name})
+        return {
+            "status": "merged",
+            "message": f"Linked phone and merged {merged.id} WhatsApp account",
+            "tickets_merged": True,
+        }
+
+    # No existing citizen with this phone - just update current citizen
+    if citizen.phone:
+        raise HTTPException(status_code=400, detail="Phone number already linked to this account")
+
+    citizen.phone = body.phone
+    db.commit()
+    return {"status": "linked", "message": "Phone number linked successfully"}
 
 
 # ── Audit trail ─────────────────────────────────────────

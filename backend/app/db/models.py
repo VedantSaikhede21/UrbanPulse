@@ -3,10 +3,9 @@ from datetime import datetime
 from sqlalchemy import Column, String, Integer, Boolean, Numeric, ForeignKey, Text, DateTime, JSON, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from geoalchemy2 import Geometry
 from app.db.session import Base
-from sqlalchemy.orm import Mapped, mapped_column
-from geoalchemy2 import Geometry
 
 class Ward(Base):
     __tablename__ = "wards"
@@ -28,6 +27,24 @@ class Ward(Base):
         server_default=func.now()
     )
 
+
+class Department(Base):
+    """Department as a first-class configurable entity for multi-municipality support."""
+    __tablename__ = "departments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False, unique=True)
+    code = Column(String(20), nullable=False, unique=True)  # Short code for API/integration
+    description = Column(Text, nullable=True)
+    municipality = Column(String(100), nullable=False, default="default")  # For multi-city support
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationship to officers
+    officers = relationship("Officer", back_populates="department_rel")
+
+
 class Citizen(Base):
     __tablename__ = "citizens"
 
@@ -36,6 +53,22 @@ class Citizen(Base):
     phone = Column(String(20), unique=True, nullable=True)
     name = Column(String(100), nullable=False)
     reputation_score = Column(Integer, default=100)
+    whatsapp_retry_count = Column(Integer, default=0)  # Track WhatsApp location retry attempts
+    # Account linking: if this citizen was merged into another, this points to the canonical identity
+    merged_into_id = Column(UUID(as_uuid=True), ForeignKey("citizens.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationship for merged_into
+    merged_into = relationship("Citizen", remote_side=[id], backref="merged_accounts")
+
+
+class ProcessedMessage(Base):
+    """Store processed Twilio MessageSid for idempotency."""
+    __tablename__ = "processed_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_sid = Column(String(200), unique=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Officer(Base):
@@ -44,6 +77,7 @@ class Officer(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
     department = Column(String(50), nullable=False)
+    role = Column(String(20), nullable=False, default="officer")  # officer, dept_head, admin, super_admin
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

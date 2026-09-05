@@ -14,7 +14,7 @@ from app.db.models import Officer, Ticket
 from app.services import audit
 from app.services.tickets import serialize_ticket
 
-STAFF_ROLES = ("officer", "dept_head", "admin", "super_admin")
+VALID_OFFICER_ROLES = ("officer", "dept_head", "admin", "super_admin")
 MANAGER_ROLES = ("admin", "super_admin")
 
 
@@ -23,6 +23,7 @@ def serialize_officer(o: Officer) -> dict:
         "id": str(o.id),
         "name": o.name,
         "department": o.department,
+        "role": o.role,
         "is_active": bool(o.is_active),
         "created_at": o.created_at.isoformat() if o.created_at else None,
     }
@@ -40,6 +41,7 @@ def create_officer(
     actor_role: str,
     actor_id: str,
     user_id: Optional[str] = None,
+    role: str = "officer",
 ) -> dict:
     if actor_role not in MANAGER_ROLES:
         raise HTTPException(status_code=403, detail="Admin or super_admin role required")
@@ -47,6 +49,14 @@ def create_officer(
         raise HTTPException(status_code=422, detail="name is required")
     if not department or not department.strip():
         raise HTTPException(status_code=422, detail="department is required")
+    if role not in VALID_OFFICER_ROLES:
+        raise HTTPException(status_code=422, detail=f"role must be one of {', '.join(VALID_OFFICER_ROLES)}")
+    # Only super_admin can create super_admin officers
+    if role == "super_admin" and actor_role != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super_admin can create super_admin officers")
+    # Only admin/super_admin can create admin officers
+    if role == "admin" and actor_role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Only admin or super_admin can create admin officers")
 
     officer_id = None
     if user_id:
@@ -60,7 +70,13 @@ def create_officer(
     else:
         officer_id = uuid.uuid4()
 
-    officer = Officer(id=officer_id, name=name.strip()[:100], department=department.strip()[:50], is_active=True)
+    officer = Officer(
+        id=officer_id,
+        name=name.strip()[:100],
+        department=department.strip()[:50],
+        role=role,
+        is_active=True,
+    )
     db.add(officer)
     db.commit()
     db.refresh(officer)
@@ -70,7 +86,7 @@ def create_officer(
         action="officer.create",
         target_table="officers",
         record_id=str(officer.id),
-        details={"name": officer.name, "department": officer.department},
+        details={"name": officer.name, "department": officer.department, "role": officer.role},
     )
     return serialize_officer(officer)
 
@@ -101,7 +117,7 @@ def update_officer(db: Session, officer_id: str, is_active: bool, actor_role: st
 
 
 def assign_ticket(db: Session, ticket_id: str, officer_id: str, role: str, actor_id: str) -> dict:
-    if role not in STAFF_ROLES:
+    if role not in VALID_OFFICER_ROLES:
         raise HTTPException(status_code=403, detail="Officer access required")
     try:
         uuid.UUID(ticket_id)

@@ -1,19 +1,21 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator, model_validator
 from typing import Optional
+
 
 class Settings(BaseSettings):
     # API Configurations
-    SUPABASE_URL: Optional[str] = "http://localhost:54321"
-    SUPABASE_ANON_KEY: Optional[str] = "placeholder-anon-key"
+    SUPABASE_URL: str = "http://localhost:54321"
+    SUPABASE_ANON_KEY: str = "placeholder-anon-key"
     SUPABASE_JWT_SECRET: Optional[str] = None
-    DATABASE_URL: Optional[str] = "postgresql://postgres:postgres@localhost:5432/postgres"
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/postgres"
 
     GEMINI_API_KEY: Optional[str] = None
 
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
-    TWILIO_WHATSAPP_NUMBER: Optional[str] = "whatsapp:+14155238886"
-    NOMINATIM_USER_AGENT: Optional[str] = "UrbanPulse/1.0"
+    TWILIO_WHATSAPP_NUMBER: str = "whatsapp:+14155238886"
+    NOMINATIM_USER_AGENT: str = "UrbanPulse/1.0"
 
     # Environment
     ENV: str = "development"
@@ -24,6 +26,42 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed CORS origins
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
 
+    @field_validator("ALLOWED_ORIGINS", mode="after")
+    @classmethod
+    def _validate_cors_origins(cls, v: str) -> str:
+        """Ensure CORS origins are not wildcard in production."""
+        # Note: we can't access other fields in field_validator easily,
+        # but we check for wildcard which is never acceptable
+        if "*" in v:
+            raise ValueError("CORS wildcard '*' not allowed - use explicit origins")
+        return v
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @field_validator("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", mode="after")
+    @classmethod
+    def _empty_to_none(cls, v: Optional[str]) -> Optional[str]:
+        """Convert empty strings to None so they're properly unset."""
+        if v == "":
+            return None
+        return v
+
+    @model_validator(mode="after")
+    def _require_jwt_secret_in_prod(self) -> "Settings":
+        """JWT secret is required in production."""
+        if self.ENV == "production" and not self.SUPABASE_JWT_SECRET:
+            raise ValueError("SUPABASE_JWT_SECRET is required in production")
+        return self
+
+    @property
+    def twilio_configured(self) -> bool:
+        """Check if Twilio credentials are fully configured."""
+        return bool(self.TWILIO_ACCOUNT_SID and self.TWILIO_AUTH_TOKEN)
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        """Parse ALLOWED_ORIGINS into a list, filtering empty values."""
+        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
 
 settings = Settings()
