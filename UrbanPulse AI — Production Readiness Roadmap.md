@@ -231,8 +231,11 @@ not discovered by a user in production.
 
 Carrying forward the specific, already-identified gaps from the current build:
 
-- [ ] **Wire voice transcription into `cx_agent()`** — the function exists, the call site doesn't.
-      Long-standing, well-understood gap; fix it.
+- [x] **Wire voice transcription into `cx_agent()`** — the function exists, the call site doesn't.
+      Long-standing, well-understood gap; fix it. *(`cx_agent` now calls
+      `_ask_gemini_with_audio` when `voice_note_url` is set and `citizen_text` is empty;
+      transcription flows into `state.transcription` so downstream agents see real text.
+      `tests/test_cx_voice.py` — 6 tests. Commit `d04f165`.)*
 - [ ] **Complete the Citizen Dashboard richness pass** — embedded mini-map of the citizen's own
       ticket pins, per-ticket visual progress timeline, circular UHS gauge instead of a bare number.
 - [ ] **Real heatmap layer** — integrate Leaflet.heat (or equivalent) on the Public Map / Incident
@@ -240,16 +243,45 @@ Carrying forward the specific, already-identified gaps from the current build:
       density.
 - [ ] **Landing page "wow" pass** — animated live-demo section, embedded hero map, count-up
       statistics — per the already-agreed reform plan.
-- [ ] **Verify and, if needed, deepen officer/dept-head/admin dashboards** — confirm these are at
+- [x] **Verify and, if needed, deepen officer/dept-head/admin dashboards** — confirm these are at
       genuine feature parity with the citizen side, not just "no longer a literal stub."
-- [ ] **Citizen-facing SLA countdown** — surface expected resolution time directly on the citizen's
+      *(Read-only audit: `docs/dashboard_gap_audit.md` lists 14 real gaps across the four
+      internal dashboards plus 4 cross-cutting ones, and proposes a 7-item priority-ordered
+      next-round plan. Officer Queue is at parity; Department Dashboard has a hard-coded
+      `OFFICER_COUNT` stub and no department-scoped filter; Department Analytics shows the
+      city's view instead of the dept's; Admin Dashboard reads like a citizen dashboard with
+      the wrong audience. Commit `a19f252`.)*
+- [x] **Citizen-facing SLA countdown** — surface expected resolution time directly on the citizen's
       own ticket view, turning an internal metric into a public accountability signal (identified
-      earlier as a strong differentiator versus existing government portals).
-- [ ] **WhatsApp status-check** — allow a citizen to text something like "status" or a ticket
+      earlier as a strong differentiator versus existing government portals). *(Backend
+      prerequisite: `system_settings` table + `tickets.expected_resolution_at` column
+      (`alembic/versions/007_sla_settings.py`); `app.services.sla.compute_expected_resolution`
+      reads the per-category map with 24h fallback; `GET /api/sla` (public) and
+      `PUT /api/sla` (staff-only, audit-logged) expose the configurable values. Frontend
+      countdown rendering is the next-round item flagged in the dashboard gap audit. Commit
+      `c63df61`. Tests: `tests/test_sla.py` — 12 tests.)*
+- [x] **WhatsApp status-check** — allow a citizen to text something like "status" or a ticket
       reference back to the WhatsApp number and get a reply with current status, without needing to
       open the web app. Explicitly deferred from the initial WhatsApp build; revisit now.
-- [ ] **Account linking** for citizens who've used both WhatsApp and web/Google login (ties to
-      Phase 1's identity work).
+      *(`app.routers.whatsapp._classify_incoming_body` branches on the keyword (`status`,
+      `track`, `where`) or ticket-ref pattern (6-12 hex chars) before the existing
+      report-creation flow. The status branch looks up the citizen read-only (no row
+      creation) and replies with a formatted status block. The other-citizen's-ticket
+      info-leak is guarded by filtering the prefix scan to the caller's own tickets.
+      `tests/test_whatsapp_status.py` — 22 tests. Commit `42342f5`.)*
+- [x] **Account linking** for citizens who've used both WhatsApp and web/Google login (ties to
+      Phase 1's identity work). *(Resolved in Phase 1: `Citizen.merged_into_id`,
+      `auth/deps.py:_merge_citizens`, `POST /api/citizen/link-phone`, and WhatsApp
+      auto-link by email match in `whatsapp.py:48-61`. Noted here so the Phase 4 list
+      reflects the actual state.)*
+
+> Status as of 2026-09-05: **4 of 8 items closed in this round (3 backend slices + 1 audit).
+> 3 items are explicitly frontend (citizen dashboard richness, heatmap, landing page
+> "wow" pass — the last frozen by ownership); 1 item (account linking) was already
+> closed in Phase 1.** The dashboard gap audit at `docs/dashboard_gap_audit.md` is the
+> priority-ordered backlog for the next frontend round, with the SLA-countdown tile
+> flagged as the highest-impact-per-effort starting point because the backend is now
+> ready.
 
 **Done when:** every dashboard and every promised feature in the product blueprint is genuinely,
 verifiably built — not just routed.
