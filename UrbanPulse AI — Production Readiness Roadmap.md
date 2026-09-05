@@ -115,20 +115,32 @@ placeholder logic standing in for a real column or table.
 
 ## Phase 2 — Reliability & Infrastructure
 
-- [ ] **Move AI pipeline execution off the request thread.** Both the SSE path and the new
+- [x] **Move AI pipeline execution off the request thread.** Both the SSE path and the new
       synchronous WhatsApp path currently run the LangGraph pipeline inline. At production volume,
       long-running Gemini calls blocking a web worker will not scale — introduce a real background
       task queue (Celery, RQ, or FastAPI's `BackgroundTasks` at minimum as a stopgap) so ticket
       ingestion returns immediately and processing happens asynchronously, with status polled or
-      pushed via SSE/websocket separately. *(Deferred — see `backend/requirements.txt` notes. Needs
-      its own planning round; choosing between `BackgroundTasks` (in-process, loses work on
-      restart), Celery (worker overhead), and ARQ (Redis-backed, fits existing infra) is a
-      separate decision.)*
-- [ ] **File storage — move off local disk.** Uploaded photos/voice notes currently live in local
+      pushed via SSE/websocket separately. *(ARQ (Redis-backed) chosen — piggybacks on the same
+      `REDIS_URL` the rate-limiter reads. `backend/app/queue.py` exposes `enqueue_triage` (request
+      side; swallows all errors so Redis outage never 5xx's the request) and `triage_ticket`
+      (worker job; idempotent, raises `arq.worker.Retry` on transient errors). New
+      `processing_state` column (`pending` | `processing` | `completed` | `failed`) on `tickets`
+      with alembic migration `006_processing_state.py`. SSE handler now replays persisted
+      `agent_logs` for completed/failed tickets instead of re-running Gemini. WhatsApp webhook
+      no longer blocks on the pipeline. Worker + redis compose services are opt-in via
+      `profiles: ["redis"]` so dev environments without Redis don't crash-loop. Verified by
+      `tests/test_queue_dispatch.py` (9 tests). Commit `d80f9e5`.)*
+- [x] **File storage — move off local disk.** Uploaded photos/voice notes currently live in local
       backend storage. This does not survive container restarts and does not work across multiple
       backend instances. Move to Supabase Storage (you already depend on Supabase) or S3-compatible
-      object storage. *(Deferred — needs Supabase bucket + signed-URL work + frontend URL
-      migration; not a single-commit lift.)*
+      object storage. *(`backend/app/services/storage.py` exposes a `Storage` base + `LocalStorage`
+      (dev fallback) + `SupabaseStorage` (private bucket, 1 h signed URLs via service-role key).
+      Factory `get_storage()` selects Supabase when `SUPABASE_STORAGE_BUCKET` is set, else
+      LocalStorage. Upload endpoint streams to memory, validates magic bytes, writes via
+      `storage.save_bytes(...)`; Twilio rehost goes through the same path. `serialize_ticket`
+      rewrites stored keys to fresh signed URLs on every read. Legacy absolute URLs (pre-Phase-2.2
+      rows) are detected by `://` and passed through unchanged for forward compatibility.
+      `tests/test_storage.py` (6 tests). Commit `41c573b`.)*
 - [x] **Database connection pooling audit** — confirm you're using the Session Pooler (not direct
       connection) in production, and that pool size is tuned for expected concurrent load, not left
       at defaults. *(`docker-compose.yml` mounts `uploads_data` as a named volume and enables IPv6
@@ -151,10 +163,17 @@ placeholder logic standing in for a real column or table.
       database, API keys, and Twilio number. Right now there's effectively one environment.
       *(`ENV=staging` now in `PROD_LIKE_ENVS` and inherits all safety checks; `.env.example`
       documents the value. Commit `aaedddc`.)*
-- [ ] **Database backup strategy** — automated backups with tested restore procedure, not just
+- [x] **Database backup strategy** — automated backups with tested restore procedure, not just
       relying on Supabase's default retention without verifying it meets your actual RPO/RTO needs.
-      *(Deferred — needs the deployment target (Phase 7) chosen first to know where to land the
-      backups.)*
+      *(`scripts/backup_db.sh` + `.ps1` Windows twin run `pg_dump --format=custom` inside the
+      `postgis/postgis:16-3.4` Docker image with `--network host` so the in-container `pg_dump`
+      can reach an external Supabase. `scripts/restore_db.sh` with a safety guard — refuses to
+      run if the target `DATABASE_URL` matches the live `.env` one unless `--force-restore-into-live`
+      is passed. `scripts/backup-restore-test.sh` runs the full round-trip on a throwaway
+      container (alembic upgrade → seed → `pg_dump` → drop → `pg_restore` → row-count assertion
+      on `tickets`, `officers`, `departments`, `citizens`, `notifications`, `alembic_version`).
+      `backend/alembic/BACKUP_RUNBOOK.md` documents RPO 24 h / RTO 1 h, daily 03:00 UTC cron line,
+      and Supabase PITR (7-day, Pro tier) as second line of defence. Commit `dfe5025`.)*
 - [x] **Zero-downtime migration strategy** — Alembic migrations need a plan for how they run against
       a live production database without taking the app offline (this matters more as the schema
       keeps evolving, as it has been recently). *(`backend/alembic/MIGRATION_RUNBOOK.md` documents
@@ -167,6 +186,12 @@ placeholder logic standing in for a real column or table.
 
 **Done when:** the backend can be killed and restarted, or run as multiple instances behind a load
 balancer, without losing in-flight work, uploaded files, or retry state.
+
+> Status as of 2026-09-05: **met.** In-flight work survives restart (ARQ queue is Redis-backed,
+> not `BackgroundTasks`); uploaded files survive container rebuilds and span instances
+> (Supabase Storage with 1 h signed URLs); retry state is durable (arq handles re-delivery,
+> `processing_state='failed'` is sticky for inspection). Multi-instance load test itself is
+> Phase 5 work — the prerequisites 2.1/2.2/2.3 were the Phase 2 deliverables.
 
 ---
 
