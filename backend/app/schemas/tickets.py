@@ -33,6 +33,9 @@ class TicketOut(BaseModel):
     # Phase 2.1: ARQ-driven pipeline state. One of
     # 'pending' | 'processing' | 'completed' | 'failed'.
     processing_state: str = "pending"
+    # Phase 4: ISO8601 timestamp the citizen UI renders as a
+    # countdown. Nullable for pre-migration rows.
+    expected_resolution_at: Optional[str] = None
 
 
 class PublicTicketOut(BaseModel):

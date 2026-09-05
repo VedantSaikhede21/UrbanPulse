@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -10,6 +11,7 @@ from app.agents import graph as agent_graph
 from app.config import settings
 from app.db.models import Citizen, Ticket
 from app.services import audit
+from app.services.sla import compute_expected_resolution
 from app.services.storage import get_storage
 
 logger = structlog.get_logger(__name__)
@@ -82,6 +84,14 @@ def serialize_ticket(t: Ticket) -> dict:
         # worker has the ticket, and to swap to "reasoning
         # available" once state moves to 'completed'.
         "processing_state": getattr(t, "processing_state", "pending") or "pending",
+        # Phase 4: SLA countdown. The citizen UI renders
+        # "expected resolution by <this timestamp>" on the
+        # ReportDetail page. Nullable for pre-migration rows.
+        "expected_resolution_at": (
+            t.expected_resolution_at.isoformat()
+            if getattr(t, "expected_resolution_at", None)
+            else None
+        ),
     }
 
 
@@ -177,6 +187,13 @@ def create_ticket(db: Session, role: str, user_id: str, body, background=None) -
         status=body.status,
         priority_score=body.priority_score,
         priority_reason=body.priority_reason,
+        # Phase 4: SLA countdown. Computed from the
+        # configurable system_settings.sla_minutes_by_category
+        # map; falls back to 24h if the row is missing or the
+        # category isn't in the map. Never raises (see sla.py).
+        expected_resolution_at=compute_expected_resolution(
+            body.category, datetime.now(timezone.utc), db
+        ),
     )
     db.add(ticket)
     db.commit()

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Integer, Boolean, Numeric, ForeignKey, Text, DateTime, JSON, Float
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from geoalchemy2 import Geometry
@@ -121,6 +121,12 @@ class Ticket(Base):
     # pipeline live (pending/processing) and replaying the persisted
     # agent_logs (completed/failed).
     processing_state = Column(String(20), default="pending", nullable=False)
+    # Phase 4: SLA countdown. Set by the ticket-create path from
+    # the configurable system_settings.sla_minutes_by_category map.
+    # Nullable for backward-compat with pre-migration rows (the
+    # backfill in 007_sla_settings.py sets it to created_at + 24h
+    # for any row that existed at migration time).
+    expected_resolution_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -183,3 +189,26 @@ class Notification(Base):
     message = Column(Text, nullable=False)
     read = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class SystemSetting(Base):
+    """Runtime-tunable system configuration as a generic key/value store.
+
+    Holds settings that need to be readable by the public API (e.g.
+    the per-category SLA map shown on the citizen report form) and
+    writable by staff (super_admin / admin / dept_head) without a
+    code deploy. Today the only row is
+    `sla_minutes_by_category`; the JSONB value column is shaped to
+    match the public API contract.
+
+    The single-row pattern (one key, JSON value) is intentional:
+    we don't want a config table that grows unbounded. New tunable
+    knobs get a new key with its own JSON schema. Reads use a
+    tiny in-process lru_cache (60s) — the SLA value is hot path on
+    ticket creation and a per-request DB hit is wasteful.
+    """
+    __tablename__ = "system_settings"
+
+    key = Column(Text, primary_key=True, nullable=False)
+    value = Column(JSONB, nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

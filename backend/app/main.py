@@ -707,3 +707,66 @@ def list_audit(
     if current_user.role not in ("admin", "super_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
     return audit.list_audit(db, limit)
+
+
+# ── SLA configuration (Phase 4) ──────────────────────────────
+# The citizen UI reads the per-category SLA map to render the
+# "expected resolution by …" countdown on the ReportDetail page
+# AND to show the promise on the report form before the citizen
+# files. The PUT endpoint lets staff tune the values without a
+# code deploy. The change is recorded in the audit log so a
+# future review can answer "when did we promise 24h resolution
+# for potholes?".
+
+from app.schemas.sla import SLAResponse, SLAUpdateRequest
+from app.services import sla as sla_service
+
+
+@app.get("/api/sla", response_model=SLAResponse)
+def get_sla(db: Session = Depends(get_db)):
+    """Public — no auth. The map is non-sensitive; showing the
+    promise publicly is the whole point of the feature.
+
+    Returns the current per-category SLA minutes map plus the
+    fallback used for categories the operator hasn't configured.
+    """
+    return SLAResponse(
+        minutes_by_category=sla_service.get_sla_map(db),
+        default_minutes=sla_service.DEFAULT_SLA_MINUTES,
+    )
+
+
+@app.put("/api/sla", response_model=SLAResponse)
+def update_sla(
+    body: SLAUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Staff-only. Updates the per-category SLA map.
+
+    Reuses the same `STAFF_ROLES` guard as the other privileged
+    endpoints (Phase 0 commitment: server-side RBAC is the only
+    access control — frontend hidden-nav is a UX hint, not a
+    gate). The audit log entry records the before/after so the
+    change is reviewable.
+    """
+    if current_user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Staff access required")
+    previous_map = sla_service.get_sla_map(db)
+    updated_map = sla_service.upsert_sla_map(db, body.minutes_by_category)
+    audit.record_audit(
+        db,
+        user_id=current_user.id,
+        action="sla.update",
+        target_table="system_settings",
+        record_id=sla_service.SLA_KEY,
+        details={
+            "from": previous_map,
+            "to": updated_map,
+            "actor_role": current_user.role,
+        },
+    )
+    return SLAResponse(
+        minutes_by_category=updated_map,
+        default_minutes=sla_service.DEFAULT_SLA_MINUTES,
+    )
