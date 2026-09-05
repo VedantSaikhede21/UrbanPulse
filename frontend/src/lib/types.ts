@@ -25,6 +25,10 @@ export interface Ticket {
   // key, or all AI calls failed). Frontend surfaces a banner so the
   // user knows the categorization is heuristic, not LLM-driven.
   ai_degraded?: boolean;
+  // ISO 8601 deadline derived from per-category SLA at creation time.
+  // Surfaced on internal dashboards so officers can prioritise tickets
+  // approaching breach. Nullable for legacy rows pre-Phase-4 SLA work.
+  expected_resolution_at?: string | null;
 }
 
 export interface Ward {

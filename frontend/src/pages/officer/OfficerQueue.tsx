@@ -12,6 +12,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useToast } from '../../components/ui/Toast';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
+import { SlaCountdown } from '../../components/ui/SlaCountdown';
 import type { Ticket } from '../../lib/types';
 
 
@@ -240,6 +241,10 @@ export const OfficerQueue: React.FC = () => {
                     <span className="flex items-center gap-1">
                       <Calendar size={12} /> {new Date(ticket.created_at).toLocaleDateString()}
                     </span>
+                    <SlaCountdown
+                      expectedResolutionAt={ticket.expected_resolution_at}
+                      status={ticket.status}
+                    />
                   </div>
                 </div>
 

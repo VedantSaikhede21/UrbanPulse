@@ -8,6 +8,7 @@ import { MetricCard } from '../../components/ui/Card';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
+import { SlaCountdown } from '../../components/ui/SlaCountdown';
 import type { Ticket } from '../../lib/types';
 import type { Officer } from '../../lib/types';
 
@@ -144,6 +145,7 @@ export const AdminDashboard: React.FC = () => {
                       <th className="text-left px-5 py-3 font-medium">Status</th>
                       <th className="text-left px-5 py-3 font-medium">Priority</th>
                       <th className="text-left px-5 py-3 font-medium">Created</th>
+                      <th className="text-left px-5 py-3 font-medium">SLA</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -164,6 +166,12 @@ export const AdminDashboard: React.FC = () => {
                           <Badge type="priority" value={ticket.priority_score >= 3 ? 'high' : ticket.priority_score === 2 ? 'medium' : 'low'} />
                         </td>
                         <td className="px-5 py-3 text-gray-500 font-mono">{formatDate(ticket.created_at)}</td>
+                        <td className="px-5 py-3">
+                          <SlaCountdown
+                            expectedResolutionAt={ticket.expected_resolution_at}
+                            status={ticket.status}
+                          />
+                        </td>
                       </motion.tr>
                     ))}
                   </tbody>

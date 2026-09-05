@@ -54,6 +54,9 @@ export type { MapPickerProps } from './MapPicker';
 export { Skeleton, SkeletonText, SkeletonCard, SkeletonAvatar } from './Skeleton';
 export type { SkeletonProps } from './Skeleton';
 
+export { SlaCountdown } from './SlaCountdown';
+export type { SlaCountdownProps, SlaTone } from './SlaCountdown';
+
 export { StepIndicator } from './StepIndicator';
 
 export { ToastProvider, useToast } from './Toast';

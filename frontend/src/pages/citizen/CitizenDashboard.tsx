@@ -8,6 +8,7 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
+import { SlaCountdown } from '../../components/ui/SlaCountdown';
 import type { Ticket } from '../../lib/types';
 
 
@@ -194,9 +195,15 @@ export const CitizenDashboard: React.FC = () => {
                     <MapPin size={12} />
                     <span>{ticket.latitude.toFixed(4)}, {ticket.longitude.toFixed(4)}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar size={12} />
-                    <span>{ticket.created_at ? timeAgo(ticket.created_at) : 'Today'}</span>
+                  <div className="flex items-center gap-3">
+                    <SlaCountdown
+                      expectedResolutionAt={ticket.expected_resolution_at}
+                      status={ticket.status}
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={12} />
+                      <span>{ticket.created_at ? timeAgo(ticket.created_at) : 'Today'}</span>
+                    </div>
                   </div>
                 </div>
               </Link>

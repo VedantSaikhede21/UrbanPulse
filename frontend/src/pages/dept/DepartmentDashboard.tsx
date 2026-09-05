@@ -8,6 +8,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
+import { SlaCountdown } from '../../components/ui/SlaCountdown';
 import type { Ticket } from '../../lib/types';
 
 
@@ -163,6 +164,10 @@ export const DepartmentDashboard: React.FC = () => {
                     <span className="text-xs text-gray-600 flex items-center gap-1 mt-1">
                       <Calendar size={10} /> {new Date(t.created_at).toLocaleDateString()}
                     </span>
+                    <SlaCountdown
+                      expectedResolutionAt={t.expected_resolution_at}
+                      status={t.status}
+                    />
                   </div>
                   <div className="shrink-0 ml-3">
                     <Badge type="priority" value={priorityBadgeValue(t.priority_score)} />
