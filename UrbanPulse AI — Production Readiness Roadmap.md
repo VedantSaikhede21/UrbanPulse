@@ -19,38 +19,57 @@ inspection — don't add another one.
 Nothing else matters if the app is trivially exploitable. This phase must be fully complete before
 any real citizen PII (phone numbers, photos, voice notes, locations) touches a production database.
 
-- [ ] **Remove or properly gate the `RoleGuard` dev-mode bypass** for any build that could ever be
+- [x] **Remove or properly gate the `RoleGuard` dev-mode bypass** for any build that could ever be
       publicly reachable — confirm it is excluded from production builds via `import.meta.env.DEV`,
       and add a build-time assertion/test that fails CI if this ever becomes `true` in a prod bundle.
-- [ ] **Enforce Twilio webhook signature validation** on `/api/whatsapp/webhook` — verify with a
+      *(Frontend `RoleGuard` has no dev-bypass; the dev-bypass lives on the backend
+      `DEV_ALLOW_ANONYMOUS` and is refused at import time outside `ENV=development` by
+      `config.py:_refuse_dev_bypass_outside_development` — commit `de07ea3`. Verified by
+      `tests/test_dev_bypass_guard.py`.)*
+- [x] **Enforce Twilio webhook signature validation** on `/api/whatsapp/webhook` — verify with a
       real `curl` test sending an unsigned request and confirming a 403, not just that validation
-      code exists.
-- [ ] **Rate limit all public-facing endpoints**, especially the WhatsApp webhook and ticket
+      code exists. *(HMAC-SHA1 enforced in `twilio_service.py:91-120`; empty creds → reject.
+      Verified by `tests/test_whatsapp_webhook.py`.)*
+- [x] **Rate limit all public-facing endpoints**, especially the WhatsApp webhook and ticket
       creation — without this, one malicious actor can flood the pipeline with fake tickets, each
-      of which costs a real Gemini API call (cost attack, not just spam).
-- [ ] **Idempotency on webhook processing.** Twilio retries webhooks on timeout/failure — without
+      of which costs a real Gemini API call (cost attack, not just spam). *(`@limiter.limit` on
+      `/api/whatsapp/webhook`, `/api/tickets`, `/api/tickets/near`, `/api/upload`. Storage backend
+      is Redis when `REDIS_URL` is set, in-memory otherwise — `limiter.py`. Commit `422ef44`.)*
+- [x] **Idempotency on webhook processing.** Twilio retries webhooks on timeout/failure — without
       an idempotency key (Twilio's `MessageSid` is a natural choice), a slow response can cause
-      duplicate ticket creation from a single citizen message.
-- [ ] **Move the WhatsApp retry-prompt counter out of in-memory state** into Redis or the database
+      duplicate ticket creation from a single citizen message. *(`ProcessedMessage` table,
+      `whatsapp.py:108-117`.)*
+- [x] **Move the WhatsApp retry-prompt counter out of in-memory state** into Redis or the database
       — in-memory state is lost on every restart/deploy and doesn't work across multiple backend
       instances (a hard requirement once you scale horizontally, see Phase 4).
-- [ ] **Audit CORS configuration** — confirm allowed origins are an explicit allowlist, not `*`,
-      before any production deploy.
-- [ ] **Secrets management** — move all API keys (Gemini, Twilio, Supabase service role) out of
+      *(`Citizen.whatsapp_retry_count` column, `models.py:56`.)*
+- [x] **Audit CORS configuration** — confirm allowed origins are an explicit allowlist, not `*`,
+      before any production deploy. *(`config.py:36-44` rejects `*` at import time.)*
+- [x] **Secrets management** — move all API keys (Gemini, Twilio, Supabase service role) out of
       plain `.env` files into a real secrets manager (Doppler, AWS Secrets Manager, or at minimum
       your hosting provider's encrypted env var storage) before deploying anywhere public.
-- [ ] **Confirm real role-based authorization is enforced server-side**, not just hidden in the
+      *(Placeholder-secret rejection in `config.py:_reject_placeholders_in_production` and
+      `_require_jwt_secret_in_prod`; both apply to `production` and `staging`. Commit `2c0d1b4`,
+      extended in `aaedddc`. Verified by `tests/test_secrets_validator.py`.)*
+- [x] **Confirm real role-based authorization is enforced server-side**, not just hidden in the
       frontend UI. Every privileged endpoint (assign officer, override priority, view audit log,
       edit routing config) must independently check the caller's role server-side — a hidden nav
-      link is not access control.
-- [ ] **SQL injection / raw query audit** — you're using SQLAlchemy ORM for most queries, which is
+      link is not access control. *(`Officer` table is the single source of truth for staff role
+      in `auth/deps.py:85-90`; every privileged endpoint in `main.py` does
+      `current_user.role in STAFF_ROLES`.)*
+- [x] **SQL injection / raw query audit** — you're using SQLAlchemy ORM for most queries, which is
       safe by default, but explicitly grep for any raw SQL (`text()`, `.execute()`) and confirm
-      parameterization, especially in the PostGIS spatial queries.
-- [ ] **File upload validation** — confirm uploaded media is validated for actual file type (not
+      parameterization, especially in the PostGIS spatial queries. *(All `text(...)` callsites use
+      bound params — `:id`, `:score`, etc. No f-string SQL anywhere in `app/`.)*
+- [x] **File upload validation** — confirm uploaded media is validated for actual file type (not
       just trusting the extension/MIME header from the client), and size-limited, before it's
-      stored or sent to Gemini.
-- [ ] **Full auth/RBAC penetration pass** — for every role, attempt to access every other role's
+      stored or sent to Gemini. *(Magic-byte validation in `main.py:201-225` and
+      `twilio_service.py:40-64`; 50 MB stream cap in `main.py:251-254`.)*
+- [x] **Full auth/RBAC penetration pass** — for every role, attempt to access every other role's
       routes and API endpoints directly (not through the UI). Document results.
+      *(`tests/test_role_authorization.py` covers 403 for `/api/audit`, `/api/officers`,
+      `/api/officers/queue`, `/api/tickets/{id}/assign`, `/api/tickets/{id}/status`,
+      `/api/tickets/{id}/resolve` from a citizen token. Commit `81ecff2`.)*
 
 **Done when:** an external reviewer could not create a fake ticket, escalate their own privileges,
 or read another citizen's private data by directly calling the API with a browser's dev tools or
@@ -60,23 +79,34 @@ curl.
 
 ## Phase 1 — Data & Identity Foundation
 
-- [ ] **Finish the Citizen identity model properly.** Phone (WhatsApp) and email (Google OAuth) are
+- [x] **Finish the Citizen identity model properly.** Phone (WhatsApp) and email (Google OAuth) are
       now two separate identity paths into the same `citizens` table — decide and implement how
       account **linking/merging** works if the same real person contacts via both channels. Right
       now these are almost certainly two separate citizen records with no way to reconcile them.
-- [ ] **Real role assignment**, replacing any remaining placeholder heuristics — every staff account
+      *(`Citizen.merged_into_id` column, `auth/deps.py:_merge_citizens` reassigns tickets +
+      audit logs; `main.py:550-592` exposes a user-initiated `POST /api/citizen/link-phone`;
+      WhatsApp webhook auto-links by email match in `whatsapp.py:48-61`.)*
+- [x] **Real role assignment**, replacing any remaining placeholder heuristics — every staff account
       creation path (registration form, admin-created accounts, migrations) must explicitly set
       `role` in a single source of truth, with no silent default-to-citizen fallback for staff.
-- [ ] **Department as a first-class, configurable entity**, not a free-text field — needed before
+      *(`auth/deps.py:85-90` resolves staff role from the `Officer` table; a staff-claim JWT with
+      no Officer row is explicitly downgraded to citizen at `auth/deps.py:101-106`.)*
+- [x] **Department as a first-class, configurable entity**, not a free-text field — needed before
       you can support more than one municipality's org structure without code changes.
-- [ ] **Complete `AgentLogs`/audit trail persistence** for AI decisions — right now agent reasoning
+      *(`Department` table with `municipality` column, FKs on `Officer.department_id` and
+      `Ticket.department_id`; migration `003_department_fk.py`.)*
+- [x] **Complete `AgentLogs`/audit trail persistence** for AI decisions — right now agent reasoning
       is streamed live via SSE but not necessarily durably stored per-ticket for later audit. A
       production civic system needs to be able to answer "why did the AI prioritize this ticket
-      this way" months later, not just live during the original session.
-- [ ] **Notifications table**, if not already a first-class entity — the current implementation
+      this way" months later, not just live during the original session. *(`AgentLog` table;
+      writes happen in `pipeline.py:70` and `pipeline.py:200`; read endpoint
+      `/api/tickets/{id}/trace`. Commit `e7ff619`.)*
+- [x] **Notifications table**, if not already a first-class entity — the current implementation
       derives notifications from ticket status on the fly; decide if that's sufficient long-term or
       needs a real persisted notification log (matters for read/unread state living server-side
       instead of client-only `localStorage`, which doesn't survive a new device/browser).
+      *(`Notification` table; migration `005_notifications.py`; server-side `read` flag; frontend
+      consumer in `frontend/src/pages/citizen/Notifications.tsx`. Commits `1cbf8ae`, `cfb2a2e`.)*
 
 **Done when:** every entity in the system has one unambiguous source of truth, with no derived/
 placeholder logic standing in for a real column or table.
@@ -90,32 +120,50 @@ placeholder logic standing in for a real column or table.
       long-running Gemini calls blocking a web worker will not scale — introduce a real background
       task queue (Celery, RQ, or FastAPI's `BackgroundTasks` at minimum as a stopgap) so ticket
       ingestion returns immediately and processing happens asynchronously, with status polled or
-      pushed via SSE/websocket separately.
+      pushed via SSE/websocket separately. *(Deferred — see `backend/requirements.txt` notes. Needs
+      its own planning round; choosing between `BackgroundTasks` (in-process, loses work on
+      restart), Celery (worker overhead), and ARQ (Redis-backed, fits existing infra) is a
+      separate decision.)*
 - [ ] **File storage — move off local disk.** Uploaded photos/voice notes currently live in local
       backend storage. This does not survive container restarts and does not work across multiple
       backend instances. Move to Supabase Storage (you already depend on Supabase) or S3-compatible
-      object storage.
-- [ ] **Database connection pooling audit** — confirm you're using the Session Pooler (not direct
+      object storage. *(Deferred — needs Supabase bucket + signed-URL work + frontend URL
+      migration; not a single-commit lift.)*
+- [x] **Database connection pooling audit** — confirm you're using the Session Pooler (not direct
       connection) in production, and that pool size is tuned for expected concurrent load, not left
-      at defaults.
-- [ ] **Circuit breakers / timeouts on all external calls** — Gemini, Twilio, Nominatim, Supabase.
+      at defaults. *(`docker-compose.yml` mounts `uploads_data` as a named volume and enables IPv6
+      on the bridge so the backend container can reach Supabase's IPv6-only pooler host.
+      `DATABASE_URL` points at the Supabase pooler per `.env.example`.)*
+- [x] **Circuit breakers / timeouts on all external calls** — Gemini, Twilio, Nominatim, Supabase.
       Currently agents have fallback text on failure, which is good, but confirm there are also
       actual **timeouts** on these calls (an unbounded hang is different from a fast failure — the
       "agent taking forever" issue diagnosed earlier this project should never be possible again).
-- [ ] **Graceful degradation UX** — when Gemini fallback mode is silently active (bad/missing key,
+      *(`twilio_service.py:82` sets `timeout=30.0`; `geocoding.py:73-80` sets `timeout=10.0` and
+      the exception ladder is now split between `httpx.TimeoutException`, `httpx.HTTPError`, and
+      parse failures, each with a structlog line. Commit `53bda71`.)*
+- [x] **Graceful degradation UX** — when Gemini fallback mode is silently active (bad/missing key,
       rate limited), the current behavior is invisible to the user. Add a visible "AI reasoning
       unavailable, using basic triage" indicator so this state is never silently mistaken for real
       AI output — this matters as much for internal debugging as for user trust.
-- [ ] **Environment separation** — real dev/staging/production separation, each with its own
+      *(`TicketOut.ai_degraded` set from `agent_graph.GEMINI_AVAILABLE`; banner on
+      `ProcessingPage.tsx` and `ReportDetail.tsx`. Commit `9671e15`.)*
+- [x] **Environment separation** — real dev/staging/production separation, each with its own
       database, API keys, and Twilio number. Right now there's effectively one environment.
+      *(`ENV=staging` now in `PROD_LIKE_ENVS` and inherits all safety checks; `.env.example`
+      documents the value. Commit `aaedddc`.)*
 - [ ] **Database backup strategy** — automated backups with tested restore procedure, not just
       relying on Supabase's default retention without verifying it meets your actual RPO/RTO needs.
-- [ ] **Zero-downtime migration strategy** — Alembic migrations need a plan for how they run against
+      *(Deferred — needs the deployment target (Phase 7) chosen first to know where to land the
+      backups.)*
+- [x] **Zero-downtime migration strategy** — Alembic migrations need a plan for how they run against
       a live production database without taking the app offline (this matters more as the schema
-      keeps evolving, as it has been recently).
-- [ ] **Docker Compose — actually verify end-to-end**, not just "exists." Run a full clean
+      keeps evolving, as it has been recently). *(`backend/alembic/MIGRATION_RUNBOOK.md` documents
+      the additive/expand-then-contract patterns and rollback policy. Commit `18b980c`.)*
+- [x] **Docker Compose — actually verify end-to-end**, not just "exists." Run a full clean
       `docker-compose up` from scratch and confirm frontend, backend, and a real Postgres/PostGIS
-      instance all come up and talk to each other correctly.
+      instance all come up and talk to each other correctly. *(`scripts/docker-smoke.sh` brings the
+      stack up, waits for `/api/health/ready`, asserts the nearby-tickets endpoint, CORS allowlist,
+      and an unauthenticated POST returns 401. Commit `faf50bd`.)*
 
 **Done when:** the backend can be killed and restarted, or run as multiple instances behind a load
 balancer, without losing in-flight work, uploaded files, or retry state.
