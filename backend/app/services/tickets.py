@@ -74,6 +74,11 @@ def serialize_ticket(t: Ticket) -> dict:
         # real Gemini call (no key, or import failed). Frontend surfaces
         # this as a "AI reasoning unavailable, using basic triage" banner.
         "ai_degraded": not getattr(agent_graph, "GEMINI_AVAILABLE", False),
+        # Phase 2.1: ARQ pipeline state. The frontend can use this
+        # to keep the "AI thinking..." animation up while the
+        # worker has the ticket, and to swap to "reasoning
+        # available" once state moves to 'completed'.
+        "processing_state": getattr(t, "processing_state", "pending") or "pending",
     }
 
 
@@ -139,7 +144,7 @@ def get_ticket(db: Session, ticket_id: str, role: str, user_id: str) -> dict:
     return serialize_ticket(ticket)
 
 
-def create_ticket(db: Session, role: str, user_id: str, body) -> dict:
+def create_ticket(db: Session, role: str, user_id: str, body, background=None) -> dict:
     citizen_id = None
     if role == "citizen" and user_id != "00000000-0000-0000-0000-000000000000":
         # Defense in depth: get_current_user already rejects non-UUID subs,
@@ -186,7 +191,36 @@ def create_ticket(db: Session, role: str, user_id: str, body) -> dict:
             "citizen_id": str(citizen_id) if citizen_id else None,
         },
     )
+
+    # Phase 2.1: hand the AI pipeline off to the ARQ worker. The
+    # caller passes a FastAPI BackgroundTasks instance; the
+    # enqueue runs after the response is sent. This keeps the
+    # request thread free of pipeline work AND handles the
+    # event-loop question cleanly (BackgroundTasks supports
+    # async functions natively).
+    if background is not None:
+        background.add_task(_enqueue_triage_async, str(ticket.id))
+
     return serialize_ticket(ticket)
+
+
+async def _enqueue_triage_async(ticket_id: str) -> None:
+    """Background-task wrapper around queue.enqueue_triage.
+
+    Swallows all exceptions: a missing or unreachable Redis is
+    logged, the ticket stays in processing_state='pending', and
+    the operator can re-enqueue via the SSE endpoint or a future
+    maintenance job. The user request must never 5xx because
+    the worker is down.
+    """
+    from app.queue import enqueue_triage
+    try:
+        await enqueue_triage(ticket_id)
+    except Exception as e:  # pragma: no cover (defensive)
+        import logging
+        logging.getLogger(__name__).warning(
+            "enqueue_triage_async_failed ticket_id=%s err=%s", ticket_id, e
+        )
 
 
 def update_ticket_status(db: Session, ticket_id: str, status: str, role: str, user_id: str) -> dict:

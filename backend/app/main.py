@@ -4,7 +4,7 @@ import os
 import uuid
 from typing import Optional, List
 
-from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File, Request, Query
+from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File, Request, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -393,10 +393,11 @@ def get_ticket_trace(
 def create_ticket(
     request: Request,
     body: CreateTicketRequest,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user),
 ):
-    return tickets.create_ticket(db, current_user.role, current_user.id, body)
+    return tickets.create_ticket(db, current_user.role, current_user.id, body, background=background)
 
 
 # ── Officer endpoints ────────────────────────────────────
@@ -514,9 +515,6 @@ async def process_ticket_sse(
     db: Session = Depends(get_db),
     current_user: Optional[AuthUser] = Depends(get_optional_user),
 ):
-    if runtime.triage_graph is None:
-        raise HTTPException(status_code=503, detail="Agent graphs not loaded")
-
     try:
         uuid.UUID(ticket_id)
     except (ValueError, TypeError):
@@ -535,9 +533,56 @@ async def process_ticket_sse(
         if ticket.citizen_id is None or str(ticket.citizen_id) != current_user.id:
             raise HTTPException(status_code=404, detail="Ticket not found")
 
+    # Phase 2.1: SSE is now a *replay* channel, not a runner.
+    # If the pipeline has already run (completed / failed), we
+    # stream the persisted agent_logs back. We do NOT re-run
+    # the graph — that would defeat the point of the worker.
+    # If the pipeline is still pending / processing, we enqueue
+    # and stream a small "still working" event so the client
+    # knows the worker has the ticket; the worker doesn't
+    # push to the SSE channel (no broker between worker and
+    # HTTP), so the client polls /api/tickets/{id} until
+    # processing_state moves to 'completed' and re-opens the
+    # SSE stream if it wants the trace replay.
     async def event_stream():
-        async for event in pipeline.stream_triage_events(ticket, runtime.triage_graph, runtime.TicketState, db):
-            yield f"data: {_json.dumps(event)}\n\n"
+        if ticket.processing_state in ("completed", "failed"):
+            entries = agent_logs.list_trace(db, ticket_id)
+            for entry in entries:
+                yield f"data: {_json.dumps({
+                    'agent': entry.get('agent'),
+                    'action': entry.get('action'),
+                    'reasoning': entry.get('reasoning'),
+                    'node': entry.get('node'),
+                    'status': 'done',
+                })}\n\n"
+            yield f"data: {_json.dumps({
+                'agent': 'Pipeline',
+                'action': 'Complete',
+                'node': 'END',
+                'status': 'done',
+                'result': {
+                    'category': ticket.category,
+                    'severity': ticket.severity,
+                    'priority_score': ticket.priority_score,
+                    'status': ticket.status,
+                },
+            })}\n\n"
+            return
+
+        # pending or processing — make sure the worker has it.
+        if ticket.processing_state == "pending":
+            try:
+                from app.queue import enqueue_triage
+                await enqueue_triage(str(ticket.id))
+            except Exception:
+                pass
+
+        yield f"data: {_json.dumps({
+            'agent': 'Pipeline',
+            'action': 'Queued — the AI worker will process this ticket shortly.',
+            'node': 'WAIT',
+            'status': 'running',
+        })}\n\n"
 
     return StreamingResponse(
         event_stream(),

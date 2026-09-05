@@ -16,8 +16,8 @@ import structlog
 from app.config import settings
 from app.db.session import get_db
 from app.db.models import Citizen, Ticket, ProcessedMessage
-from app.services import audit, twilio_service, geocoding_service, run_triage_sync
-from app.agents import runtime
+from app.services import audit, twilio_service, geocoding_service
+from app.queue import enqueue_triage
 from app.limiter import limiter
 
 router = APIRouter(prefix="/api/whatsapp", tags=["whatsapp"])
@@ -238,36 +238,38 @@ async def whatsapp_webhook(
         },
     )
 
-    # Run triage pipeline synchronously
+    # Phase 2.1: hand the AI pipeline to the ARQ worker. The
+    # webhook returns immediately after the enqueue; the worker
+    # updates category, severity, priority, and assignment in
+    # the background. The confirmation reply is the same shape
+    # it was before (the user gets a reference + "officer will
+    # be assigned shortly" message), so the UX is unchanged.
+    # Enqueue failure is non-fatal: the ticket stays
+    # processing_state='pending' and the operator can re-enqueue
+    # via the SSE endpoint.
+    enqueued = False
     try:
-        if runtime.triage_graph is not None and runtime.TicketState is not None:
-            result = run_triage_sync(
-                ticket, runtime.triage_graph, runtime.TicketState, db
-            )
-        else:
-            result = {"success": False, "error": "Pipeline not available"}
+        enqueued = await enqueue_triage(str(ticket.id))
     except Exception as e:
-        # Pipeline crashed unexpectedly - log and use fallback
-        logger.error("pipeline_error", error=str(e))
-        result = {"success": False, "error": str(e)}
+        # Defensive: enqueue_triage is supposed to swallow its
+        # own errors, but a bug there must never 500 the
+        # Twilio webhook.
+        logger.error("whatsapp_enqueue_failed", ticket_id=str(ticket.id), error=str(e))
 
-    # Send confirmation reply
-    if result.get("success"):
-        category = result.get("category", "your issue")
-        priority = result.get("priority_score", 1)
-        priority_labels = {1: "Low", 2: "Medium", 3: "High"}
-        priority_label = priority_labels.get(priority, "Medium")
-        ticket_ref = str(ticket.id)[:8].upper()
-
+    # Send confirmation reply. The user-visible message does not
+    # depend on the pipeline result anymore — we no longer wait
+    # for category / priority before replying. A subsequent
+    # message or the web app will pick up the assigned officer.
+    ticket_ref = str(ticket.id)[:8].upper()
+    if enqueued:
         confirm_msg = (
             f"✅ Report received! Reference: {ticket_ref}\n"
-            f"Category: {category}\n"
-            f"Priority: {priority_label}\n"
-            f"An officer has been assigned. Track updates at UrbanPulse."
+            f"Our team will review and assign an officer shortly. "
+            f"Track updates at UrbanPulse."
         )
     else:
         confirm_msg = (
-            f"✅ Report received! Reference: {str(ticket.id)[:8].upper()}\n"
+            f"✅ Report received! Reference: {ticket_ref}\n"
             f"Our team will review and categorize this shortly."
         )
 

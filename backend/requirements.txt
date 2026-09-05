@@ -22,6 +22,12 @@ limits[redis]>=3.0
 # is used server-side only; anon key stays frontend-only.
 supabase>=2.0,<3.0
 
+# Phase 2.1: ARQ is the Redis-backed async job queue that runs
+# the AI triage graph off the request thread. It piggybacks on
+# the same REDIS_URL the rate-limiter uses, so there is one
+# infra concern, not two. arq's worker is `arq app.queue.WorkerSettings`.
+arq>=0.26,<0.27
+
 # ── POST-HACKATHON HARDENING AUDIT & CLASSIFICATION ───────────────────
 # 1. Rate Limiting:
 #    - Status: Deferred (High-Risk).

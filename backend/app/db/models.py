@@ -112,6 +112,15 @@ class Ticket(Base):
     verification_reason = Column(Text, nullable=True)
     location_source = Column(String(20), default="gps", nullable=False)  # 'gps' or 'geocoded'
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
+    # Phase 2.1: ARQ-driven pipeline status. One of:
+    #   'pending' | 'processing' | 'completed' | 'failed'.
+    # The create_ticket path sets 'pending' and enqueues an ARQ job;
+    # the worker transitions to 'processing' on pickup, then
+    # 'completed' / 'failed' on finish. The /api/tickets/{id}/process
+    # SSE endpoint reads this column to decide between running the
+    # pipeline live (pending/processing) and replaying the persisted
+    # agent_logs (completed/failed).
+    processing_state = Column(String(20), default="pending", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

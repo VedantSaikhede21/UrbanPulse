@@ -55,6 +55,40 @@ services:
       start_period: 10s
       retries: 3
 
+  # ARQ worker (Phase 2.1). Runs the AI triage graph off the
+  # web worker's request thread. Same image as the backend, but
+  # `arq` instead of `uvicorn`. The same REDIS_URL env var that
+  # the rate-limiter reads is what arq uses for the job queue —
+  # one Redis, two consumers. No port; arq has its own health
+  # ping inside the worker loop. depends_on the backend so the
+  # worker doesn't race the backend on first boot; it will retry
+  # the job if the backend hasn't loaded graphs yet (see
+  # queue.triage_ticket's RuntimeError → Retry).
+  #
+  # The worker only runs when redis is enabled (--profile redis)
+  # or when REDIS_URL points at an external Redis. Without a
+  # reachable Redis the worker would crash-loop, which is a
+  # worse failure mode than the worker simply not existing.
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: urbanpulse-worker
+    profiles: ["redis"]   # opt-in: matches the redis service profile
+    env_file:
+      - .env
+    environment:
+      - ENV=${ENV:-production}
+    command: ["arq", "app.queue.WorkerSettings"]
+    volumes:
+      - backups_data:/app/backups
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - urbanpulse-net
+    depends_on:
+      - backend
+
   # Optional: local PostGIS database for fully offline demos.
   # Enable with: docker compose --profile local-db up --build
   # Then override DATABASE_URL in .env to:
@@ -75,9 +109,28 @@ services:
     networks:
       - urbanpulse-net
 
+  # Optional: local Redis for offline demos. Phase 2.1 (ARQ
+  # worker) needs a Redis for the job queue; Phase 0's rate
+  # limiter also keys off REDIS_URL when set. Enable with
+  #   docker compose --profile redis up --build
+  # and put REDIS_URL=redis://redis:6379/0 in .env.
+  redis:
+    image: redis:7-alpine
+    profiles: ["redis"]
+    container_name: urbanpulse-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - urbanpulse-net
+
 volumes:
   uploads_data:
   db_data:
+  backups_data:
+  redis_data:
 
 networks:
   urbanpulse-net:

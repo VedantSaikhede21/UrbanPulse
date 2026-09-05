@@ -30,6 +30,9 @@ class TicketOut(BaseModel):
     # "reasoning unavailable" banner so the user knows the categorization
     # is heuristic, not LLM-driven.
     ai_degraded: bool = False
+    # Phase 2.1: ARQ-driven pipeline state. One of
+    # 'pending' | 'processing' | 'completed' | 'failed'.
+    processing_state: str = "pending"
 
 
 class PublicTicketOut(BaseModel):
