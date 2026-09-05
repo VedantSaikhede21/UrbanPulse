@@ -53,6 +53,25 @@ class Settings(BaseSettings):
             raise ValueError("SUPABASE_JWT_SECRET is required in production")
         return self
 
+    @model_validator(mode="after")
+    def _refuse_dev_bypass_outside_development(self) -> "Settings":
+        """Refuse to load if a dev-only bypass is enabled outside development.
+
+        The `DEV_ALLOW_ANONYMOUS` flag grants any unauthenticated caller
+        super_admin privileges. Leaving it on in a non-dev build turns the
+        entire API into a publicly-writable admin terminal — a worse failure
+        mode than a hard crash. Fail fast at import time so a misconfigured
+        deploy never reaches the network.
+        """
+        if self.ENV != "development" and self.DEV_ALLOW_ANONYMOUS:
+            raise ValueError(
+                "DEV_ALLOW_ANONYMOUS is set to True but ENV is "
+                f"{self.ENV!r}. The anonymous-sudo bypass must never be "
+                "enabled in staging or production. Set ENV=development or "
+                "DEV_ALLOW_ANONYMOUS=False."
+            )
+        return self
+
     @property
     def twilio_configured(self) -> bool:
         """Check if Twilio credentials are fully configured."""
