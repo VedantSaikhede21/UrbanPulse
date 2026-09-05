@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useInView, useMotionValue, animate } from 'framer-motion';
+import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import {
   ArrowRight, CheckCircle2, Activity, Camera, TrendingUp, GitBranch, Eye, Clock, Shield, FileText, ArrowDown, AlertCircle,
 } from 'lucide-react';
@@ -19,11 +20,39 @@ interface CityStats {
   mostImprovedWard: string;
 }
 
+/**
+ * Animate a numeric value from 0 to `target` when scrolled into view.
+ * Uses framer-motion's `animate()` so we don't pull in another lib.
+ */
+const CountUp: React.FC<{
+  target: number;
+  durationMs?: number;
+  className?: string;
+}> = ({ target, durationMs = 1100, className }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-30%' });
+  const value = useMotionValue(0);
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    const controls = animate(value, target, {
+      duration: durationMs / 1000,
+      ease: [0.16, 1, 0.3, 1],
+      onUpdate: v => setDisplay(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [inView, target, durationMs, value]);
+
+  return <span ref={ref} className={className}>{display.toLocaleString()}</span>;
+};
+
 export const Landing: React.FC = () => {
   useDocumentTitle('UrbanPulse AI — AI-Powered Civic Triage');
   const [stats, setStats] = useState<CityStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [mapTickets, setMapTickets] = useState<{ lat: number; lng: number; status: string }[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,35 +64,39 @@ export const Landing: React.FC = () => {
         return res.json();
       })
       .then(data => {
-        if (!cancelled) {
-          const total = data.length;
-          const resolved = data.filter((t: any) => ['resolved', 'verified'].includes(t.status)).length;
-          const resolvedPct = total > 0 ? Math.round((resolved / total) * 100) : 0;
-          setStats({
-            reportsToday: total,
-            resolved,
-            avgResponse: 'AI-powered triage',
-            avgRepair: 'Varies by dept',
-            fastestDept: 'Roads',
-            mostImprovedWard: 'Ward 12',
-          });
-          setStatsLoading(false);
-        }
+        if (cancelled) return;
+        const total = data.length;
+        const resolved = data.filter((t: any) => ['resolved', 'verified'].includes(t.status)).length;
+        const resolvedPct = total > 0 ? Math.round((resolved / total) * 100) : 0;
+        setStats({
+          reportsToday: total,
+          resolved,
+          avgResponse: 'AI-powered triage',
+          avgRepair: 'Varies by dept',
+          fastestDept: 'Roads',
+          mostImprovedWard: 'Ward 12',
+        });
+        // Map preview: cap to the 60 most-recent so the canvas doesn't churn
+        // for huge backlogs. Each entry is a [lat, lng, status] triple.
+        const recent = (data as any[])
+          .filter((t: any) => Number.isFinite(t.latitude) && Number.isFinite(t.longitude))
+          .slice(-60);
+        setMapTickets(recent.map((t: any) => ({ lat: t.latitude, lng: t.longitude, status: t.status })));
+        setStatsLoading(false);
       })
       .catch(err => {
-        if (!cancelled) {
-          setStatsError(err.message || 'Could not load live stats');
-          // Fallback to demo values with clear labeling
-          setStats({
-            reportsToday: 412,
-            resolved: 389,
-            avgResponse: 'Demo: ~2h 14m',
-            avgRepair: 'Demo: ~47m',
-            fastestDept: 'Roads',
-            mostImprovedWard: 'Ward 12',
-          });
-          setStatsLoading(false);
-        }
+        if (cancelled) return;
+        setStatsError(err.message || 'Could not load live stats');
+        // Fallback to demo values with clear labeling
+        setStats({
+          reportsToday: 412,
+          resolved: 389,
+          avgResponse: 'Demo: ~2h 14m',
+          avgRepair: 'Demo: ~47m',
+          fastestDept: 'Roads',
+          mostImprovedWard: 'Ward 12',
+        });
+        setStatsLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
@@ -139,7 +172,14 @@ export const Landing: React.FC = () => {
                     { label: 'No updates received' },
                     { time: '11 days', label: 'Still broken.' },
                   ].map((step, i) => (
-                    <div key={i} className="flex items-center gap-3">
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -6 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.4, delay: i * 0.15, ease: 'easeOut' }}
+                      className="flex items-center gap-3"
+                    >
                       <div className="w-5 h-5 rounded-full border border-border-default flex items-center justify-center shrink-0">
                         <div className="w-1.5 h-1.5 rounded-full bg-text-quaternary" />
                       </div>
@@ -149,14 +189,23 @@ export const Landing: React.FC = () => {
                         )}
                         <span className="text-xs font-mono text-text-tertiary">{step.label}</span>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
 
               {/* Right — With UrbanPulse */}
               <div className="bg-surface-card border border-brand-lime/30 rounded-xl p-6 shadow-lg shadow-brand-lime/5">
-                <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-brand-lime block mb-6">With UrbanPulse</span>
+                <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-brand-lime mb-6 flex items-center gap-2">
+                  <span>With UrbanPulse</span>
+                  <motion.span
+                    aria-hidden="true"
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                    className="inline-block w-1.5 h-1.5 rounded-full bg-brand-lime"
+                  />
+                  <span className="text-text-quaternary normal-case tracking-normal">live</span>
+                </span>
                 <div className="space-y-5">
                   {[
                     { time: '8:43 AM', label: 'Resident reports streetlight' },
@@ -166,7 +215,14 @@ export const Landing: React.FC = () => {
                     { label: 'Repair completed' },
                     { label: 'Citizen notified' },
                   ].map((step, i) => (
-                    <div key={i} className="flex items-center gap-3">
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: 6 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.4, delay: i * 0.15, ease: 'easeOut' }}
+                      className="flex items-center gap-3"
+                    >
                       <div className="w-5 h-5 rounded-full bg-brand-lime text-background flex items-center justify-center shrink-0">
                         <CheckCircle2 size={10} />
                       </div>
@@ -176,7 +232,7 @@ export const Landing: React.FC = () => {
                         )}
                         <span className="text-xs font-mono text-foreground">{step.label}</span>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
                 <div className="mt-5 pt-4 border-t border-border-default flex items-center gap-2">
@@ -329,10 +385,10 @@ export const Landing: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   {stats && [
-                    { value: stats.reportsToday, label: 'Reports today', sub: 'Across all wards' },
-                    { value: stats.resolved, label: 'Resolved', sub: stats.reportsToday > 0 ? `${Math.round((stats.resolved / stats.reportsToday) * 100)}% completion rate` : '0% completion rate' },
-                    { value: stats.avgResponse, label: 'Avg response', sub: 'From report to dispatch' },
-                    { value: stats.avgRepair, label: 'Avg repair', sub: 'From dispatch to done' },
+                    { value: stats.reportsToday, label: 'Reports today', sub: 'Across all wards', numeric: true },
+                    { value: stats.resolved, label: 'Resolved', sub: stats.reportsToday > 0 ? `${Math.round((stats.resolved / stats.reportsToday) * 100)}% completion rate` : '0% completion rate', numeric: true },
+                    { value: stats.avgResponse, label: 'Avg response', sub: 'From report to dispatch', numeric: false },
+                    { value: stats.avgRepair, label: 'Avg repair', sub: 'From dispatch to done', numeric: false },
                   ].map((stat, i) => (
                     <motion.div
                       key={stat.label}
@@ -346,7 +402,9 @@ export const Landing: React.FC = () => {
                         <Skeleton className="h-8 w-full" />
                       ) : (
                         <>
-                          <div className="text-lg sm:text-xl font-semibold font-mono text-foreground leading-tight">{stat.value}</div>
+                          <div className="text-lg sm:text-xl font-semibold font-mono text-foreground leading-tight">
+                            {stat.numeric ? <CountUp target={stat.value as number} /> : (stat.value as string)}
+                          </div>
                           <div className="text-[11px] font-medium text-text-tertiary mt-0.5">{stat.label}</div>
                           <div className="text-[9px] text-text-quaternary mt-0.5">{stat.sub}</div>
                         </>
@@ -364,6 +422,40 @@ export const Landing: React.FC = () => {
                     <span className="text-foreground font-medium">{stats?.mostImprovedWard || 'Ward 12'}</span>
                   </div>
                 </div>
+
+                {/* Embedded live map preview */}
+                {mapTickets.length > 0 && (
+                  <div className="mt-4 -mx-6 -mb-6 h-44 border-t border-border-default overflow-hidden">
+                    <MapContainer
+                      center={[
+                        mapTickets.reduce((a, t) => a + t.lat, 0) / mapTickets.length,
+                        mapTickets.reduce((a, t) => a + t.lng, 0) / mapTickets.length,
+                      ]}
+                      zoom={12}
+                      className="h-full w-full"
+                      zoomControl={false}
+                      scrollWheelZoom={false}
+                      dragging={false}
+                      attributionControl={false}
+                    >
+                      <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                      {mapTickets.map((t, i) => {
+                        const color = t.status === 'resolved' || t.status === 'verified' ? '#4ade80'
+                          : t.status === 'in_progress' ? '#fb923c'
+                          : t.status === 'assigned' ? '#60a5fa'
+                          : '#facc15';
+                        return (
+                          <CircleMarker
+                            key={i}
+                            center={[t.lat, t.lng]}
+                            radius={4}
+                            pathOptions={{ color, fillColor: color, fillOpacity: 0.7, weight: 1 }}
+                          />
+                        );
+                      })}
+                    </MapContainer>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
