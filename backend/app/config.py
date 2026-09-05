@@ -7,8 +7,20 @@ class Settings(BaseSettings):
     # API Configurations
     SUPABASE_URL: str = "http://localhost:54321"
     SUPABASE_ANON_KEY: str = "placeholder-anon-key"
+    # Service-role key: bypasses RLS, used for backend-only operations
+    # (Supabase Storage uploads with private buckets, pg_dump via
+    # the supabase dashboard, etc.). MUST NEVER be sent to the browser —
+    # the frontend gets only the anon key via VITE_SUPABASE_ANON_KEY.
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
     SUPABASE_JWT_SECRET: Optional[str] = None
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/postgres"
+
+    # Storage bucket for media uploads (citizen photos, voice notes,
+    # Twilio rehosted images). When empty, the backend uses a local
+    # filesystem fallback so a developer with no Supabase project can
+    # still demo end-to-end. When set, the backend uploads to this
+    # Supabase Storage bucket and returns time-limited signed URLs.
+    SUPABASE_STORAGE_BUCKET: str = ""
 
     GEMINI_API_KEY: Optional[str] = None
 

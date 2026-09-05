@@ -17,6 +17,11 @@ structlog==25.1.0
 # falls back to in-memory storage.
 limits[redis]>=3.0
 
+# Supabase Python client (Phase 2.2: media uploads move from local
+# disk to a private Supabase Storage bucket). The service-role key
+# is used server-side only; anon key stays frontend-only.
+supabase>=2.0,<3.0
+
 # ── POST-HACKATHON HARDENING AUDIT & CLASSIFICATION ───────────────────
 # 1. Rate Limiting:
 #    - Status: Deferred (High-Risk).

@@ -190,19 +190,18 @@ async def whatsapp_webhook(
     citizen.whatsapp_retry_count = 0
     db.commit()
 
-    # Download and rehost media
-    media_url = None
+    # Download and rehost media. download_media() now returns an
+    # opaque storage key (e.g. "twilio/2026/09/05/abc.jpg" for
+    # Supabase, "/uploads/..." for local dev) — NOT a URL. The
+    # serializer turns the key into a fetchable URL on every read.
+    media_key = None
     if media_list:
         # Use first image/media for now
         for media in media_list:
             if media.get("content_type", "").startswith("image/"):
-                local_path = await twilio_service.download_media(
+                media_key = await twilio_service.download_media(
                     media["url"], media["content_type"]
                 )
-                if local_path:
-                    # Convert to absolute URL
-                    base_url = str(request.base_url).rstrip("/")
-                    media_url = f"{base_url}{local_path}"
                 break
 
     # Create ticket with placeholder category (will be updated by pipeline)
@@ -213,7 +212,7 @@ async def whatsapp_webhook(
         category="Uncategorized",  # Placeholder - pipeline will classify
         severity="medium",  # Default - pipeline will classify
         description=body_text or "WhatsApp report without description",
-        original_media_url=media_url,
+        original_media_url=media_key,
         status="reported",
         priority_score=1,
         location_source=location_source,

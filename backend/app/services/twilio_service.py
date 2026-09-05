@@ -2,7 +2,9 @@
 
 Handles:
 - Webhook signature validation (security-critical)
-- Media download and rehost to local /uploads
+- Media download and rehost via the configured storage backend
+  (Supabase Storage in production, local /uploads in dev —
+  see app.services.storage for the abstraction)
 - Outbound WhatsApp message sending
 - Webhook payload parsing
 """
@@ -10,8 +12,6 @@ Handles:
 import hmac
 import hashlib
 import base64
-import secrets
-from pathlib import Path
 from urllib.parse import urlencode
 from typing import Optional, List, Dict, Any
 from fastapi import Request
@@ -20,6 +20,7 @@ import httpx
 import structlog
 
 from app.config import settings
+from app.services.storage import get_storage
 
 # File signature (magic bytes) validation for actual file type verification
 FILE_SIGNATURES = {
@@ -121,10 +122,12 @@ class TwilioService:
 
     async def download_media(self, media_url: str, media_content_type: str) -> Optional[str]:
         """
-        Download media from Twilio's temporary URL and rehost to local /uploads.
+        Download media from Twilio's temporary URL and rehost via the
+        configured storage backend (Supabase Storage in production,
+        local /uploads in dev).
 
-        Returns the local URL (e.g., http://localhost:8000/uploads/abc123.jpg)
-        or None on failure.
+        Returns a storage key (opaque) on success, or None on failure.
+        Callers convert the key to a public URL via get_storage().public_url.
         """
         if not media_url:
             return None
@@ -148,22 +151,19 @@ class TwilioService:
             }
             ext = ext_map.get(media_content_type, ".bin")
 
-            # Save to uploads directory using pathlib
-            filename = f"{secrets.token_hex(12)}{ext}"
-            base_dir = Path(__file__).parent.parent
-            upload_dir = base_dir / "uploads"
-            upload_dir.mkdir(parents=True, exist_ok=True)
-            filepath = upload_dir / filename
-
-            # Validate file signature before saving
+            # Validate file signature BEFORE handing to storage.
+            # Same security check as the upload endpoint; reusing
+            # the in-file bytes-only validator.
             if not validate_file_signature(resp.content, ext):
                 logger.error("media_signature_mismatch", ext=ext, media_url=media_url)
                 return None
 
-            filepath.write_bytes(resp.content)
-
-            # Return relative URL (will be constructed by caller with request.base_url)
-            return f"/uploads/{filename}"
+            # Hand the validated bytes to the configured storage
+            # backend. The returned key is what the caller (the
+            # WhatsApp webhook) stores in the database.
+            storage = get_storage()
+            key = storage.save_bytes(resp.content, ext, media_content_type, prefix="twilio")
+            return key
 
         except Exception as e:
             logger.error("media_download_failed", error=str(e), media_url=media_url)

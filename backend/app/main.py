@@ -1,7 +1,6 @@
 import asyncio
 import json as _json
 import os
-import secrets
 import uuid
 from typing import Optional, List
 
@@ -24,6 +23,7 @@ from app.db.models import Ticket, Officer
 from app.routers.analytics import router as analytics_router
 from app.routers.whatsapp import router as whatsapp_router
 from app.services import agent_logs, audit, notifications, officers, pipeline, tickets
+from app.services.storage import get_storage
 from app.routers.health import router as health_router
 from app.schemas.auth import MeResponse
 from app.schemas.tickets import NotificationOut, TicketOut, PublicTicketOut
@@ -81,6 +81,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# Static-files mount for the LocalStorage dev fallback. When
+# SUPABASE_STORAGE_BUCKET is set (production), media lives in
+# Supabase Storage and these URLs are not used by the app — the
+# serializer rewrites keys to signed URLs at read time. We still
+# keep the mount active so a stale key (e.g. an old DB row that
+# predates the migration) does not 500; it will just 404 from
+# the disk.
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
@@ -225,6 +232,32 @@ def validate_file_signature(filepath: str, ext: str) -> bool:
         return False
 
 
+def validate_file_signature_bytes(content: bytes, ext: str) -> bool:
+    """Same as validate_file_signature, but on in-memory bytes.
+
+    Phase 2.2 swap: the upload endpoint used to write the file to
+    disk first and then read it back to verify the magic bytes,
+    which is wasted I/O now that we have the bytes in memory
+    already. This is the bytes-only version, identical logic to
+    twilio_service.validate_file_signature but kept inline to
+    avoid coupling main.py to twilio_service.
+    """
+    signatures = FILE_SIGNATURES.get(ext.lower())
+    if not signatures:
+        return True
+
+    header = content[:32]
+
+    if ext.lower() == ".webp":
+        return header.startswith(b"RIFF") and b"WEBP" in header[:16]
+    if ext.lower() == ".wav":
+        return header.startswith(b"RIFF") and b"WAVE" in header[:16]
+    for sig in signatures:
+        if header.startswith(sig):
+            return True
+    return False
+
+
 @app.post("/api/upload", response_model=UploadResponse)
 @limiter.limit("10/minute")
 async def upload_file(
@@ -240,27 +273,30 @@ async def upload_file(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type {ext} not allowed")
 
-    filename = f"{secrets.token_hex(12)}{ext}"
-    filepath = os.path.join(UPLOAD_DIR, filename)
-
-    # Stream file in chunks to avoid memory issues
+    # Stream upload into memory (cap-bounded). The whole file is
+    # validated before it ever hits the storage backend, so we do
+    # not need a streaming write to storage.
+    chunks: list[bytes] = []
     total_size = 0
-    with open(filepath, "wb") as f:
-        while chunk := await file.read(CHUNK_SIZE):
-            total_size += len(chunk)
-            if total_size > MAX_UPLOAD_SIZE:
-                f.close()
-                os.remove(filepath)
-                raise HTTPException(status_code=413, detail=f"File exceeds maximum size of {MAX_UPLOAD_SIZE // (1024*1024)} MB")
-            f.write(chunk)
+    while chunk := await file.read(CHUNK_SIZE):
+        total_size += len(chunk)
+        if total_size > MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=413, detail=f"File exceeds maximum size of {MAX_UPLOAD_SIZE // (1024*1024)} MB")
+        chunks.append(chunk)
+    content = b"".join(chunks)
 
     # Validate actual file type via magic bytes (signature check)
-    if not validate_file_signature(filepath, ext):
-        os.remove(filepath)
+    # BEFORE we hand the bytes to the storage backend. This keeps
+    # the same security guarantee as the previous local-disk path.
+    if not validate_file_signature_bytes(content, ext):
         raise HTTPException(status_code=400, detail=f"File content does not match extension {ext} — possible type spoofing")
 
-    base_url = str(request.base_url).rstrip("/")
-    return {"url": f"{base_url}/uploads/{filename}"}
+    storage = get_storage()
+    # Save the validated bytes through the configured backend. The
+    # returned key is what gets stored in the database; main.py
+    # never sees a real URL — that is the storage backend's job.
+    key = storage.save_bytes(content, ext, content_type, prefix="uploads")
+    return {"url": storage.public_url(key), "key": key}
 
 
 # ── Notifications ─────────────────────────────────────────

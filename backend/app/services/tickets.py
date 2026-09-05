@@ -9,8 +9,41 @@ from app.agents import graph as agent_graph
 from app.config import settings
 from app.db.models import Citizen, Ticket
 from app.services import audit
+from app.services.storage import get_storage
 
 VALID_TICKET_STATUSES = ("reported", "assigned", "in_progress", "resolved", "verified")
+
+
+def _resolve_media_url(stored: Optional[str]) -> Optional[str]:
+    """Turn a stored media value into a fetchable URL.
+
+    Phase 2.2 swap: the DB used to hold an absolute URL
+    (e.g. http://host:8000/uploads/abc.jpg). It now holds an
+    opaque storage key (e.g. `uploads/2026/09/05/abc.jpg` for
+    Supabase, or `/uploads/2026/09/05/abc.jpg` for local). We
+    re-sign on every read so the URL never goes stale in the
+    browser (Supabase signed URLs expire in 1h).
+
+    Pre-Phase-2.2 rows in the DB may still hold absolute URLs;
+    we detect that and pass them through unchanged so the
+    migration is not destructive for already-stored tickets.
+    """
+    if not stored:
+        return None
+    # Heuristic: an absolute URL starts with a scheme. A storage
+    # key does not. Treating absolute URLs as already-resolved
+    # is the safe forward path; users with old tickets keep
+    # working until those tickets age out or are re-uploaded.
+    if "://" in stored:
+        return stored
+    try:
+        return get_storage().public_url(stored)
+    except Exception:
+        # If the storage backend is misconfigured (e.g. bucket
+        # renamed in Supabase), do not 500 the whole ticket
+        # listing — return the raw key and let the frontend
+        # show a broken image rather than a 500.
+        return stored
 
 
 def serialize_ticket(t: Ticket) -> dict:
@@ -32,9 +65,9 @@ def serialize_ticket(t: Ticket) -> dict:
         "department_id": str(t.department_id) if t.department_id else None,
         "verification_status": t.verification_status,
         "verification_reason": t.verification_reason,
-        "original_media_url": t.original_media_url,
-        "closure_media_url": t.closure_media_url,
-        "voice_note_url": t.voice_note_url,
+        "original_media_url": _resolve_media_url(t.original_media_url),
+        "closure_media_url": _resolve_media_url(t.closure_media_url),
+        "voice_note_url": _resolve_media_url(t.voice_note_url),
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "updated_at": t.updated_at.isoformat() if t.updated_at else None,
         # ai_degraded is True when the AI pipeline is not running on a

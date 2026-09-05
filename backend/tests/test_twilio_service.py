@@ -1,9 +1,12 @@
 """Tests for Twilio WhatsApp service: signature validation, webhook parsing, media download, outbound messages."""
 
 import os
+# pyrefly: ignore [missing-import]
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+# pyrefly: ignore [missing-import]
 from fastapi import Request
+# pyrefly: ignore [missing-import]
 from starlette.datastructures import Headers
 
 from app.services.twilio_service import TwilioService
@@ -269,11 +272,18 @@ class TestParseWebhook:
 
 
 class TestDownloadMedia:
-    """Tests for download_media method."""
+    """Tests for download_media method.
+
+    Phase 2.2: download_media no longer returns a /uploads/... URL.
+    It returns an opaque storage key (the same string that lands
+    in the database). The serializer (services/tickets.py) is
+    responsible for turning the key into a fetchable URL on read.
+    We assert the new contract here.
+    """
 
     @pytest.mark.asyncio
     async def test_download_media_success(self):
-        """Successful media download should write file and return local path."""
+        """Successful media download should return a storage key."""
         service = TwilioService()
         service.account_sid = "test_sid"
         service.auth_token = "test_token"
@@ -286,13 +296,21 @@ class TestDownloadMedia:
         mock_client.get.return_value = mock_response
         service._client = mock_client
 
-        with patch("os.makedirs"), patch("builtins.open", MagicMock()) as mock_open:
+        # Force LocalStorage so the test does not require Supabase.
+        with patch(
+            "app.services.storage.settings", SUPABASE_STORAGE_BUCKET=""
+        ):
+            from app.services import storage as storage_mod
+            storage_mod.reset_storage_for_tests()
             result = await service.download_media(
                 "https://api.twilio.com/Media0", "image/jpeg"
             )
 
+        # Phase 2.2 contract: result is a storage key, not a URL.
+        # LocalStorage returns a /-prefixed path under the upload
+        # prefix. Supabase would return `twilio/YYYY/MM/DD/uuid.ext`.
         assert result is not None
-        assert result.startswith("/uploads/")
+        assert result.startswith("/twilio/")
         assert result.endswith(".jpg")
         mock_client.get.assert_called_once_with("https://api.twilio.com/Media0")
 
