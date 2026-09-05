@@ -23,7 +23,7 @@ from app.db.session import get_db
 from app.db.models import Ticket, Officer
 from app.routers.analytics import router as analytics_router
 from app.routers.whatsapp import router as whatsapp_router
-from app.services import audit, notifications, officers, pipeline, tickets
+from app.services import agent_logs, audit, notifications, officers, pipeline, tickets
 from app.routers.health import router as health_router
 from app.schemas.auth import MeResponse
 from app.schemas.tickets import NotificationOut, TicketOut, PublicTicketOut
@@ -298,6 +298,26 @@ def get_ticket(
     current_user: AuthUser = Depends(get_current_user),
 ):
     return tickets.get_ticket(db, ticket_id, current_user.role, current_user.id)
+
+
+@app.get("/api/tickets/{ticket_id}/trace")
+def get_ticket_trace(
+    ticket_id: str,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Return the persisted AI trace (per-agent reasoning) for a ticket.
+
+    Requires the caller to be able to view the ticket itself: the
+    ticket owner (citizen) or any staff role. The trace is the
+    Phase 1 "AgentLogs / audit-trail persistence" deliverable; without
+    this endpoint the data is write-only, which defeats the audit
+    purpose.
+    """
+    # Re-use the ticket read authorization logic: a citizen who
+    # cannot read the ticket must not be able to read its trace.
+    tickets.get_ticket(db, ticket_id, current_user.role, current_user.id)
+    return agent_logs.list_trace(db, ticket_id)
 
 
 @app.post("/api/tickets", status_code=201, response_model=TicketOut)

@@ -5,6 +5,7 @@ from typing import Any, AsyncGenerator, Dict, List
 from sqlalchemy.orm import Session
 
 from app.db.models import Ticket
+from app.services import agent_logs
 from app.services.tickets import serialize_ticket
 
 
@@ -57,6 +58,16 @@ async def stream_triage_events(
                 logs = node_output.get("trace_logs", []) if isinstance(node_output, dict) else []
                 new_logs = logs[seen_logs:]
                 seen_logs = len(logs)
+
+                # Persist the new trace entries to agent_logs. Failure is
+                # best-effort (see services/agent_logs.py); the SSE stream
+                # and the ticket commit must not be blocked by it.
+                if new_logs:
+                    annotated = [
+                        {**entry, "node": entry.get("node") or node_name}
+                        for entry in new_logs
+                    ]
+                    agent_logs.record_trace_entries(db, str(ticket.id), annotated)
 
                 for log_entry in new_logs:
                     yield {
@@ -179,6 +190,14 @@ def run_triage_sync(
             for node_name, node_output in step.items():
                 if isinstance(node_output, dict):
                     final_state_dict.update(node_output)
+                # Persist any new trace entries from this node.
+                logs = node_output.get("trace_logs", []) if isinstance(node_output, dict) else []
+                if logs:
+                    annotated = [
+                        {**entry, "node": entry.get("node") or node_name}
+                        for entry in logs
+                    ]
+                    agent_logs.record_trace_entries(db, str(ticket.id), annotated)
 
         # Persist results to ticket
         ticket.category = final_state_dict.get("category") or ticket.category

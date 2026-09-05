@@ -125,3 +125,29 @@ class AuditLog(Base):
     record_id = Column(UUID(as_uuid=True), nullable=True)
     details = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AgentLog(Base):
+    """One row per agent-node execution per ticket.
+
+    The AI triage pipeline is a multi-node LangGraph. Each node
+    appends a structured reasoning entry to its state; persisting
+    that entry here turns the AI decision into a queryable,
+    audit-grade record of *why* a ticket was prioritized and routed
+    the way it was. Required by the Production Readiness Roadmap's
+    Phase 1 "AgentLogs / audit-trail persistence" item: a civic
+    system must be able to answer "why did the AI prioritize this
+    ticket this way" months after the fact, not just live during
+    the original session.
+    """
+    __tablename__ = "agent_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ticket_id = Column(UUID(as_uuid=True), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    agent_name = Column(String(100), nullable=False, index=True)
+    node_name = Column(String(100), nullable=True)
+    action = Column(String(255), nullable=False)
+    reasoning = Column(Text, nullable=True)
+    details = Column(JSON, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
