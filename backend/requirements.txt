@@ -12,6 +12,10 @@ alembic==1.18.0
 pytest==8.3.5
 slowapi==0.1.9
 structlog==25.1.0
+# Required for slowapi to use Redis as the rate-limit counter store
+# when REDIS_URL is configured. Without this, the limiter silently
+# falls back to in-memory storage.
+limits[redis]>=3.0
 
 # ── POST-HACKATHON HARDENING AUDIT & CLASSIFICATION ───────────────────
 # 1. Rate Limiting:

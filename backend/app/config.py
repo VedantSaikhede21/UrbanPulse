@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed CORS origins
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
 
+    # Rate-limiter storage. When set (e.g. redis://redis:6379/0), all
+    # backend instances share a single rate-limit counter store, which is
+    # required for horizontal scale. When unset, the limiter falls back to
+    # in-process memory — fine for single-instance dev, but counts reset on
+    # restart and do not span multiple workers.
+    REDIS_URL: Optional[str] = None
+
     @field_validator("ALLOWED_ORIGINS", mode="after")
     @classmethod
     def _validate_cors_origins(cls, v: str) -> str:
