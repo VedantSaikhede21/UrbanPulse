@@ -3,7 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from geoalchemy2 import WKTElement
 from app.db.session import engine, SessionLocal, Base
-from app.db.models import Ward, Citizen, Officer, Ticket, AuditLog
+from app.db.models import Ward, Citizen, Officer, Department, Ticket, AuditLog
 
 def seed_db():
     from app.config import settings
@@ -50,6 +50,7 @@ def seed_db():
         db.query(AuditLog).delete()
         db.query(Ticket).delete()
         db.query(Officer).delete()
+        db.query(Department).delete()
         db.query(Citizen).delete()
         db.query(Ward).delete()
         db.commit()
@@ -92,12 +93,20 @@ def seed_db():
         db.add_all([citizen_alice, citizen_bob, citizen_charlie])
         db.commit()
 
-        # 6. Seed Officers
+        # 6. Seed Departments and link Officers
+        print("Seeding Departments...")
+        dept_roads = Department(name="Roads", code="roads", is_active=True)
+        dept_water = Department(name="Water", code="water", is_active=True)
+        dept_sanitation = Department(name="Sanitation", code="sanitation", is_active=True)
+        dept_electrical = Department(name="Electrical", code="electrical", is_active=True)
+        db.add_all([dept_roads, dept_water, dept_sanitation, dept_electrical])
+        db.commit()
+
         print("Seeding Officers...")
-        officer_dave = Officer(name="Dave Kumar", department="Roads", is_active=True)
-        officer_elisa = Officer(name="Elisa Roy", department="Water", is_active=True)
-        officer_frank = Officer(name="Frank D'Souza", department="Sanitation", is_active=True)
-        officer_grace = Officer(name="Grace Murthy", department="Electrical", is_active=True)
+        officer_dave = Officer(name="Dave Kumar", department="Roads", department_id=dept_roads.id, is_active=True)
+        officer_elisa = Officer(name="Elisa Roy", department="Water", department_id=dept_water.id, is_active=True)
+        officer_frank = Officer(name="Frank D'Souza", department="Sanitation", department_id=dept_sanitation.id, is_active=True)
+        officer_grace = Officer(name="Grace Murthy", department="Electrical", department_id=dept_electrical.id, is_active=True)
         
         db.add_all([officer_dave, officer_elisa, officer_frank, officer_grace])
         db.commit()

@@ -348,7 +348,8 @@ def create_officer(
     current_user: AuthUser = Depends(get_current_user),
 ):
     return officers.create_officer(
-        db, body.name, body.department, current_user.role, current_user.id, body.user_id, body.role
+        db, body.name, body.department, current_user.role, current_user.id,
+        body.user_id, body.role, body.department_id,
     )
 
 

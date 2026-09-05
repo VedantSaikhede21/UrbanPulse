@@ -28,6 +28,7 @@ def serialize_ticket(t: Ticket) -> dict:
         "priority_score": t.priority_score,
         "priority_reason": t.priority_reason,
         "assigned_officer_id": str(t.assigned_officer_id) if t.assigned_officer_id else None,
+        "department_id": str(t.department_id) if t.department_id else None,
         "verification_status": t.verification_status,
         "verification_reason": t.verification_reason,
         "original_media_url": t.original_media_url,

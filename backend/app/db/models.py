@@ -76,10 +76,16 @@ class Officer(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
-    department = Column(String(50), nullable=False)
+    department = Column(String(50), nullable=False)  # legacy string — superseded by department_id
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
     role = Column(String(20), nullable=False, default="officer")  # officer, dept_head, admin, super_admin
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Back-reference for Department.officers. Use foreign_keys to disambiguate
+    # from any future "primary department" relationship that may point the
+    # other way.
+    department_rel = relationship("Department", back_populates="officers", foreign_keys=[department_id])
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -105,6 +111,7 @@ class Ticket(Base):
     verification_status = Column(String(50), nullable=True)
     verification_reason = Column(Text, nullable=True)
     location_source = Column(String(20), default="gps", nullable=False)  # 'gps' or 'geocoded'
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -126,6 +126,7 @@ class TicketState(BaseModel):
     priority_score: int = 1
     priority_reason: Optional[str] = None
     assigned_department: Optional[str] = None
+    assigned_department_id: Optional[str] = None
     assigned_officer_id: Optional[str] = None
 
     # Operational attributes
@@ -340,33 +341,45 @@ Return ONLY JSON: {{"score": <int>, "reason": "<string>"}}""",
 
 
 def routing_agent(state: TicketState) -> Dict[str, Any]:
-    dept = CATEGORY_TO_DEPT.get(state.category or "", "Roads")
+    dept_name = CATEGORY_TO_DEPT.get(state.category or "", "Roads")
     officer_id = None
+    department_id: Optional[str] = None
 
     db = _get_db_session()
     try:
-        from app.db.models import Officer, Ticket
+        from app.db.models import Department, Officer, Ticket
 
-        officers = (
-            db.query(Officer)
-            .filter(Officer.department == dept, Officer.is_active.is_(True))
-            .all()
+        # Resolve dept_name (string from CATEGORY_TO_DEPT) to a Department FK.
+        # The string-to-FK bridge is the only place this mapping is hard-coded;
+        # once every category lives as its own routing rule, this lookup goes
+        # away entirely.
+        dept_row = (
+            db.query(Department)
+            .filter(Department.name == dept_name, Department.is_active.is_(True))
+            .first()
         )
-        if officers:
-            # Assign to officer with fewest active tickets
-            loads = []
-            for o in officers:
-                count = (
-                    db.query(func.count(Ticket.id))
-                    .filter(
-                        Ticket.assigned_officer_id == o.id,
-                        Ticket.status.in_(["assigned", "in_progress"]),
+        if dept_row is not None:
+            department_id = str(dept_row.id)
+            officers = (
+                db.query(Officer)
+                .filter(Officer.department_id == dept_row.id, Officer.is_active.is_(True))
+                .all()
+            )
+            if officers:
+                # Assign to officer with fewest active tickets
+                loads = []
+                for o in officers:
+                    count = (
+                        db.query(func.count(Ticket.id))
+                        .filter(
+                            Ticket.assigned_officer_id == o.id,
+                            Ticket.status.in_(["assigned", "in_progress"]),
+                        )
+                        .scalar()
                     )
-                    .scalar()
-                )
-                loads.append((count, o))
-            loads.sort(key=lambda x: x[0])
-            officer_id = str(loads[0][1].id)
+                    loads.append((count, o))
+                loads.sort(key=lambda x: x[0])
+                officer_id = str(loads[0][1].id)
     except Exception as e:
         print(f"Routing query failed: {e}")
     finally:
@@ -374,16 +387,17 @@ def routing_agent(state: TicketState) -> Dict[str, Any]:
 
     officer_note = f" Officer {officer_id[:8]}… assigned." if officer_id else ""
     reasoning = (
-        f"Complaint routed to {dept} department based on '{state.category}' classification.{officer_note}"
+        f"Complaint routed to {dept_name} department based on '{state.category}' classification.{officer_note}"
     )
 
     logs = state.trace_logs + [{
         "agent": "Routing Agent",
-        "action": f"Routing to {dept} department",
+        "action": f"Routing to {dept_name} department",
         "reasoning": reasoning,
     }]
     result: Dict[str, Any] = {
-        "assigned_department": dept,
+        "assigned_department": dept_name,
+        "assigned_department_id": department_id,
         "status": "assigned",
         "trace_logs": logs,
     }

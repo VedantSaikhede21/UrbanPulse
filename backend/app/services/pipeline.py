@@ -83,6 +83,9 @@ async def stream_triage_events(
             officer_id = final_state_dict.get("assigned_officer_id")
             if officer_id:
                 ticket.assigned_officer_id = uuid.UUID(officer_id)
+            dept_id = final_state_dict.get("assigned_department_id")
+            if dept_id:
+                ticket.department_id = uuid.UUID(dept_id)
             db.commit()
         except Exception as db_err:
             print(f"DB commit error: {db_err}")
@@ -103,6 +106,7 @@ async def stream_triage_events(
                 "severity": final_state_dict.get("severity"),
                 "priority_score": final_state_dict.get("priority_score"),
                 "assigned_department": final_state_dict.get("assigned_department"),
+                "assigned_department_id": final_state_dict.get("assigned_department_id"),
                 "assigned_officer_id": final_state_dict.get("assigned_officer_id"),
                 "status": final_state_dict.get("status"),
                 "is_duplicate": final_state_dict.get("is_duplicate"),
@@ -190,6 +194,9 @@ def run_triage_sync(
         officer_id = final_state_dict.get("assigned_officer_id")
         if officer_id:
             ticket.assigned_officer_id = uuid.UUID(officer_id)
+        dept_id = final_state_dict.get("assigned_department_id")
+        if dept_id:
+            ticket.department_id = uuid.UUID(dept_id)
         db.commit()
 
         return {
@@ -198,6 +205,7 @@ def run_triage_sync(
             "severity": final_state_dict.get("severity"),
             "priority_score": final_state_dict.get("priority_score"),
             "assigned_department": final_state_dict.get("assigned_department"),
+            "assigned_department_id": final_state_dict.get("assigned_department_id"),
             "assigned_officer_id": final_state_dict.get("assigned_officer_id"),
             "status": final_state_dict.get("status"),
             "is_duplicate": final_state_dict.get("is_duplicate"),
