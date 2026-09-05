@@ -95,6 +95,25 @@ export const ReportDetail: React.FC = () => {
         <span className="text-gray-300">Ticket #{ticket.id.slice(0, 8)}</span>
       </div>
 
+      {ticket.ai_degraded && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="ai-degraded-banner"
+          className="flex items-start gap-3 bg-yellow-950/30 border border-yellow-700/40 rounded-lg p-4"
+        >
+          <AlertTriangle size={18} className="text-yellow-400 mt-0.5 shrink-0" />
+          <div className="text-xs">
+            <p className="text-yellow-300 font-semibold mb-0.5">AI reasoning unavailable, using basic triage</p>
+            <p className="text-yellow-400/80 leading-relaxed">
+              The category and priority on this ticket were assigned by a fallback
+              rule, not by the AI pipeline. An officer will review and may
+              recategorize.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Ticket Brief Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
         

@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader, CheckCircle2, AlertCircle, Sparkles, Activity, Wifi, WifiOff } from 'lucide-react';
+import { Loader, CheckCircle2, AlertCircle, AlertTriangle, Sparkles, Activity, Wifi, WifiOff } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { apiUrl } from '../../lib/api';
+import { apiFetch, apiUrl } from '../../lib/api';
 import { Skeleton, SkeletonCard } from '../../components/ui/Skeleton';
+import type { Ticket } from '../../lib/types';
 
 interface AgentStep {
   agent: string;
@@ -59,6 +60,7 @@ export const ProcessingPage: React.FC = () => {
   const [parseErrors, setParseErrors] = useState(0);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [aiDegraded, setAiDegraded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
 
@@ -87,6 +89,17 @@ export const ProcessingPage: React.FC = () => {
           setDone(true);
           setResult(data.result ?? null);
           es.close();
+          // Fetch the ticket to learn whether the pipeline ran in
+          // fallback mode; ai_degraded comes from the server's view of
+          // GEMINI_AVAILABLE, not from the SSE event.
+          apiFetch(`/api/tickets/${ticketId}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((t: Ticket | null) => {
+              if (t?.ai_degraded) setAiDegraded(true);
+            })
+            .catch(() => {
+              // best-effort; banner just won't appear
+            });
           return;
         }
 
@@ -219,6 +232,18 @@ export const ProcessingPage: React.FC = () => {
 
       {done && (
         <div className="bg-brand-soft border border-brand-lime/20 rounded-lg p-5 text-center space-y-3">
+          {aiDegraded && (
+            <div
+              role="status"
+              data-testid="ai-degraded-banner"
+              className="flex items-start gap-3 bg-yellow-950/40 border border-yellow-700/40 rounded-lg p-3 text-left"
+            >
+              <AlertTriangle size={16} className="text-yellow-400 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-yellow-300 leading-relaxed">
+                AI reasoning unavailable, using basic triage. An officer will review.
+              </p>
+            </div>
+          )}
           <CheckCircle2 size={28} className="text-brand-lime mx-auto" />
           <p className="text-sm font-serif italic text-brand-lime font-bold">Report Processed Successfully!</p>
           <div className="bg-background/50 border border-panel-border rounded px-4 py-3 inline-flex items-center gap-4 text-xs">

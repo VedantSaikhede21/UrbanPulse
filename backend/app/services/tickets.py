@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.agents import graph as agent_graph
 from app.config import settings
 from app.db.models import Citizen, Ticket
 from app.services import audit
@@ -36,6 +37,10 @@ def serialize_ticket(t: Ticket) -> dict:
         "voice_note_url": t.voice_note_url,
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+        # ai_degraded is True when the AI pipeline is not running on a
+        # real Gemini call (no key, or import failed). Frontend surfaces
+        # this as a "AI reasoning unavailable, using basic triage" banner.
+        "ai_degraded": not getattr(agent_graph, "GEMINI_AVAILABLE", False),
     }
 
 

@@ -25,6 +25,11 @@ class TicketOut(BaseModel):
     voice_note_url: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    # True when the AI pipeline ran in fallback mode (no Gemini key, or
+    # all Gemini calls failed). Frontend uses this to surface a
+    # "reasoning unavailable" banner so the user knows the categorization
+    # is heuristic, not LLM-driven.
+    ai_degraded: bool = False
 
 
 class PublicTicketOut(BaseModel):
