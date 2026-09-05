@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { Bell, CheckCircle2, AlertTriangle, Info, X, Clock } from 'lucide-react';
@@ -6,20 +6,22 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { apiFetch } from '../../lib/api';
 
+type NotificationType = 'status' | 'alert' | 'info';
+
 interface Notification {
   id: string;
   ticket_id: string;
-  type: 'status' | 'alert' | 'info';
+  type: NotificationType;
   title: string;
   message: string;
   time: string;
   read: boolean;
 }
 
-const TYPE_CONFIG = {
+const TYPE_CONFIG: Record<NotificationType, { icon: React.ComponentType<any>; color: string; bg: string }> = {
   status: { icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-950/30 border-emerald-800/20' },
   alert: { icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-950/30 border-amber-800/20' },
-  info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-950/30 border-blue-800/20' },
+  info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
 };
 
 function timeAgo(dateStr: string): string {
@@ -33,12 +35,31 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
+/**
+ * Normalize a raw backend response item into the page's local
+ * Notification shape. Two server shapes are supported:
+ *
+ * - Persisted (Phase 1.5+): id is the notification UUID, read is
+ *   a server-side boolean, type is explicit.
+ * - Derived (legacy): id is the ticket id, read is always false
+ *   (we treat as unread), type is inferred from the `status`
+ *   field. Kept so a dev environment that has not yet run
+ *   migration 005 still renders a working page.
+ */
 function toNotification(raw: any): Notification {
-  const status = raw.status || 'info';
-  const type = status === 'resolved' || status === 'verified' ? 'status'
-    : status === 'escalated' ? 'alert'
-    : 'info';
-  const title = raw.category ? `${raw.category} · ${status.replace(/_/g, ' ')}` : status.replace(/_/g, ' ');
+  const explicitType: NotificationType | null =
+    raw.type === 'status' || raw.type === 'alert' || raw.type === 'info'
+      ? raw.type
+      : null;
+  const status: string = raw.status || 'info';
+  const type: NotificationType =
+    explicitType ??
+    (status === 'resolved' || status === 'verified'
+      ? 'status'
+      : status === 'escalated'
+        ? 'alert'
+        : 'info');
+  const title = raw.title ?? (raw.category ? `${raw.category} · ${status.replace(/_/g, ' ')}` : status.replace(/_/g, ' '));
   return {
     id: raw.id,
     ticket_id: raw.ticket_id,
@@ -46,8 +67,38 @@ function toNotification(raw: any): Notification {
     title,
     message: raw.message || `Status updated to ${status.replace(/_/g, ' ')}.`,
     time: timeAgo(raw.timestamp),
-    read: false,
+    read: typeof raw.read === 'boolean' ? raw.read : false,
   };
+}
+
+/**
+ * The PATCH endpoint flips server-side read state. Returns true if
+ * the call succeeded. Failures are swallowed (offline / 404) so a
+ * missed PATCH never crashes the page; the UI still updates
+ * optimistically.
+ */
+async function patchNotificationRead(id: string): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/api/notifications/${encodeURIComponent(id)}/read`, {
+      method: 'PATCH',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function postMarkAllRead(): Promise<number> {
+  try {
+    const res = await apiFetch('/api/notifications/mark-all-read', {
+      method: 'POST',
+    });
+    if (!res.ok) return 0;
+    const data = await res.json().catch(() => ({}));
+    return typeof data?.marked === 'number' ? data.marked : 0;
+  } catch {
+    return 0;
+  }
 }
 
 export const Notifications: React.FC = () => {
@@ -77,20 +128,31 @@ export const Notifications: React.FC = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const filtered = filter === 'unread' ? notifications.filter(n => !n.read) : notifications;
   const unreadCount = notifications.filter(n => !n.read).length;
+  const filtered = filter === 'unread' ? notifications.filter(n => !n.read) : notifications;
 
-  const markRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  };
+  // Optimistic mark-read: flip locally, then PATCH. The local flip
+  // is the source of truth for the UI; the PATCH is the source of
+  // truth for the server. A failed PATCH just means the next page
+  // load will see the same notification as unread again — annoying
+  // but never a data-loss bug.
+  const markRead = useCallback((id: string) => {
+    setNotifications(prev => {
+      const target = prev.find(n => n.id === id);
+      if (!target || target.read) return prev;
+      patchNotificationRead(id);
+      return prev.map(n => n.id === id ? { ...n, read: true } : n);
+    });
+  }, []);
 
   const dismissNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  const markAllRead = () => {
+  const markAllRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
+    postMarkAllRead();
+  }, []);
 
   if (loading) {
     return (
