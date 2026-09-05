@@ -18,6 +18,13 @@ structlog==25.1.0
 # falls back to in-memory storage.
 limits[redis]>=3.0
 
+# Phase 5: explicit `redis` client. `arq` and `limits[redis]` both
+# pull it in transitively, but Phase 5's `app.services.cache` calls
+# `redis.asyncio.from_url` directly so the dep needs to be here on
+# its own merits — a transitive upgrade elsewhere could otherwise
+# silently drop it.
+redis>=5.0
+
 # Supabase Python client (Phase 2.2: media uploads move from local
 # disk to a private Supabase Storage bucket). The service-role key
 # is used server-side only; anon key stays frontend-only.

@@ -170,6 +170,21 @@ def triage_ticket(ctx: dict, ticket_id: str) -> dict:
         else:
             ticket.processing_state = "failed"
         db.commit()
+
+        # Phase 5: a fresh ticket changes the city-pulse aggregate
+        # (the new row shows up in trending) and may shift a
+        # ward's UHS score after analytics_agent. Drop the cache
+        # so the public map / dashboards see the new state on
+        # the next read instead of after the 15–30s TTL. Best-
+        # effort: a Redis outage just means the next read waits
+        # for the TTL to expire. arq's job function is sync, so
+        # this uses the sync invalidation helper.
+        try:
+            from app.services import cache
+            cache.invalidate_analytics_sync()
+        except Exception:
+            pass
+
         return {
             "ok": bool(result.get("success")),
             "category": result.get("category"),

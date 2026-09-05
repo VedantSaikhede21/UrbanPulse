@@ -221,6 +221,19 @@ def create_ticket(db: Session, role: str, user_id: str, body, background=None) -
     if background is not None:
         background.add_task(_enqueue_triage_async, str(ticket.id))
 
+    # Phase 5: a brand-new ticket shifts the city-pulse trending
+    # aggregate immediately and the ward UHS score after the
+    # analytics agent runs. The post-triage invalidation in
+    # queue.triage_ticket handles the UHS half; here we drop the
+    # city-pulse key so the new ticket's category shows up in
+    # the trending top-3 on the next read instead of after the
+    # 15s TTL. Best-effort.
+    try:
+        from app.services import cache
+        cache.invalidate_analytics_sync()
+    except Exception:
+        pass
+
     return serialize_ticket(ticket)
 
 
@@ -266,6 +279,19 @@ def update_ticket_status(db: Session, ticket_id: str, status: str, role: str, us
         record_id=ticket_id,
         details={"from": previous, "to": status},
     )
+
+    # Phase 5: a status change shifts the open-ticket count
+    # behind city-pulse alerts and the ward trending aggregate.
+    # Drop the cache so the next read reflects the new state.
+    # Best-effort: a Redis outage just means the next read waits
+    # for the TTL. Run in a thread so the sync endpoint stays
+    # non-blocking on the (rare) Redis round-trip.
+    try:
+        from app.services import cache
+        cache.invalidate_analytics_sync()
+    except Exception:
+        pass
+
     return serialize_ticket(ticket)
 
 
