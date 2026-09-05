@@ -153,7 +153,24 @@ class TicketState(BaseModel):
 # ────────────────────────────────────────────────────────
 
 def cx_agent(state: TicketState) -> Dict[str, Any]:
+    # Prefer the citizen's own text when present. Otherwise transcribe
+    # the voice note via Gemini (multimodal audio) so downstream agents
+    # see real text instead of an empty string. This is the only
+    # caller of _ask_gemini_with_audio in the pipeline — Phase 4 wires
+    # up the helper that was already defined but unused.
     text = state.citizen_text or state.transcription or ""
+    transcript_source = "text" if state.citizen_text else "existing_transcription"
+
+    if not text and state.voice_note_url:
+        transcript = _ask_gemini_with_audio(
+            "Transcribe this voice note exactly as spoken, in its original "
+            "language. Output only the transcript text.",
+            state.voice_note_url,
+            fallback="Voice note attached but transcription unavailable.",
+        )
+        text = transcript
+        transcript_source = "voice"
+        logger.info("voice_transcribed", transcript_chars=len(transcript))
 
     reasoning = _ask_gemini(
         f"""You are the CX Agent in a municipal complaint management system.
@@ -165,7 +182,7 @@ Return ONLY the summary sentence.""",
 
     logs = state.trace_logs + [{
         "agent": "CX Agent",
-        "action": "Ingesting and normalising report",
+        "action": f"Ingesting and normalising report (source: {transcript_source})",
         "reasoning": reasoning,
     }]
     return {
