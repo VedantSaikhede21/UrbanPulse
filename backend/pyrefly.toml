@@ -1,0 +1,5 @@
+# Pyrefly configuration for the UrbanPulse backend.
+# Pyrefly runs from the workspace root against virtual files, so search
+# paths are workspace-relative. Pointing at "backend" lets it resolve
+# `app.main` (lives at backend/app/main.py).
+search-path = ["backend"]
