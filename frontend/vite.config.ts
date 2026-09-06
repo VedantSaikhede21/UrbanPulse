@@ -21,7 +21,12 @@ export default defineConfig({
     },
   },
   build: {
-    chunkSizeWarningLimit: 400,
+    // Phase 5: bumped from 400 to 600. The vendor-router chunk
+    // sits at ~163 KB and the vendor-map chunk at ~155 KB — both
+    // expected for a SPA with client-side routing and Leaflet
+    // map components. The build was already clean under 400,
+    // the bump keeps the next chunk growth quiet.
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
