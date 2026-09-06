@@ -40,14 +40,44 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
     """Call Gemini 2.5 Flash and return text, or return fallback on any error."""
     if not GEMINI_AVAILABLE or _gemini_client is None:
         return fallback
+    import time
+    started = time.monotonic()
     try:
         resp = _gemini_client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
         )
+        latency_ms = int((time.monotonic() - started) * 1000)
+        # Phase 5: per-call cost log. One JSON line per Gemini
+        # call. Operators aggregate this in their log backend to
+        # answer "how many calls in the last hour" and "what did
+        # they cost". No new dependency, no counter service — the
+        # log stream is already there.
+        logger.info(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="cx",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=0,
+            has_audio=False,
+            ok=True,
+        )
         text_response = getattr(resp, "text", None)
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.warning(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="cx",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=0,
+            has_audio=False,
+            ok=False,
+            error=type(e).__name__,
+        )
         logger.warning("gemini_call_failed", error=str(e))
         from app.sentry import capture_exception
         capture_exception(e, agent="cx")
@@ -58,27 +88,56 @@ def _ask_gemini_with_images(prompt: str, image_urls: List[str], fallback: str) -
     """Multimodal Gemini call with one or more image URLs."""
     if not GEMINI_AVAILABLE or _gemini_client is None or types is None:
         return fallback
+    import time
+    started = time.monotonic()
     try:
         parts: List[Any] = [types.Part.from_text(text=prompt)]
+        n_images = 0
         for url in image_urls:
             if url:
                 parts.append(types.Part.from_uri(file_uri=url, mime_type="image/jpeg"))
+                n_images += 1
         resp = _gemini_client.models.generate_content(
             model="gemini-2.5-flash",
             contents=[types.Content(role="user", parts=parts)],
         )
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.info(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="vision",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=n_images,
+            has_audio=False,
+            ok=True,
+        )
         text_response = getattr(resp, "text", None)
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.warning(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="vision",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=n_images,
+            has_audio=False,
+            ok=False,
+            error=type(e).__name__,
+        )
         logger.warning("gemini_multimodal_call_failed", error=str(e))
         from app.sentry import capture_exception
         capture_exception(e, agent="vision")
         return fallback
-    
+
 def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
     """Multimodal Gemini call with an audio note — transcribes + translates in one call."""
     if not GEMINI_AVAILABLE or _gemini_client is None or types is None or not audio_url:
         return fallback
+    import time
+    started = time.monotonic()
     try:
         parts: List[Any] = [
             types.Part.from_text(text=prompt),
@@ -88,9 +147,32 @@ def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
             model="gemini-2.5-flash",
             contents=[types.Content(role="user", parts=parts)],
         )
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.info(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="audio",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=0,
+            has_audio=True,
+            ok=True,
+        )
         text_response = getattr(resp, "text", None)
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.warning(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="audio",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=0,
+            has_audio=True,
+            ok=False,
+            error=type(e).__name__,
+        )
         logger.warning("gemini_audio_call_failed", error=str(e))
         from app.sentry import capture_exception
         capture_exception(e, agent="audio")
