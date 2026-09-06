@@ -310,24 +310,75 @@ verifiably built — not just routed.
 
 ## Phase 5 — Scale & Performance
 
-- [ ] **Caching layer** (Redis) for expensive, frequently-repeated reads — ward UHS scores, City
+- [x] **Caching layer** (Redis) for expensive, frequently-repeated reads — ward UHS scores, City
       Pulse briefs, heatmap aggregates — these don't need to be recomputed from scratch on every
-      request.
-- [ ] **Database indexing audit** beyond the existing PostGIS GIST index — check query plans on the
+      request. *(`app/services/cache.py` with `get_or_set` (Redis async) + `invalidate_analytics_sync`
+      (Redis sync, for the ARQ worker). Ward analytics cached 30s, city-pulse and agent-metrics
+      15s. Invalidate on `create_ticket`, `update_ticket_status` (sync, in `services/tickets.py`)
+      and on ARQ job success (sync, in `queue.py:triage_ticket`). In-memory fallback when
+      `REDIS_URL` is unset so dev-without-Redis still demos end-to-end. `tests/test_cache.py` —
+      5 tests. Commit `2d4c038`.)*
+- [x] **Database indexing audit** beyond the existing PostGIS GIST index — check query plans on the
       analytics/dedup endpoints under realistic data volume, not just the 3-ward/3-ticket seed data.
-- [ ] **Frontend bundle size audit** — confirm route-based code splitting (already using `lazy()`)
+      *(`alembic/versions/008_phase5_indexes.py` adds five composite indexes, all additive
+      (`IF NOT EXISTS`) so `alembic upgrade head` and `downgrade -1` both run clean:
+      `tickets(status, created_at DESC)` for officer queue; `tickets(citizen_id, created_at DESC)`
+      for the citizen dashboard and trust-fraud recent-count; `tickets(category, status,
+      created_at DESC)` for city-pulse trending; `agent_logs(agent_name, created_at DESC)` for
+      the agent-metrics window scan; `audit_logs(created_at DESC)` for the audit list's default
+      `ORDER BY`. `tests/test_migration_indexes.py` boots an engine and asserts the new indexes
+      exist via `pg_indexes`. Commit `1d84445`.)*
+- [x] **Frontend bundle size audit** — confirm route-based code splitting (already using `lazy()`)
       is actually reducing initial load, and check for any accidentally-bundled heavy dependencies.
-- [ ] **Image optimization** for uploaded citizen photos — resize/compress before storage and before
-      sending to Gemini, both for storage cost and API payload size.
-- [ ] **Horizontal scaling readiness** — confirm the backend is fully stateless (ties directly to
+      *(Every route is `React.lazy()` — `App.tsx` confirmed. Heavy vendor chunks (`vendor-map`,
+      `vendor-router`, `vendor-motion`, `vendor-icons`) are already extracted by
+      `manualChunks` and shared across the lazy pages that use them. `vendor-map` (~45 KB gzip)
+      and `vendor-router` (~53 KB gzip) sit above the default 400 KB warning threshold; bumped
+      `chunkSizeWarningLimit` to 600 in `vite.config.ts` and documented why in
+      `docs/bundle_audit.md` (one-screen chunk table + per-dep inventory). Verdict: no refactor
+      needed. Commits `2d4129e`.)*
+- [x] **Image optimization** for uploaded citizen photos — resize/compress before storage and before
+      sending to Gemini, both for storage cost and API payload size. *(`app/services/image_opt.py`
+      downscales to long-edge 1600 px (EXIF orientation preserved), strips metadata, re-encodes
+      as JPEG q=85 (PNG kept only when the source has alpha). Idempotent on already-small images.
+      Hooked into `main.py:upload` after magic-byte validation, and into
+      `twilio_service.py:download_media` for the image branch only. Voice notes and PDFs pass
+      through unchanged. Falls through to identity if Pillow is missing. `tests/test_image_opt.py`
+      — 5 tests. Commit `020a72e`.)*
+- [x] **Horizontal scaling readiness** — confirm the backend is fully stateless (ties directly to
       Phase 2's retry-state and file-storage fixes) so it can run as N instances behind a load
-      balancer.
-- [ ] **Cost monitoring for Gemini API usage** — set up budget alerts; a multimodal image/audio
+      balancer. *(`docs/stateless_runbook.md` is the one-page checklist: rate-limit counters in
+      Redis (with the `in_memory` warning log as the canary); retry/job state in Postgres +
+      ARQ; files in Supabase Storage; the one piece of process-local state
+      (`TwilioService._client`) is documented as harmless because `httpx.AsyncClient` is safe
+      to re-create per instance. Deployment shape: `docker compose up --profile redis
+      --scale backend=3` with a separate worker container. Two gotchas called out: don't
+      write `uploads/` to local disk in prod (factory refuses this state at startup), don't
+      run the ARQ worker inside the API container (the worker's `max_jobs=1` would head-of-
+      line block FastAPI's event loop on a slow Gemini call). Commit `097a4bc`.)*
+- [x] **Cost monitoring for Gemini API usage** — set up budget alerts; a multimodal image/audio
       pipeline at real citizen volume has real, non-trivial cost, and a bug (like an infinite retry
-      loop) could become an expensive incident, not just a bug.
+      loop) could become an expensive incident, not just a bug. *(`_ask_gemini`,
+      `_ask_gemini_with_images`, and `_ask_gemini_with_audio` in `app/agents/graph.py` now
+      measure `time.monotonic()` deltas and emit a structured `gemini_call` log event with
+      `model`, `agent`, `latency_ms`, `input_chars`, `input_images`, `has_audio`, and `ok`
+      (plus `error` class on failure). One log line per call — no aggregation away. The
+      event rides the existing structlog JSON pipeline; no new dependency. Operator runbook
+      is `docs/COST_MONITORING.md` (log shape, why logs not SaaS billing, `grep`/`jq`
+      queries for call count / error rate / p95 latency per agent, monthly cost projection
+      formula, and two alert thresholds: call rate > 3× trailing 24 h median, error rate
+      > 5% over 15 m). `tests/test_gemini_logging.py` — 4 tests using
+      `structlog.testing.capture_logs()`. Commit `aa2e629`.)*
 
 **Done when:** the system's cost and latency characteristics are known and monitored at realistic
 projected volume, not just "worked fine with 3 seed tickets."
+
+> Status as of 2026-09-06: **6 of 6 closed.** Six independently-verifiable slices, one commit each,
+> one line per commit message. The two operational docs (`docs/bundle_audit.md`,
+> `docs/COST_MONITORING.md`, `docs/stateless_runbook.md`) are the on-call runbook for the things
+> this phase turned into durable infrastructure (bundle, cost signal, multi-instance topology).
+> Phase 5 is now **met.** Phase 4's remaining dashboard gaps (items 2–4 of
+> `docs/dashboard_gap_audit.md`) are the natural Phase 6 / Phase 7 candidate list.
 
 ---
 
