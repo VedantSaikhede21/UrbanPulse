@@ -7,8 +7,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.db.models import Citizen, Officer
+from app.db.models import Citizen, Officer, Ticket
 from app.db.session import get_db
+from app.services import audit
 
 JWT_SECRET = settings.SUPABASE_JWT_SECRET or "placeholder-secret"
 
@@ -80,22 +81,30 @@ def _resolve_user(
             uuid.UUID(user_id)
         except (ValueError, TypeError):
             raise HTTPException(status_code=401, detail="Invalid user identity in token")
-        role = user_metadata.get("role")
-        # Hardening: never trust arbitrary/absent roles. Only the known role set
-        # is accepted and anything else (or nothing) resolves to the least
-        # privileged role. This prevents client-set metadata from self-promoting
-        # to officer/admin/super_admin.
-        if role not in VALID_ROLES:
-            role = "citizen"
-        name = "Unknown User"
-        if role == "citizen":
-            citizen = _get_or_create_citizen(db, user_id, email, user_metadata)
-            if citizen:
-                name = citizen.name
+
+        # For staff roles, verify against Officer table (single source of truth)
+        officer = db.query(Officer).filter(Officer.id == user_id).first()
+        if officer and officer.is_active:
+            # Staff user - role comes from Officer table, not JWT metadata
+            role = officer.role
+            name = officer.name
         else:
-            officer = db.query(Officer).filter(Officer.id == user_id).first()
-            if officer:
-                name = officer.name
+            # Citizen or invalid staff - use JWT metadata with fallback
+            role = user_metadata.get("role")
+            if role not in VALID_ROLES:
+                role = "citizen"
+            name = "Unknown User"
+            if role == "citizen":
+                citizen = _get_or_create_citizen(db, user_id, email, user_metadata)
+                if citizen:
+                    name = citizen.name
+            else:
+                # JWT claims staff role but no active Officer record - deny staff access
+                role = "citizen"
+                citizen = _get_or_create_citizen(db, user_id, email, user_metadata)
+                if citizen:
+                    name = citizen.name
+
         return AuthUser(id=user_id, role=role, email=email, phone=phone, name=name)
     except HTTPException:
         raise
@@ -140,6 +149,9 @@ def _get_or_create_citizen(
     authenticated access so ticket ownership (tickets.citizen_id FK) and
     per-user filtering keep working without weakening auth: the user still
     needs a valid Supabase JWT, and the row is scoped to their own UUID.
+
+    Also handles account linking: if the user's phone matches an existing
+    WhatsApp-only citizen, merge that citizen into this one.
     """
     if user_id == "00000000-0000-0000-0000-000000000000":
         return None
@@ -149,6 +161,23 @@ def _get_or_create_citizen(
     citizen = db.query(Citizen).filter(Citizen.id == citizen_uuid).first()
     if citizen:
         return citizen
+
+    # Check if user provided a phone number (from token or metadata) that matches
+    # an existing WhatsApp-only citizen. If so, merge them.
+    phone = user_metadata.get("phone") or user_metadata.get("phone_number")
+    if phone:
+        # Normalize phone (remove whatsapp: prefix if present)
+        normalized_phone = phone[9:] if phone.startswith("whatsapp:") else phone
+        # Find WhatsApp citizen with this phone that hasn't been merged yet
+        whatsapp_citizen = db.query(Citizen).filter(
+            Citizen.phone == normalized_phone,
+            Citizen.merged_into_id.is_(None),
+            Citizen.id != citizen_uuid
+        ).first()
+        if whatsapp_citizen:
+            # Merge WhatsApp citizen into this web citizen
+            return _merge_citizens(db, whatsapp_citizen, citizen_uuid, email, user_metadata)
+
     display_name = (
         user_metadata.get("name")
         or user_metadata.get("full_name")
@@ -175,3 +204,75 @@ def _get_or_create_citizen(
             raise
         citizen = existing
     return citizen
+
+
+def _merge_citizens(
+    db: Session,
+    source_citizen: Citizen,
+    target_citizen_id: uuid.UUID,
+    email: Optional[str],
+    user_metadata: dict,
+) -> Citizen:
+    """
+    Merge a source citizen (e.g., WhatsApp-only) into a target citizen (web user).
+
+    The source citizen's tickets are reassigned to the target citizen.
+    The source citizen is marked as merged_into the target.
+    """
+    # Get or create the target citizen
+    target_citizen = db.query(Citizen).filter(Citizen.id == target_citizen_id).first()
+    if not target_citizen:
+        display_name = (
+            user_metadata.get("name")
+            or user_metadata.get("full_name")
+            or (email.split("@")[0] if email else None)
+            or "Citizen"
+        )
+        target_citizen = Citizen(
+            id=target_citizen_id,
+            email=email or f"{target_citizen_id}@local.urbanpulse",
+            name=display_name[:100],
+            reputation_score=100,
+        )
+        db.add(target_citizen)
+        db.flush()
+
+    # Reassign tickets from source to target
+    tickets_updated = db.query(Ticket).filter(Ticket.citizen_id == source_citizen.id).update(
+        {Ticket.citizen_id: target_citizen_id},
+        synchronize_session=False
+    )
+
+    # Reassign audit logs
+    from app.db.models import AuditLog
+    db.query(AuditLog).filter(AuditLog.user_id == source_citizen.id).update(
+        {AuditLog.user_id: target_citizen_id},
+        synchronize_session=False
+    )
+
+    # Mark source as merged into target
+    source_citizen.merged_into_id = target_citizen_id
+    source_citizen.phone = None  # Free up phone for target if needed
+    source_citizen.email = None  # Free up email
+
+    # If target doesn't have phone, inherit from source
+    if not target_citizen.phone and source_citizen.phone:
+        target_citizen.phone = source_citizen.phone
+
+    # Audit the merge
+    audit.record_audit(
+        db,
+        user_id=str(target_citizen_id),
+        action="citizen.merge",
+        target_table="citizens",
+        record_id=str(target_citizen_id),
+        details={
+            "merged_from": str(source_citizen.id),
+            "tickets_reassigned": tickets_updated,
+            "source_phone": source_citizen.phone,
+        },
+    )
+
+    db.commit()
+    db.refresh(target_citizen)
+    return target_citizen

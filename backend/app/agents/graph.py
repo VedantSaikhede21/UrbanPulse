@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 
+import structlog
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, END
 from sqlalchemy import text, func
@@ -24,6 +25,8 @@ except Exception:
     GEMINI_AVAILABLE = False
     types = None
 
+logger = structlog.get_logger(__name__)
+
 
 def _parse_json_response(raw: str, fallback: dict) -> dict:
     try:
@@ -37,15 +40,47 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
     """Call Gemini 2.5 Flash and return text, or return fallback on any error."""
     if not GEMINI_AVAILABLE or _gemini_client is None:
         return fallback
+    import time
+    started = time.monotonic()
     try:
         resp = _gemini_client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
         )
+        latency_ms = int((time.monotonic() - started) * 1000)
+        # Phase 5: per-call cost log. One JSON line per Gemini
+        # call. Operators aggregate this in their log backend to
+        # answer "how many calls in the last hour" and "what did
+        # they cost". No new dependency, no counter service — the
+        # log stream is already there.
+        logger.info(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="cx",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=0,
+            has_audio=False,
+            ok=True,
+        )
         text_response = getattr(resp, "text", None)
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
-        print(f"Gemini call failed: {e}")
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.warning(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="cx",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=0,
+            has_audio=False,
+            ok=False,
+            error=type(e).__name__,
+        )
+        logger.warning("gemini_call_failed", error=str(e))
+        from app.sentry import capture_exception
+        capture_exception(e, agent="cx")
         return fallback
 
 
@@ -53,25 +88,56 @@ def _ask_gemini_with_images(prompt: str, image_urls: List[str], fallback: str) -
     """Multimodal Gemini call with one or more image URLs."""
     if not GEMINI_AVAILABLE or _gemini_client is None or types is None:
         return fallback
+    import time
+    started = time.monotonic()
     try:
         parts: List[Any] = [types.Part.from_text(text=prompt)]
+        n_images = 0
         for url in image_urls:
             if url:
                 parts.append(types.Part.from_uri(file_uri=url, mime_type="image/jpeg"))
+                n_images += 1
         resp = _gemini_client.models.generate_content(
             model="gemini-2.5-flash",
             contents=[types.Content(role="user", parts=parts)],
         )
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.info(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="vision",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=n_images,
+            has_audio=False,
+            ok=True,
+        )
         text_response = getattr(resp, "text", None)
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
-        print(f"Gemini multimodal call failed: {e}")
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.warning(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="vision",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=n_images,
+            has_audio=False,
+            ok=False,
+            error=type(e).__name__,
+        )
+        logger.warning("gemini_multimodal_call_failed", error=str(e))
+        from app.sentry import capture_exception
+        capture_exception(e, agent="vision")
         return fallback
-    
+
 def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
     """Multimodal Gemini call with an audio note — transcribes + translates in one call."""
     if not GEMINI_AVAILABLE or _gemini_client is None or types is None or not audio_url:
         return fallback
+    import time
+    started = time.monotonic()
     try:
         parts: List[Any] = [
             types.Part.from_text(text=prompt),
@@ -81,10 +147,35 @@ def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
             model="gemini-2.5-flash",
             contents=[types.Content(role="user", parts=parts)],
         )
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.info(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="audio",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=0,
+            has_audio=True,
+            ok=True,
+        )
         text_response = getattr(resp, "text", None)
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
-        print(f"Gemini audio call failed: {e}")
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.warning(
+            "gemini_call",
+            model="gemini-2.5-flash",
+            agent="audio",
+            latency_ms=latency_ms,
+            input_chars=len(prompt),
+            input_images=0,
+            has_audio=True,
+            ok=False,
+            error=type(e).__name__,
+        )
+        logger.warning("gemini_audio_call_failed", error=str(e))
+        from app.sentry import capture_exception
+        capture_exception(e, agent="audio")
         return fallback
 
 def _get_db_session():
@@ -126,6 +217,7 @@ class TicketState(BaseModel):
     priority_score: int = 1
     priority_reason: Optional[str] = None
     assigned_department: Optional[str] = None
+    assigned_department_id: Optional[str] = None
     assigned_officer_id: Optional[str] = None
 
     # Operational attributes
@@ -143,7 +235,24 @@ class TicketState(BaseModel):
 # ────────────────────────────────────────────────────────
 
 def cx_agent(state: TicketState) -> Dict[str, Any]:
+    # Prefer the citizen's own text when present. Otherwise transcribe
+    # the voice note via Gemini (multimodal audio) so downstream agents
+    # see real text instead of an empty string. This is the only
+    # caller of _ask_gemini_with_audio in the pipeline — Phase 4 wires
+    # up the helper that was already defined but unused.
     text = state.citizen_text or state.transcription or ""
+    transcript_source = "text" if state.citizen_text else "existing_transcription"
+
+    if not text and state.voice_note_url:
+        transcript = _ask_gemini_with_audio(
+            "Transcribe this voice note exactly as spoken, in its original "
+            "language. Output only the transcript text.",
+            state.voice_note_url,
+            fallback="Voice note attached but transcription unavailable.",
+        )
+        text = transcript
+        transcript_source = "voice"
+        logger.info("voice_transcribed", transcript_chars=len(transcript))
 
     reasoning = _ask_gemini(
         f"""You are the CX Agent in a municipal complaint management system.
@@ -155,7 +264,7 @@ Return ONLY the summary sentence.""",
 
     logs = state.trace_logs + [{
         "agent": "CX Agent",
-        "action": "Ingesting and normalising report",
+        "action": f"Ingesting and normalising report (source: {transcript_source})",
         "reasoning": reasoning,
     }]
     return {
@@ -289,7 +398,7 @@ def deduplication_agent(state: TicketState) -> Dict[str, Any]:
                     f"within 100m radius for '{state.category}'."
                 )
         except Exception as e:
-            print(f"Deduplication query failed: {e}")
+            logger.warning("deduplication_query_failed", error=str(e))
             reasoning = "Spatial dedup check skipped (DB unavailable). Treating as unique."
         finally:
             db.close()
@@ -340,50 +449,63 @@ Return ONLY JSON: {{"score": <int>, "reason": "<string>"}}""",
 
 
 def routing_agent(state: TicketState) -> Dict[str, Any]:
-    dept = CATEGORY_TO_DEPT.get(state.category or "", "Roads")
+    dept_name = CATEGORY_TO_DEPT.get(state.category or "", "Roads")
     officer_id = None
+    department_id: Optional[str] = None
 
     db = _get_db_session()
     try:
-        from app.db.models import Officer, Ticket
+        from app.db.models import Department, Officer, Ticket
 
-        officers = (
-            db.query(Officer)
-            .filter(Officer.department == dept, Officer.is_active.is_(True))
-            .all()
+        # Resolve dept_name (string from CATEGORY_TO_DEPT) to a Department FK.
+        # The string-to-FK bridge is the only place this mapping is hard-coded;
+        # once every category lives as its own routing rule, this lookup goes
+        # away entirely.
+        dept_row = (
+            db.query(Department)
+            .filter(Department.name == dept_name, Department.is_active.is_(True))
+            .first()
         )
-        if officers:
-            # Assign to officer with fewest active tickets
-            loads = []
-            for o in officers:
-                count = (
-                    db.query(func.count(Ticket.id))
-                    .filter(
-                        Ticket.assigned_officer_id == o.id,
-                        Ticket.status.in_(["assigned", "in_progress"]),
+        if dept_row is not None:
+            department_id = str(dept_row.id)
+            officers = (
+                db.query(Officer)
+                .filter(Officer.department_id == dept_row.id, Officer.is_active.is_(True))
+                .all()
+            )
+            if officers:
+                # Assign to officer with fewest active tickets
+                loads = []
+                for o in officers:
+                    count = (
+                        db.query(func.count(Ticket.id))
+                        .filter(
+                            Ticket.assigned_officer_id == o.id,
+                            Ticket.status.in_(["assigned", "in_progress"]),
+                        )
+                        .scalar()
                     )
-                    .scalar()
-                )
-                loads.append((count, o))
-            loads.sort(key=lambda x: x[0])
-            officer_id = str(loads[0][1].id)
+                    loads.append((count, o))
+                loads.sort(key=lambda x: x[0])
+                officer_id = str(loads[0][1].id)
     except Exception as e:
-        print(f"Routing query failed: {e}")
+        logger.warning("routing_query_failed", error=str(e))
     finally:
         db.close()
 
     officer_note = f" Officer {officer_id[:8]}… assigned." if officer_id else ""
     reasoning = (
-        f"Complaint routed to {dept} department based on '{state.category}' classification.{officer_note}"
+        f"Complaint routed to {dept_name} department based on '{state.category}' classification.{officer_note}"
     )
 
     logs = state.trace_logs + [{
         "agent": "Routing Agent",
-        "action": f"Routing to {dept} department",
+        "action": f"Routing to {dept_name} department",
         "reasoning": reasoning,
     }]
     result: Dict[str, Any] = {
-        "assigned_department": dept,
+        "assigned_department": dept_name,
+        "assigned_department_id": department_id,
         "status": "assigned",
         "trace_logs": logs,
     }
@@ -488,7 +610,7 @@ def analytics_agent(state: TicketState, mode: str = "triage") -> Dict[str, Any]:
                     f"({'+' if delta >= 0 else ''}{delta:.1f} from {mode})."
                 )
         except Exception as e:
-            print(f"Analytics UHS update failed: {e}")
+            logger.warning("analytics_uhs_update_failed", error=str(e))
             db.rollback()
             reasoning = f"UHS recalculation skipped: {e}"
         finally:

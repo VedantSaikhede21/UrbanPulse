@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader, Mic } from 'lucide-react';
+import { Loader, Mic, X, MapPin, AlertCircle, ChevronRight } from 'lucide-react';
 import { apiFetch, apiUpload } from '../../lib/api';
 import { MapPicker, type LocationData } from '../../components/ui/MapPicker';
 import { FileUpload, type FileData } from '../../components/ui/FileUpload';
@@ -10,8 +10,15 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useMediaRecorder } from '../../hooks/useMediaRecorder';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
+
+interface ValidationErrors {
+  description?: string;
+  location?: string;
+  category?: string;
+}
 
 export const ReportIssue: React.FC = () => {
   useDocumentTitle('Report Issue');

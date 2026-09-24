@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import { AlertTriangle, Loader, MapPin, Activity } from 'lucide-react';
+import { AlertTriangle, Loader, MapPin, Activity, Flame } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 import { avgUhs } from '../../lib/uhs';
+import { HeatmapLayer, type HeatPoint } from '../../components/map/HeatmapLayer';
 import type { Ticket } from '../../lib/types';
 import type { Ward, CityPulse } from '../../lib/types';
 
@@ -34,6 +35,7 @@ export const PublicMap: React.FC = () => {
   const [guestMode, setGuestMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showHeatmap, setShowHeatmap] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
@@ -77,6 +79,18 @@ export const PublicMap: React.FC = () => {
     : 77.59;
 
   const openCount = tickets.filter(t => !['resolved', 'verified'].includes(t.status)).length;
+
+  // Heatmap weights: open tickets weighted heavier than resolved, and
+  // higher-priority incidents weighted heavier than low-priority.
+  // Cap weight at 1.0 to keep max sane.
+  const heatPoints: HeatPoint[] = useMemo(
+    () => tickets.map(t => {
+      const open = !['resolved', 'verified'].includes(t.status) ? 0.5 : 0.0;
+      const pri = Math.min(1, Math.max(0, t.priority_score / 3)) * 0.5;
+      return { lat: t.latitude, lng: t.longitude, weight: Math.min(1, open + pri) };
+    }),
+    [tickets],
+  );
 
   if (error) {
     return (
@@ -189,7 +203,21 @@ export const PublicMap: React.FC = () => {
             <span className="font-mono">{tickets.length} total incidents</span>
             <span className="font-mono text-yellow-400">{openCount} open</span>
             <span className="font-mono text-green-400">{tickets.length - openCount} resolved</span>
-            <div className="flex items-center gap-3 ml-auto flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowHeatmap(v => !v)}
+              aria-pressed={showHeatmap}
+              aria-label="Toggle heatmap layer"
+              className={`focus-ring ml-auto inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded border transition-colors ${
+                showHeatmap
+                  ? 'bg-brand-soft border-brand-lime/30 text-brand-lime'
+                  : 'border-border-default text-text-tertiary hover:text-foreground'
+              }`}
+            >
+              <Flame size={12} />
+              {showHeatmap ? 'Heatmap on' : 'Heatmap off'}
+            </button>
+            <div className="flex items-center gap-3 flex-wrap">
               {Object.entries(STATUS_COLORS).map(([status, color]) => (
                 <span key={status} className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
@@ -200,7 +228,7 @@ export const PublicMap: React.FC = () => {
           </div>
 
           {/* Map */}
-          <div role="region" aria-label="Incident map" className="h-[600px] w-full rounded-lg overflow-hidden border border-panel-border">
+          <div role="region" aria-label="Incident map" className="h-[600px] w-full rounded-lg overflow-hidden border border-panel-border relative">
             <MapContainer
               center={[avgLat, avgLng]}
               zoom={13}
@@ -211,6 +239,7 @@ export const PublicMap: React.FC = () => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               />
+              <HeatmapLayer points={heatPoints} visible={showHeatmap} />
               {tickets.map(t => (
                 <CircleMarker
                   key={t.id}

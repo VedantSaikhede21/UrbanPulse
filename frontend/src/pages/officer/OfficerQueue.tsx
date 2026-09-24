@@ -12,6 +12,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useToast } from '../../components/ui/Toast';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
+import { SlaCountdown } from '../../components/ui/SlaCountdown';
 import type { Ticket } from '../../lib/types';
 
 
@@ -53,7 +54,7 @@ export const OfficerQueue: React.FC = () => {
   const loadQueue = useCallback(() => {
     apiFetch('/api/officers/queue')
       .then(res => {
-        if (!res.ok) throw new Error('Failed to load queue');
+        if (!res.ok) throw new Error(`Failed to load queue (${res.status})`);
         return res.json();
       })
       .then(data => {
@@ -62,13 +63,17 @@ export const OfficerQueue: React.FC = () => {
         hasLoadedOnce.current = true;
         setError(null);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         setLoading(false);
+        const message = err instanceof Error ? err.message : 'Unknown error';
         if (!hasLoadedOnce.current) {
-          setError('Could not load officer queue. Is the backend running?');
+          setError(`Could not load officer queue: ${message}`);
+        } else {
+          // Show toast for silent refresh failures
+          toast({ type: 'error', title: 'Queue refresh failed', message });
         }
       });
-  }, []);
+  }, [toast]);
 
   const loadQueueRef = useRef(loadQueue);
   loadQueueRef.current = loadQueue;
@@ -236,6 +241,10 @@ export const OfficerQueue: React.FC = () => {
                     <span className="flex items-center gap-1">
                       <Calendar size={12} /> {new Date(ticket.created_at).toLocaleDateString()}
                     </span>
+                    <SlaCountdown
+                      expectedResolutionAt={ticket.expected_resolution_at}
+                      status={ticket.status}
+                    />
                   </div>
                 </div>
 

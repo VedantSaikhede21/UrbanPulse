@@ -1,15 +1,54 @@
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
+import structlog
 from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.agents import graph as agent_graph
 from app.config import settings
 from app.db.models import Citizen, Ticket
 from app.services import audit
+from app.services.sla import compute_expected_resolution
+from app.services.storage import get_storage
+
+logger = structlog.get_logger(__name__)
 
 VALID_TICKET_STATUSES = ("reported", "assigned", "in_progress", "resolved", "verified")
+
+
+def _resolve_media_url(stored: Optional[str]) -> Optional[str]:
+    """Turn a stored media value into a fetchable URL.
+
+    Phase 2.2 swap: the DB used to hold an absolute URL
+    (e.g. http://host:8000/uploads/abc.jpg). It now holds an
+    opaque storage key (e.g. `uploads/2026/09/05/abc.jpg` for
+    Supabase, or `/uploads/2026/09/05/abc.jpg` for local). We
+    re-sign on every read so the URL never goes stale in the
+    browser (Supabase signed URLs expire in 1h).
+
+    Pre-Phase-2.2 rows in the DB may still hold absolute URLs;
+    we detect that and pass them through unchanged so the
+    migration is not destructive for already-stored tickets.
+    """
+    if not stored:
+        return None
+    # Heuristic: an absolute URL starts with a scheme. A storage
+    # key does not. Treating absolute URLs as already-resolved
+    # is the safe forward path; users with old tickets keep
+    # working until those tickets age out or are re-uploaded.
+    if "://" in stored:
+        return stored
+    try:
+        return get_storage().public_url(stored)
+    except Exception:
+        # If the storage backend is misconfigured (e.g. bucket
+        # renamed in Supabase), do not 500 the whole ticket
+        # listing — return the raw key and let the frontend
+        # show a broken image rather than a 500.
+        return stored
 
 
 def serialize_ticket(t: Ticket) -> dict:
@@ -28,13 +67,31 @@ def serialize_ticket(t: Ticket) -> dict:
         "priority_score": t.priority_score,
         "priority_reason": t.priority_reason,
         "assigned_officer_id": str(t.assigned_officer_id) if t.assigned_officer_id else None,
+        "department_id": str(t.department_id) if t.department_id else None,
         "verification_status": t.verification_status,
         "verification_reason": t.verification_reason,
-        "original_media_url": t.original_media_url,
-        "closure_media_url": t.closure_media_url,
-        "voice_note_url": t.voice_note_url,
+        "original_media_url": _resolve_media_url(t.original_media_url),
+        "closure_media_url": _resolve_media_url(t.closure_media_url),
+        "voice_note_url": _resolve_media_url(t.voice_note_url),
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+        # ai_degraded is True when the AI pipeline is not running on a
+        # real Gemini call (no key, or import failed). Frontend surfaces
+        # this as a "AI reasoning unavailable, using basic triage" banner.
+        "ai_degraded": not getattr(agent_graph, "GEMINI_AVAILABLE", False),
+        # Phase 2.1: ARQ pipeline state. The frontend can use this
+        # to keep the "AI thinking..." animation up while the
+        # worker has the ticket, and to swap to "reasoning
+        # available" once state moves to 'completed'.
+        "processing_state": getattr(t, "processing_state", "pending") or "pending",
+        # Phase 4: SLA countdown. The citizen UI renders
+        # "expected resolution by <this timestamp>" on the
+        # ReportDetail page. Nullable for pre-migration rows.
+        "expected_resolution_at": (
+            t.expected_resolution_at.isoformat()
+            if getattr(t, "expected_resolution_at", None)
+            else None
+        ),
     }
 
 
@@ -100,7 +157,7 @@ def get_ticket(db: Session, ticket_id: str, role: str, user_id: str) -> dict:
     return serialize_ticket(ticket)
 
 
-def create_ticket(db: Session, role: str, user_id: str, body) -> dict:
+def create_ticket(db: Session, role: str, user_id: str, body, background=None) -> dict:
     citizen_id = None
     if role == "citizen" and user_id != "00000000-0000-0000-0000-000000000000":
         # Defense in depth: get_current_user already rejects non-UUID subs,
@@ -130,6 +187,13 @@ def create_ticket(db: Session, role: str, user_id: str, body) -> dict:
         status=body.status,
         priority_score=body.priority_score,
         priority_reason=body.priority_reason,
+        # Phase 4: SLA countdown. Computed from the
+        # configurable system_settings.sla_minutes_by_category
+        # map; falls back to 24h if the row is missing or the
+        # category isn't in the map. Never raises (see sla.py).
+        expected_resolution_at=compute_expected_resolution(
+            body.category, datetime.now(timezone.utc), db
+        ),
     )
     db.add(ticket)
     db.commit()
@@ -147,7 +211,46 @@ def create_ticket(db: Session, role: str, user_id: str, body) -> dict:
             "citizen_id": str(citizen_id) if citizen_id else None,
         },
     )
+
+    # Phase 2.1: hand the AI pipeline off to the ARQ worker. The
+    # caller passes a FastAPI BackgroundTasks instance; the
+    # enqueue runs after the response is sent. This keeps the
+    # request thread free of pipeline work AND handles the
+    # event-loop question cleanly (BackgroundTasks supports
+    # async functions natively).
+    if background is not None:
+        background.add_task(_enqueue_triage_async, str(ticket.id))
+
+    # Phase 5: a brand-new ticket shifts the city-pulse trending
+    # aggregate immediately and the ward UHS score after the
+    # analytics agent runs. The post-triage invalidation in
+    # queue.triage_ticket handles the UHS half; here we drop the
+    # city-pulse key so the new ticket's category shows up in
+    # the trending top-3 on the next read instead of after the
+    # 15s TTL. Best-effort.
+    try:
+        from app.services import cache
+        cache.invalidate_analytics_sync()
+    except Exception:
+        pass
+
     return serialize_ticket(ticket)
+
+
+async def _enqueue_triage_async(ticket_id: str) -> None:
+    """Background-task wrapper around queue.enqueue_triage.
+
+    Swallows all exceptions: a missing or unreachable Redis is
+    logged, the ticket stays in processing_state='pending', and
+    the operator can re-enqueue via the SSE endpoint or a future
+    maintenance job. The user request must never 5xx because
+    the worker is down.
+    """
+    from app.queue import enqueue_triage
+    try:
+        await enqueue_triage(ticket_id)
+    except Exception as e:  # pragma: no cover (defensive)
+        logger.warning("enqueue_triage_async_failed", ticket_id=ticket_id, error=str(e))
 
 
 def update_ticket_status(db: Session, ticket_id: str, status: str, role: str, user_id: str) -> dict:
@@ -176,6 +279,19 @@ def update_ticket_status(db: Session, ticket_id: str, status: str, role: str, us
         record_id=ticket_id,
         details={"from": previous, "to": status},
     )
+
+    # Phase 5: a status change shifts the open-ticket count
+    # behind city-pulse alerts and the ward trending aggregate.
+    # Drop the cache so the next read reflects the new state.
+    # Best-effort: a Redis outage just means the next read waits
+    # for the TTL. Run in a thread so the sync endpoint stays
+    # non-blocking on the (rare) Redis round-trip.
+    try:
+        from app.services import cache
+        cache.invalidate_analytics_sync()
+    except Exception:
+        pass
+
     return serialize_ticket(ticket)
 
 

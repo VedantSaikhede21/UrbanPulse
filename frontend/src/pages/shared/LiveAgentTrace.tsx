@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { Activity, Sparkles, CheckCircle2, AlertCircle, Loader, Play } from 'lucide-react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { Activity, Sparkles, CheckCircle2, AlertCircle, Loader, Play, ClipboardPaste, AlertTriangle } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiUrl } from '../../lib/api';
+import { useToast } from '../../components/ui/Toast';
 
 interface AgentStep {
   agent: string;
@@ -26,10 +27,17 @@ const AGENT_ICONS: Record<string, string> = {
   'Pipeline': '🤖',
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateUUID(uuid: string): boolean {
+  return UUID_REGEX.test(uuid);
+}
+
 export const LiveAgentTrace: React.FC = () => {
   useDocumentTitle('Agent Trace');
   const { ticketId: routeTicketId } = useParams<{ ticketId?: string }>();
-  const [ticketId, setTicketId] = useState(routeTicketId || '');
+  const [searchParams] = useSearchParams();
+  const [ticketId, setTicketId] = useState(() => routeTicketId || searchParams.get('ticketId') || '');
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
@@ -37,14 +45,28 @@ export const LiveAgentTrace: React.FC = () => {
   const [finalResult, setFinalResult] = useState<Record<string, unknown> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
+  const { toast } = useToast();
 
   // Auto-scroll as steps arrive
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [steps]);
 
+  // Clean up EventSource on unmount
+  useEffect(() => {
+    return () => {
+      esRef.current?.close();
+    };
+  }, []);
+
   function startTrace() {
-    if (!ticketId.trim()) return;
+    const trimmedId = ticketId.trim();
+    if (!trimmedId) return;
+    if (!validateUUID(trimmedId)) {
+      setError('Invalid Ticket ID format. Please enter a valid UUID.');
+      toast({ type: 'error', title: 'Invalid Ticket ID', message: 'Please enter a valid UUID format.' });
+      return;
+    }
     setSteps([]);
     setDone(false);
     setError(null);
@@ -54,7 +76,7 @@ export const LiveAgentTrace: React.FC = () => {
     // Close any existing connection
     esRef.current?.close();
 
-    const es = new EventSource(apiUrl(`/api/tickets/${ticketId.trim()}/process`));
+    const es = new EventSource(apiUrl(`/api/tickets/${trimmedId}/process`));
     esRef.current = es;
 
     es.onmessage = (event) => {
@@ -94,6 +116,30 @@ export const LiveAgentTrace: React.FC = () => {
     setRunning(false);
   }
 
+  function handlePaste() {
+    navigator.clipboard.readText().then(text => {
+      const trimmed = text.trim();
+      if (validateUUID(trimmed)) {
+        setTicketId(trimmed);
+        toast({ type: 'success', title: 'Ticket ID pasted', message: 'Click Run Pipeline to start' });
+      } else {
+        toast({ type: 'error', title: 'Invalid UUID', message: 'Clipboard does not contain a valid Ticket UUID.' });
+      }
+    }).catch(() => {
+      toast({ type: 'error', title: 'Paste failed', message: 'Could not read clipboard. Please paste manually.' });
+    });
+  }
+
+  function clearTicketId() {
+    setTicketId('');
+    setSteps([]);
+    setDone(false);
+    setError(null);
+    setFinalResult(null);
+    esRef.current?.close();
+    setRunning(false);
+  }
+
   return (
     <div className="p-6 max-w-5xl mx-auto min-h-screen font-sans text-foreground space-y-6">
 
@@ -109,22 +155,45 @@ export const LiveAgentTrace: React.FC = () => {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-3">
-        <input
-          id="trace-ticket-id"
-          type="text"
-          aria-label="Paste a Ticket UUID"
-          placeholder="Paste a Ticket UUID (from /citizen/dashboard)..."
-          value={ticketId}
-          onChange={e => setTicketId(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !running && startTrace()}
-          className="flex-1 bg-panel-card border border-panel-border rounded px-4 py-2.5 text-xs font-mono text-foreground focus:outline-none focus:border-brand-lime"
-        />
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-0">
+          <input
+            id="trace-ticket-id"
+            type="text"
+            aria-label="Paste a Ticket UUID"
+            placeholder="Paste a Ticket UUID (from /citizen/dashboard)..."
+            value={ticketId}
+            onChange={e => setTicketId(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !running && startTrace()}
+            className="w-full bg-panel-card border border-panel-border rounded px-4 py-2.5 text-xs font-mono text-foreground focus:outline-none focus:border-brand-lime pr-12"
+          />
+          {ticketId && (
+            <button
+              type="button"
+              onClick={clearTicketId}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-200 text-xs"
+              aria-label="Clear ticket ID"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handlePaste}
+          disabled={running}
+          className="flex items-center gap-1.5 bg-panel-bg border border-panel-border hover:border-brand-lime/30 text-text-primary hover:text-foreground font-medium px-4 py-2.5 rounded text-xs transition-colors disabled:opacity-50"
+          aria-label="Paste Ticket UUID from clipboard"
+        >
+          <ClipboardPaste size={14} />
+          Paste
+        </button>
         {!running ? (
           <button
             onClick={startTrace}
-            disabled={!ticketId.trim()}
+            disabled={!ticketId.trim() || !validateUUID(ticketId.trim())}
             className="flex items-center gap-2 bg-brand-lime text-background hover:bg-brand-lime-hover disabled:bg-gray-800 disabled:text-gray-500 font-semibold px-5 py-2.5 rounded text-xs transition-colors"
+            aria-disabled={!ticketId.trim() || !validateUUID(ticketId.trim())}
           >
             <Play size={14} />
             Run Pipeline
@@ -136,6 +205,9 @@ export const LiveAgentTrace: React.FC = () => {
           >
             Stop
           </button>
+        )}
+        {!ticketId.trim() && !running && !validateUUID(ticketId.trim()) && (
+          <span className="text-[10px] text-gray-500 font-mono">Enter a valid UUID</span>
         )}
       </div>
 

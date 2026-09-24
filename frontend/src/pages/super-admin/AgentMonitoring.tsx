@@ -14,7 +14,23 @@ interface AgentInfo {
   name: string;
   icon: LucideIcon;
   description: string;
-  lastActive: string;
+}
+
+interface AgentMetric {
+  name: string;
+  node: string;
+  invocations: number;
+  avg_latency_ms: number | null;
+  last_active: string | null;
+  online: boolean;
+}
+
+interface MetricsResponse {
+  window_minutes: number;
+  total_invocations: number;
+  online_count: number;
+  agent_count: number;
+  agents: AgentMetric[];
 }
 
 interface CityPulseData {
@@ -24,35 +40,53 @@ interface CityPulseData {
   pulse_alerts: string[];
 }
 
-const AGENTS: AgentInfo[] = [
-  { name: 'CX Agent', icon: MessageSquare, description: 'Handles citizen communication and feedback processing', lastActive: 'Just now' },
-  { name: 'Vision Agent', icon: Eye, description: 'Analyzes uploaded images for damage assessment', lastActive: '1m ago' },
-  { name: 'Trust & Fraud Agent', icon: Shield, description: 'Detects fraudulent activity and verifies report authenticity', lastActive: '2m ago' },
-  { name: 'Deduplication Agent', icon: Search, description: 'Identifies and merges duplicate ticket submissions', lastActive: '3m ago' },
-  { name: 'Priority Agent', icon: Zap, description: 'Assigns priority scores based on severity and urgency', lastActive: '3m ago' },
-  { name: 'Routing Agent', icon: Map, description: 'Routes tickets to the correct department', lastActive: '4m ago' },
-  { name: 'Escalation Agent', icon: Bell, description: 'Monitors SLA breaches and escalates overdue tickets', lastActive: '5m ago' },
-  { name: 'Verification Agent', icon: CheckCircle2, description: 'Verifies resolved tickets and validates closure evidence', lastActive: '6m ago' },
-  { name: 'Analytics Agent', icon: BarChart2, description: 'Generates city pulse digests and trend analysis', lastActive: '7m ago' },
-];
+const AGENT_META: Record<string, { icon: LucideIcon; description: string }> = {
+  'CX Agent': { icon: MessageSquare, description: 'Handles citizen communication and feedback processing' },
+  'Vision Agent': { icon: Eye, description: 'Analyzes uploaded images for damage assessment' },
+  'Trust & Fraud Agent': { icon: Shield, description: 'Detects fraudulent activity and verifies report authenticity' },
+  'Deduplication Agent': { icon: Search, description: 'Identifies and merges duplicate ticket submissions' },
+  'Priority Agent': { icon: Zap, description: 'Assigns priority scores based on severity and urgency' },
+  'Routing Agent': { icon: Map, description: 'Routes tickets to the correct department' },
+  'Escalation Agent': { icon: Bell, description: 'Monitors SLA breaches and escalates overdue tickets' },
+  'Verification Agent': { icon: CheckCircle2, description: 'Verifies resolved tickets and validates closure evidence' },
+  'Analytics Agent': { icon: BarChart2, description: 'Generates city pulse digests and trend analysis' },
+};
+
+function formatRelative(iso: string | null): string {
+  if (!iso) return 'never';
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const delta = Math.max(0, Math.floor((now - then) / 1000));
+  if (delta < 60) return `${delta}s ago`;
+  if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
+  if (delta < 86400) return `${Math.floor(delta / 3600)}h ago`;
+  return `${Math.floor(delta / 86400)}d ago`;
+}
 
 export const AgentMonitoring: React.FC = () => {
   useDocumentTitle('Agent Monitoring');
   const breadcrumbs = useBreadcrumbs();
   const [pulse, setPulse] = useState<CityPulseData | null>(null);
+  const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = () => {
     setLoading(true);
     setError(null);
-    apiFetch('/api/analytics/city-pulse')
-      .then(async res => {
+    Promise.all([
+      apiFetch('/api/analytics/city-pulse').then(async res => {
         if (!res.ok) throw new Error(`API error (${res.status})`);
-        return res.json();
-      })
-      .then((data: CityPulseData) => {
-        setPulse(data);
+        return res.json() as Promise<CityPulseData>;
+      }),
+      apiFetch('/api/agents/metrics').then(async res => {
+        if (!res.ok) throw new Error(`API error (${res.status})`);
+        return res.json() as Promise<MetricsResponse>;
+      }),
+    ])
+      .then(([p, m]) => {
+        setPulse(p);
+        setMetrics(m);
         setLoading(false);
       })
       .catch(err => {
@@ -80,7 +114,10 @@ export const AgentMonitoring: React.FC = () => {
     );
   }
 
-  const onlineCount = AGENTS.length;
+  const onlineCount = metrics?.online_count ?? 0;
+  const totalAgents = metrics?.agent_count ?? 9;
+  const totalInvocations = metrics?.total_invocations ?? 0;
+  const windowMinutes = metrics?.window_minutes ?? 1440;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 min-h-screen">
@@ -89,8 +126,7 @@ export const AgentMonitoring: React.FC = () => {
         <Breadcrumbs items={breadcrumbs} />
         <h1 className="text-2xl font-serif italic font-bold">AI Agent Monitoring Console</h1>
         <p className="text-tertiary text-xs mt-1">
-          Real-time status of all 9 AI agents powering the UrbanPulse pipeline.
-          <span className="ml-3 inline-block px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400 text-[9px] font-mono border border-yellow-700/30">Demo Configuration</span>
+          Real-time status of the {totalAgents} AI agents powering the UrbanPulse pipeline.
         </p>
       </div>
 
@@ -108,16 +144,24 @@ export const AgentMonitoring: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm font-semibold">System Status</p>
-                <p className="text-xs text-tertiary">All 9 agents operational</p>
+                <p className="text-xs text-tertiary">
+                  {onlineCount === totalAgents
+                    ? `All ${totalAgents} agents operational`
+                    : `${onlineCount}/${totalAgents} agents online in last ${windowMinutes < 60 ? `${windowMinutes}m` : `${Math.round(windowMinutes / 60)}h`}`}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-xs text-tertiary">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${onlineCount === totalAgents ? 'bg-green-400' : 'bg-yellow-400'} opacity-75`} />
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${onlineCount === totalAgents ? 'bg-green-500' : 'bg-yellow-500'}`} />
                 </span>
-                <span className="font-mono">{onlineCount}/{AGENTS.length} agents online</span>
+                <span className="font-mono">{onlineCount}/{totalAgents} agents online</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-tertiary border-l border-panel-border pl-4">
+                <Activity size={14} className="text-brand-lime" />
+                <span className="font-mono">{totalInvocations.toLocaleString()} invocations</span>
               </div>
               {pulse && (
                 <div className="flex items-center gap-2 text-xs text-tertiary border-l border-panel-border pl-4">
@@ -130,8 +174,9 @@ export const AgentMonitoring: React.FC = () => {
 
           {/* Agent grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {AGENTS.map(agent => {
-              const Icon = agent.icon;
+            {(metrics?.agents ?? []).map(agent => {
+              const meta = AGENT_META[agent.name] ?? { icon: Cpu, description: '' };
+              const Icon = meta.icon;
               return (
                 <div key={agent.name} className="bg-panel-card border border-panel-border rounded-xl p-5 space-y-4 card-glow hover:border-brand-lime/15 transition-all duration-300">
                   <div className="flex items-start gap-3">
@@ -140,18 +185,34 @@ export const AgentMonitoring: React.FC = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold truncate">{agent.name}</h3>
-                      <p className="text-xs text-tertiary mt-0.5 leading-relaxed">{agent.description}</p>
+                      <p className="text-xs text-tertiary mt-0.5 leading-relaxed">{meta.description}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-tertiary">
+                    <div>
+                      <span className="block uppercase tracking-wider text-[9px]">Invocations</span>
+                      <span className="text-sm text-foreground">{agent.invocations.toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="block uppercase tracking-wider text-[9px]">Avg latency</span>
+                      <span className="text-sm text-foreground">
+                        {agent.avg_latency_ms != null ? `${Math.round(agent.avg_latency_ms)}ms` : '—'}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-panel-border/60">
                     <div className="flex items-center gap-1.5">
                       <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                        {agent.online && (
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        )}
+                        <span className={`relative inline-flex rounded-full h-2 w-2 ${agent.online ? 'bg-green-500' : 'bg-gray-600'}`} />
                       </span>
-                      <span className="text-[10px] font-mono text-green-400 uppercase tracking-wider">Online</span>
+                      <span className={`text-[10px] font-mono uppercase tracking-wider ${agent.online ? 'text-green-400' : 'text-tertiary'}`}>
+                        {agent.online ? 'Online' : 'Idle'}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-mono text-tertiary">{agent.lastActive}</span>
+                    <span className="text-[10px] font-mono text-tertiary">{formatRelative(agent.last_active)}</span>
                   </div>
                 </div>
               );

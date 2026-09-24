@@ -1,11 +1,15 @@
 import asyncio
 import uuid
-from typing import Any, AsyncGenerator, Dict
+from typing import Any, AsyncGenerator, Dict, List
 
+import structlog
 from sqlalchemy.orm import Session
 
 from app.db.models import Ticket
+from app.services import agent_logs
 from app.services.tickets import serialize_ticket
+
+logger = structlog.get_logger(__name__)
 
 
 async def stream_triage_events(
@@ -58,6 +62,16 @@ async def stream_triage_events(
                 new_logs = logs[seen_logs:]
                 seen_logs = len(logs)
 
+                # Persist the new trace entries to agent_logs. Failure is
+                # best-effort (see services/agent_logs.py); the SSE stream
+                # and the ticket commit must not be blocked by it.
+                if new_logs:
+                    annotated = [
+                        {**entry, "node": entry.get("node") or node_name}
+                        for entry in new_logs
+                    ]
+                    agent_logs.record_trace_entries(db, str(ticket.id), annotated)
+
                 for log_entry in new_logs:
                     yield {
                         "agent": log_entry.get("agent", node_name),
@@ -83,9 +97,12 @@ async def stream_triage_events(
             officer_id = final_state_dict.get("assigned_officer_id")
             if officer_id:
                 ticket.assigned_officer_id = uuid.UUID(officer_id)
+            dept_id = final_state_dict.get("assigned_department_id")
+            if dept_id:
+                ticket.department_id = uuid.UUID(dept_id)
             db.commit()
         except Exception as db_err:
-            print(f"DB commit error: {db_err}")
+            logger.warning("pipeline_db_commit_error", ticket_id=str(ticket.id), error=str(db_err))
             db.rollback()
 
         yield {
@@ -103,6 +120,7 @@ async def stream_triage_events(
                 "severity": final_state_dict.get("severity"),
                 "priority_score": final_state_dict.get("priority_score"),
                 "assigned_department": final_state_dict.get("assigned_department"),
+                "assigned_department_id": final_state_dict.get("assigned_department_id"),
                 "assigned_officer_id": final_state_dict.get("assigned_officer_id"),
                 "status": final_state_dict.get("status"),
                 "is_duplicate": final_state_dict.get("is_duplicate"),
@@ -143,3 +161,83 @@ def run_verification(
     db.commit()
     db.refresh(ticket)
     return serialize_ticket(ticket)
+
+
+def run_triage_sync(
+    ticket: Ticket,
+    graph,
+    TicketState,
+    db: Session,
+) -> dict:
+    """
+    Run the 8-agent triage graph synchronously (no SSE streaming).
+    Used for WhatsApp ingestion where we need the final result immediately.
+    """
+    state = TicketState(
+        ticket_id=str(ticket.id),
+        citizen_id=str(ticket.citizen_id) if ticket.citizen_id else None,
+        citizen_text=ticket.description or "",
+        original_media_url=ticket.original_media_url,
+        voice_note_url=ticket.voice_note_url,
+        latitude=ticket.latitude,
+        longitude=ticket.longitude,
+        category=ticket.category,
+        severity=ticket.severity,
+    )
+
+    final_state_dict = state.model_dump()
+
+    try:
+        # Run graph synchronously
+        for step in graph.stream(state):
+            for node_name, node_output in step.items():
+                if isinstance(node_output, dict):
+                    final_state_dict.update(node_output)
+                # Persist any new trace entries from this node.
+                logs = node_output.get("trace_logs", []) if isinstance(node_output, dict) else []
+                if logs:
+                    annotated = [
+                        {**entry, "node": entry.get("node") or node_name}
+                        for entry in logs
+                    ]
+                    agent_logs.record_trace_entries(db, str(ticket.id), annotated)
+
+        # Persist results to ticket
+        ticket.category = final_state_dict.get("category") or ticket.category
+        ticket.severity = final_state_dict.get("severity") or ticket.severity
+        ticket.is_spam = final_state_dict.get("is_spam", False)
+        ticket.is_duplicate = final_state_dict.get("is_duplicate", False)
+        dup_id = final_state_dict.get("duplicate_of_id")
+        if dup_id:
+            ticket.duplicate_of_id = uuid.UUID(dup_id)
+        ticket.priority_score = final_state_dict.get("priority_score", ticket.priority_score)
+        ticket.priority_reason = final_state_dict.get("priority_reason")
+        ticket.status = final_state_dict.get("status", "assigned")
+        officer_id = final_state_dict.get("assigned_officer_id")
+        if officer_id:
+            ticket.assigned_officer_id = uuid.UUID(officer_id)
+        dept_id = final_state_dict.get("assigned_department_id")
+        if dept_id:
+            ticket.department_id = uuid.UUID(dept_id)
+        db.commit()
+
+        return {
+            "success": True,
+            "category": final_state_dict.get("category"),
+            "severity": final_state_dict.get("severity"),
+            "priority_score": final_state_dict.get("priority_score"),
+            "assigned_department": final_state_dict.get("assigned_department"),
+            "assigned_department_id": final_state_dict.get("assigned_department_id"),
+            "assigned_officer_id": final_state_dict.get("assigned_officer_id"),
+            "status": final_state_dict.get("status"),
+            "is_duplicate": final_state_dict.get("is_duplicate"),
+            "is_spam": final_state_dict.get("is_spam"),
+            "trace_logs": final_state_dict.get("trace_logs", []),
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": str(e),
+        }

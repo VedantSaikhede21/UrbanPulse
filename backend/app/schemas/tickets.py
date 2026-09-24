@@ -25,6 +25,17 @@ class TicketOut(BaseModel):
     voice_note_url: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    # True when the AI pipeline ran in fallback mode (no Gemini key, or
+    # all Gemini calls failed). Frontend uses this to surface a
+    # "reasoning unavailable" banner so the user knows the categorization
+    # is heuristic, not LLM-driven.
+    ai_degraded: bool = False
+    # Phase 2.1: ARQ-driven pipeline state. One of
+    # 'pending' | 'processing' | 'completed' | 'failed'.
+    processing_state: str = "pending"
+    # Phase 4: ISO8601 timestamp the citizen UI renders as a
+    # countdown. Nullable for pre-migration rows.
+    expected_resolution_at: Optional[str] = None
 
 
 class PublicTicketOut(BaseModel):
@@ -47,3 +58,5 @@ class NotificationOut(BaseModel):
     status: str
     message: str
     timestamp: Optional[str] = None
+    read: bool = False
+    type: str = "status"

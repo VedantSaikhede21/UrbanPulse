@@ -1,12 +1,11 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Integer, Boolean, Numeric, ForeignKey, Text, DateTime, JSON, Float
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from geoalchemy2 import Geometry
 from app.db.session import Base
-from sqlalchemy.orm import Mapped, mapped_column
-from geoalchemy2 import Geometry
 
 class Ward(Base):
     __tablename__ = "wards"
@@ -28,13 +27,48 @@ class Ward(Base):
         server_default=func.now()
     )
 
+
+class Department(Base):
+    """Department as a first-class configurable entity for multi-municipality support."""
+    __tablename__ = "departments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False, unique=True)
+    code = Column(String(20), nullable=False, unique=True)  # Short code for API/integration
+    description = Column(Text, nullable=True)
+    municipality = Column(String(100), nullable=False, default="default")  # For multi-city support
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationship to officers
+    officers = relationship("Officer", back_populates="department_rel")
+
+
 class Citizen(Base):
     __tablename__ = "citizens"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email = Column(String(255), unique=True, nullable=False)
+    email = Column(String(255), unique=True, nullable=True)
+    phone = Column(String(20), unique=True, nullable=True)
     name = Column(String(100), nullable=False)
     reputation_score = Column(Integer, default=100)
+    whatsapp_retry_count = Column(Integer, default=0)  # Track WhatsApp location retry attempts
+    # Account linking: if this citizen was merged into another, this points to the canonical identity
+    merged_into_id = Column(UUID(as_uuid=True), ForeignKey("citizens.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationship for merged_into
+    merged_into = relationship("Citizen", remote_side=[id], backref="merged_accounts")
+
+
+class ProcessedMessage(Base):
+    """Store processed Twilio MessageSid for idempotency."""
+    __tablename__ = "processed_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_sid = Column(String(200), unique=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Officer(Base):
@@ -42,9 +76,16 @@ class Officer(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
-    department = Column(String(50), nullable=False)
+    department = Column(String(50), nullable=False)  # legacy string — superseded by department_id
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
+    role = Column(String(20), nullable=False, default="officer")  # officer, dept_head, admin, super_admin
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Back-reference for Department.officers. Use foreign_keys to disambiguate
+    # from any future "primary department" relationship that may point the
+    # other way.
+    department_rel = relationship("Department", back_populates="officers", foreign_keys=[department_id])
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -69,6 +110,23 @@ class Ticket(Base):
     assigned_officer_id = Column(UUID(as_uuid=True), ForeignKey("officers.id", ondelete="SET NULL"), nullable=True)
     verification_status = Column(String(50), nullable=True)
     verification_reason = Column(Text, nullable=True)
+    location_source = Column(String(20), default="gps", nullable=False)  # 'gps' or 'geocoded'
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
+    # Phase 2.1: ARQ-driven pipeline status. One of:
+    #   'pending' | 'processing' | 'completed' | 'failed'.
+    # The create_ticket path sets 'pending' and enqueues an ARQ job;
+    # the worker transitions to 'processing' on pickup, then
+    # 'completed' / 'failed' on finish. The /api/tickets/{id}/process
+    # SSE endpoint reads this column to decide between running the
+    # pipeline live (pending/processing) and replaying the persisted
+    # agent_logs (completed/failed).
+    processing_state = Column(String(20), default="pending", nullable=False)
+    # Phase 4: SLA countdown. Set by the ticket-create path from
+    # the configurable system_settings.sla_minutes_by_category map.
+    # Nullable for backward-compat with pre-migration rows (the
+    # backfill in 007_sla_settings.py sets it to created_at + 24h
+    # for any row that existed at migration time).
+    expected_resolution_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -82,3 +140,75 @@ class AuditLog(Base):
     record_id = Column(UUID(as_uuid=True), nullable=True)
     details = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AgentLog(Base):
+    """One row per agent-node execution per ticket.
+
+    The AI triage pipeline is a multi-node LangGraph. Each node
+    appends a structured reasoning entry to its state; persisting
+    that entry here turns the AI decision into a queryable,
+    audit-grade record of *why* a ticket was prioritized and routed
+    the way it was. Required by the Production Readiness Roadmap's
+    Phase 1 "AgentLogs / audit-trail persistence" item: a civic
+    system must be able to answer "why did the AI prioritize this
+    ticket this way" months after the fact, not just live during
+    the original session.
+    """
+    __tablename__ = "agent_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ticket_id = Column(UUID(as_uuid=True), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    agent_name = Column(String(100), nullable=False, index=True)
+    node_name = Column(String(100), nullable=True)
+    action = Column(String(255), nullable=False)
+    reasoning = Column(Text, nullable=True)
+    details = Column(JSON, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class Notification(Base):
+    """Persisted notification for a citizen about a ticket event.
+
+    Replaces the previous on-the-fly derivation from
+    `tickets.status`. A real table is required for the server-side
+    read flag (so unread state survives a new device/browser), for
+    typed event categories ('status' | 'alert' | 'info'), and for
+    per-event history (a single ticket can now produce many
+    notifications over its lifetime, not just one "current state"
+    derived row).
+    """
+    __tablename__ = "notifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    citizen_id = Column(UUID(as_uuid=True), ForeignKey("citizens.id", ondelete="CASCADE"), nullable=False, index=True)
+    ticket_id = Column(UUID(as_uuid=True), ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    type = Column(String(20), nullable=False, default="status")
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    read = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class SystemSetting(Base):
+    """Runtime-tunable system configuration as a generic key/value store.
+
+    Holds settings that need to be readable by the public API (e.g.
+    the per-category SLA map shown on the citizen report form) and
+    writable by staff (super_admin / admin / dept_head) without a
+    code deploy. Today the only row is
+    `sla_minutes_by_category`; the JSONB value column is shaped to
+    match the public API contract.
+
+    The single-row pattern (one key, JSON value) is intentional:
+    we don't want a config table that grows unbounded. New tunable
+    knobs get a new key with its own JSON schema. Reads use a
+    tiny in-process lru_cache (60s) — the SLA value is hot path on
+    ticket creation and a per-request DB hit is wasteful.
+    """
+    __tablename__ = "system_settings"
+
+    key = Column(Text, primary_key=True, nullable=False)
+    value = Column(JSONB, nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

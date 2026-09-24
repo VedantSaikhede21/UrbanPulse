@@ -275,5 +275,66 @@ def test_assignment_emits_audit(client, db_engine, identities, created_officer_i
             {"tid": ticket["id"]},
         ).fetchone()
     assert row is not None, "expected ticket.assign audit row"
+
+
+# ── Department FK (Phase 1) ──────────────────────────────────────────────
+
+
+def test_create_officer_with_department_id_returns_201_and_links_fk(
+    client, db_engine, identities, created_officer_ids
+):
+    """The FK path: POST with department_id (UUID) must resolve to a real
+    Department row, link Officer.department_id, and round-trip department_id
+    in the response. Closes the Phase 1 'Department as first-class entity'
+    item from the Production Readiness Roadmap."""
+    with db_engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT id FROM departments WHERE name = 'Roads' LIMIT 1")
+        ).fetchone()
+    assert row is not None, "seed/migration should have inserted a Roads department"
+    roads_id = str(row[0])
+
+    res = client.post(
+        "/api/officers",
+        headers=_auth_headers(_admin_token(identities)),
+        json={"name": "FK Test Officer", "department_id": roads_id, "user_id": str(uuid.uuid4())},
+    )
+    assert res.status_code == 201, res.text
+    body = res.json()
+    created_officer_ids.append(body["id"])
+    assert body["department_id"] == roads_id
+    # Back-compat: the legacy 'department' string still mirrors the FK.
+    assert body["department"] == "Roads"
+
+    # Persisted on disk: FK is real, not just echoed in the response.
+    with db_engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT department_id FROM officers WHERE id = :oid"),
+            {"oid": body["id"]},
+        ).fetchone()
+    assert row is not None
+    assert str(row[0]) == roads_id
+
+
+def test_create_officer_with_invalid_department_id_returns_422(
+    client, identities
+):
+    res = client.post(
+        "/api/officers",
+        headers=_auth_headers(_admin_token(identities)),
+        json={"name": "Bad FK", "department_id": str(uuid.uuid4())},
+    )
+    assert res.status_code == 422
+
+
+def test_create_officer_without_department_or_id_returns_422(
+    client, identities
+):
+    res = client.post(
+        "/api/officers",
+        headers=_auth_headers(_admin_token(identities)),
+        json={"name": "No Dept"},
+    )
+    assert res.status_code == 422
     details = row[0]
     assert details["officer_id"] == officer["id"]

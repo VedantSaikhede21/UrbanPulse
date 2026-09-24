@@ -39,6 +39,7 @@ const AgentMonitoring = lazy(() => import('./pages/super-admin/AgentMonitoring')
 const LiveAgentTrace = lazy(() => import('./pages/shared/LiveAgentTrace').then(m => ({ default: m.LiveAgentTrace })));
 const StaffRegister = lazy(() => import('./pages/auth/StaffRegister'));
 const PostLogin = lazy(() => import('./pages/auth/PostLogin'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
 const Settings = lazy(() => import('./pages/shared/Settings').then(m => ({ default: m.Settings })));
 const Support = lazy(() => import('./pages/shared/Support').then(m => ({ default: m.Support })));
 
@@ -88,6 +89,7 @@ function PublicRoutes() {
                 <Route path="/auth/citizen-login" element={<CitizenLogin />} />
                 <Route path="/auth/staff-login" element={<StaffLogin />} />
                 <Route path="/auth/staff-register" element={<StaffRegister />} />
+                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                 <Route path="/auth/post-login" element={<PostLogin />} />
                 <Route path="/citizen/processing/:ticketId" element={<ProcessingPage />} />
                 <Route path="/trace" element={<LiveAgentTrace />} />

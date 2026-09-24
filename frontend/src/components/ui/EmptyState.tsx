@@ -1,5 +1,6 @@
 import React from 'react';
 import { Inbox } from 'lucide-react';
+import { Button } from './Button';
 
 interface EmptyStateProps {
   icon?: React.ElementType;
@@ -8,6 +9,7 @@ interface EmptyStateProps {
   action?: {
     label: string;
     onClick: () => void;
+    variant?: 'primary' | 'secondary' | 'outline';
   };
   className?: string;
 }
@@ -31,13 +33,14 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       <h3 className="text-base font-semibold text-foreground mb-1.5">{title}</h3>
       <p className="text-sm text-gray-400 max-w-xs mb-5 leading-relaxed">{message}</p>
       {action && (
-        <button
+        <Button
           type="button"
           onClick={action.onClick}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim transition-all duration-200 active:scale-[0.98]"
+          variant={action.variant ?? 'primary'}
+          size="sm"
         >
           {action.label}
-        </button>
+        </Button>
       )}
     </div>
   );

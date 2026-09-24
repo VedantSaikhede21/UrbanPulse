@@ -16,9 +16,6 @@ export const RoleGuard: React.FC<Props> = ({ allow, children }) => {
   if (loading) return <div style={{ padding: '2rem', color: '#9ca3af' }}>Loading…</div>;
 
   if (!user) {
-    if (import.meta.env.DEV) {
-      return <>{children}</>;
-    }
     const target = allow.includes('citizen') ? '/auth/citizen-login' : '/auth/staff-login';
     return <Navigate to={target} state={{ from: location }} replace />;
   }

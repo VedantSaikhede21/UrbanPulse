@@ -6,6 +6,7 @@ import { divIcon } from 'leaflet';
 import { apiFetch } from '../../lib/api';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useToast } from '../../components/ui/Toast';
+import { SlaCountdown } from '../../components/ui/SlaCountdown';
 import type { Ticket } from '../../lib/types';
 
 const STATIC_MARKER = divIcon({
@@ -95,6 +96,25 @@ export const ReportDetail: React.FC = () => {
         <span className="text-gray-300">Ticket #{ticket.id.slice(0, 8)}</span>
       </div>
 
+      {ticket.ai_degraded && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="ai-degraded-banner"
+          className="flex items-start gap-3 bg-yellow-950/30 border border-yellow-700/40 rounded-lg p-4"
+        >
+          <AlertTriangle size={18} className="text-yellow-400 mt-0.5 shrink-0" />
+          <div className="text-xs">
+            <p className="text-yellow-300 font-semibold mb-0.5">AI reasoning unavailable, using basic triage</p>
+            <p className="text-yellow-400/80 leading-relaxed">
+              The category and priority on this ticket were assigned by a fallback
+              rule, not by the AI pipeline. An officer will review and may
+              recategorize.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Ticket Brief Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
         
@@ -106,6 +126,18 @@ export const ReportDetail: React.FC = () => {
               <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 border rounded-full ${ticket.severity === 'high' ? 'text-red-400 bg-red-950/40 border-red-800/40' : 'text-yellow-400 bg-yellow-950/40 border-yellow-800/40'}`}>
                 {ticket.severity} severity
               </span>
+              {ticket.expected_resolution_at && ticket.status !== 'resolved' && ticket.status !== 'verified' && (
+                <span
+                  data-testid="sla-promise"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 border border-brand-lime/30 bg-brand-soft text-brand-lime rounded-full"
+                >
+                  <SlaCountdown
+                    expectedResolutionAt={ticket.expected_resolution_at}
+                    status={ticket.status}
+                    variant="compact"
+                  />
+                </span>
+              )}
             </div>
             <p className="text-gray-300 text-xs leading-relaxed bg-panel-card border border-panel-border p-4 rounded-lg">
               {ticket.description}
@@ -193,6 +225,18 @@ export const ReportDetail: React.FC = () => {
                 <span className="text-gray-500 block">Pipeline Status</span>
                 <span className="text-brand-lime mt-0.5 block font-semibold capitalize">{ticket.status.replace('_', ' ')}</span>
               </div>
+              {ticket.expected_resolution_at && (
+                <div className="col-span-2 border-t border-panel-border/60 pt-3 mt-1">
+                  <span className="text-gray-500 block">Resolution Promise</span>
+                  <span className="mt-0.5 block">
+                    <SlaCountdown
+                      expectedResolutionAt={ticket.expected_resolution_at}
+                      status={ticket.status}
+                      variant="full"
+                    />
+                  </span>
+                </div>
+              )}
             </div>
 
             {ticket.priority_reason && (
