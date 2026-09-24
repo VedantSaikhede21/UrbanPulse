@@ -1,32 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import {
-  AlertTriangle, User, Shield, BadgeCheck, FileText,
-  Loader, Users,
+  AlertTriangle, User, Shield, BadgeCheck, FileText, Users,
 } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
-import type { Ticket } from '../../lib/types';
-import type { Officer } from '../../lib/types';
-
-
-
-const OFFICERS: Omit<Officer, 'assignments'>[] = [
-  { id: '1', name: 'Dave Kumar', department: 'Roads & Potholes', status: 'Active' },
-  { id: '2', name: 'Elisa Roy', department: 'Water Leak', status: 'Active' },
-  { id: '3', name: "Frank D'Souza", department: 'Garbage & Sanitation', status: 'Active' },
-  { id: '4', name: 'Grace Murthy', department: 'Streetlight & Electrical', status: 'Active' },
-];
-
-const DEPT_TO_CATEGORY: Record<string, string[]> = {
-  'Roads & Potholes': ['Roads & Potholes', 'Roads', 'Potholes'],
-  'Water Leak': ['Water Leak', 'Water'],
-  'Garbage & Sanitation': ['Garbage & Sanitation', 'Garbage', 'Sanitation'],
-  'Streetlight & Electrical': ['Streetlight & Electrical', 'Streetlight', 'Electrical'],
-};
+import type { Officer, Ticket } from '../../lib/types';
 
 export const OfficerManagement: React.FC = () => {
   useDocumentTitle('Officer Management');
+  const [officers, setOfficers] = useState<Officer[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,13 +17,18 @@ export const OfficerManagement: React.FC = () => {
   const loadData = () => {
     setLoading(true);
     setError(null);
-    apiFetch('/api/tickets')
-      .then(res => {
-        if (!res.ok) throw new Error(`API error (${res.status})`);
-        return res.json();
+    Promise.all([
+      apiFetch('/api/officers'),
+      apiFetch('/api/tickets'),
+    ])
+      .then(async ([officerRes, ticketRes]) => {
+        if (!officerRes.ok) throw new Error(`Officers API error (${officerRes.status})`);
+        if (!ticketRes.ok) throw new Error(`Tickets API error (${ticketRes.status})`);
+        return Promise.all([officerRes.json(), ticketRes.json()]);
       })
-      .then(data => {
-        setTickets(data);
+      .then(([officerData, ticketData]) => {
+        setOfficers(officerData);
+        setTickets(ticketData);
         setLoading(false);
       })
       .catch(err => {
@@ -53,12 +41,8 @@ export const OfficerManagement: React.FC = () => {
     loadData();
   }, []);
 
-  const officers: Officer[] = OFFICERS.map(o => ({
-    ...o,
-    assignments: tickets.filter(t =>
-      DEPT_TO_CATEGORY[o.department]?.includes(t.category)
-    ).length,
-  }));
+  const assignmentCount = (officerId: string): number =>
+    tickets.filter(t => t.assigned_officer_id === officerId).length;
 
   if (error) {
     return (
@@ -82,20 +66,19 @@ export const OfficerManagement: React.FC = () => {
       <div className="border-b border-panel-border pb-6">
         <h1 className="text-2xl font-serif italic font-bold">Officer Management</h1>
         <p className="text-gray-500 text-xs mt-1">
-          View field officers, their departments, and current assignment counts.
-          <span className="ml-3 inline-block px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400 text-[9px] font-mono border border-yellow-700/30">Demo Configuration</span>
+          Field officers, their departments, and live assignment counts.
         </p>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader size={32} className="text-brand-lime animate-spin" />
+          <div className="w-8 h-8 rounded-full border-2 border-brand-lime/30 border-t-brand-lime animate-spin" />
         </div>
       ) : officers.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No officers configured"
-          message="Officer assignments will appear here once configured."
+          message="Officers will appear here once an admin creates them."
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -110,9 +93,15 @@ export const OfficerManagement: React.FC = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h2 className="text-lg font-bold truncate">{officer.name}</h2>
-                  <span className="inline-flex items-center gap-1 text-xs text-green-400 bg-green-950/30 border border-green-800/30 px-2 py-0.5 rounded font-mono font-semibold uppercase tracking-wider mt-1">
+                  <span
+                    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono font-semibold uppercase tracking-wider mt-1 ${
+                      officer.is_active
+                        ? 'text-green-400 bg-green-950/30 border border-green-800/30'
+                        : 'text-red-400 bg-red-950/30 border border-red-800/30'
+                    }`}
+                  >
                     <BadgeCheck size={12} />
-                    {officer.status}
+                    {officer.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
               </div>
@@ -121,7 +110,7 @@ export const OfficerManagement: React.FC = () => {
                   <Shield size={12} /> {officer.department}
                 </span>
                 <span className="flex items-center gap-2">
-                  <FileText size={12} /> {officer.assignments} assignment{officer.assignments !== 1 ? 's' : ''}
+                  <FileText size={12} /> {assignmentCount(officer.id)} assignment{assignmentCount(officer.id) !== 1 ? 's' : ''}
                 </span>
               </div>
             </div>

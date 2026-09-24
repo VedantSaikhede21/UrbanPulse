@@ -66,7 +66,7 @@ export const ProcessingPage: React.FC = () => {
     };
 
     es.onerror = () => {
-      setError('Connection to pipeline lost. Make sure the backend is running on port 8000.');
+      setError('Connection to the AI pipeline was lost. Please check your network and try again.');
       es.close();
     };
 

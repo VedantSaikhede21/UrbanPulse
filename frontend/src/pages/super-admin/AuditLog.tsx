@@ -2,23 +2,15 @@ import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle, Clock, ListOrdered,
 } from 'lucide-react';
-import { Badge } from '../../components/ui/Badge';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { apiFetch } from '../../lib/api';
-import type { Ticket } from '../../lib/types';
+import type { AuditEntry } from '../../lib/types';
 
-
-function statusBadgeValue(s: string): string {
-  if (s === 'reported') return 'new';
-  if (s === 'in_progress') return 'in progress';
-  return s;
-}
-
-function formatTimestamp(dateStr: string): string {
+function formatTimestamp(dateStr: string | null | undefined): string {
   if (!dateStr) return 'N/A';
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-US', {
@@ -26,26 +18,27 @@ function formatTimestamp(dateStr: string): string {
   });
 }
 
+function actionLabel(action: string): string {
+  return action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 export const AuditLog: React.FC = () => {
   useDocumentTitle('Audit Log');
   const breadcrumbs = useBreadcrumbs();
-  const [entries, setEntries] = useState<Ticket[]>([]);
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = () => {
     setLoading(true);
     setError(null);
-    apiFetch('/api/tickets')
+    apiFetch('/api/audit?limit=100')
       .then(async res => {
-        if (!res.ok) throw new Error(`API error (${res.status})`);
+        if (!res.ok) throw new Error(`Audit API error (${res.status})`);
         return res.json();
       })
-      .then((data: Ticket[]) => {
-        const sorted = [...data].sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        );
-        setEntries(sorted.slice(0, 20));
+      .then((data: AuditEntry[]) => {
+        setEntries(data);
         setLoading(false);
       })
       .catch(err => {
@@ -80,7 +73,7 @@ export const AuditLog: React.FC = () => {
         <Breadcrumbs items={breadcrumbs} />
         <h1 className="text-2xl font-serif italic font-bold">System Audit Trail</h1>
         <p className="text-tertiary text-xs mt-1">
-          Chronological log of ticket activity — status changes, priority assignments, and system events.
+          Chronological log of platform activity — ticket lifecycle, assignments, and administrative actions.
         </p>
       </div>
 
@@ -102,7 +95,7 @@ export const AuditLog: React.FC = () => {
               <EmptyState
                 icon={Clock}
                 title="No audit entries found"
-                message="Audit log entries will appear here as tickets are created and processed."
+                message="Audit entries will appear here as tickets are created, assigned, and resolved."
               />
             ) : (
               <div className="overflow-x-auto">
@@ -110,23 +103,27 @@ export const AuditLog: React.FC = () => {
                   <thead>
                     <tr className="border-b border-panel-border text-tertiary text-[10px] uppercase tracking-wider">
                       <th className="text-left px-5 py-3 font-medium">Timestamp</th>
-                      <th className="text-left px-5 py-3 font-medium">Ticket ID</th>
-                      <th className="text-left px-5 py-3 font-medium">Category</th>
-                      <th className="text-left px-5 py-3 font-medium">Status</th>
-                      <th className="text-left px-5 py-3 font-medium">Priority</th>
+                      <th className="text-left px-5 py-3 font-medium">Action</th>
+                      <th className="text-left px-5 py-3 font-medium">Target</th>
+                      <th className="text-left px-5 py-3 font-medium">Record</th>
+                      <th className="text-left px-5 py-3 font-medium">Actor</th>
+                      <th className="text-left px-5 py-3 font-medium">Details</th>
                     </tr>
                   </thead>
                   <tbody>
                     {entries.map(entry => (
                       <tr key={entry.id} className="border-b border-panel-border/50 hover:bg-panel-bg/40 transition-colors">
                         <td className="px-5 py-3 text-tertiary whitespace-nowrap">{formatTimestamp(entry.created_at)}</td>
-                        <td className="px-5 py-3 text-secondary">#{entry.id.slice(0, 8)}</td>
-                        <td className="px-5 py-3 text-foreground">{entry.category}</td>
-                        <td className="px-5 py-3">
-                          <Badge type="status" value={statusBadgeValue(entry.status)} />
+                        <td className="px-5 py-3 text-brand-lime font-semibold">{actionLabel(entry.action)}</td>
+                        <td className="px-5 py-3 text-secondary">{entry.target_table}</td>
+                        <td className="px-5 py-3 text-secondary">
+                          {entry.record_id ? `#${entry.record_id.slice(0, 8)}` : '—'}
                         </td>
-                        <td className="px-5 py-3">
-                          <Badge type="priority" value={entry.priority_score >= 3 ? 'high' : entry.priority_score === 2 ? 'medium' : 'low'} />
+                        <td className="px-5 py-3 text-tertiary">
+                          {entry.user_id ? `#${entry.user_id.slice(0, 8)}` : 'system'}
+                        </td>
+                        <td className="px-5 py-3 text-tertiary max-w-[260px] truncate" title={entry.details ? JSON.stringify(entry.details) : ''}>
+                          {entry.details ? JSON.stringify(entry.details) : '—'}
                         </td>
                       </tr>
                     ))}

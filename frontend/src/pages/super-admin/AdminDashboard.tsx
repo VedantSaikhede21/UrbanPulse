@@ -40,7 +40,7 @@ export const AdminDashboard: React.FC = () => {
     setError(null);
     Promise.all([
       apiFetch('/api/tickets'),
-      apiFetch('/api/officers/queue'),
+      apiFetch('/api/officers'),
     ])
       .then(async ([ticketRes, officerRes]) => {
         if (!ticketRes.ok) throw new Error(`Tickets API error (${ticketRes.status})`);
@@ -63,7 +63,7 @@ export const AdminDashboard: React.FC = () => {
   const totalTickets = tickets.length;
   const openTickets = tickets.filter(t => OPEN_STATUSES.includes(t.status)).length;
   const resolvedTickets = tickets.filter(t => RESOLVED_STATUSES.includes(t.status)).length;
-  const activeOfficers = officers.length;
+  const activeOfficers = officers.filter(o => o.is_active).length;
   const recentTickets = tickets.slice(-5).reverse();
 
   if (error) {
