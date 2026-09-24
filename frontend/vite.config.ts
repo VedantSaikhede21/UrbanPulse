@@ -14,7 +14,9 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        // 127.0.0.1, not localhost: localhost resolves to ::1 first on this
+        // host and the Docker-published IPv6 listener is broken (resets).
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
       },
