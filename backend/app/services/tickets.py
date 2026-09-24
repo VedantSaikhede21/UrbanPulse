@@ -179,6 +179,7 @@ def create_ticket(db: Session, role: str, user_id: str, body, background=None) -
         citizen_id=citizen_id,
         latitude=body.latitude,
         longitude=body.longitude,
+        location_source=getattr(body, "location_source", "gps") or "gps",
         category=body.category,
         severity=body.severity,
         description=body.description,

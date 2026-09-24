@@ -150,6 +150,7 @@ class CreateTicketRequest(BaseModel):
     longitude: float
     original_media_url: Optional[str] = None
     voice_note_url: Optional[str] = None
+    location_source: Optional[str] = "gps"
     status: str = "reported"
     priority_score: int = Field(default=2, ge=1, le=3)
     priority_reason: Optional[str] = None
