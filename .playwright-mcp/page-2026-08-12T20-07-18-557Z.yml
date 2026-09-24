@@ -1,0 +1,9 @@
+- generic [ref=e2]:
+  - link "Skip to main content" [ref=e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - heading "Public Ward Health Map" [level=1] [ref=e9]
+      - paragraph [ref=e10]: Geospatial view of all reported incidents across the municipality.
+    - status [ref=e11]
+  - generic "Notifications"

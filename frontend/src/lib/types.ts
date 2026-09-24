@@ -40,6 +40,16 @@ export interface Officer {
   id: string;
   name: string;
   department: string;
-  status: string;
-  assignments?: number;
+  is_active: boolean;
+  created_at?: string | null;
+}
+
+export interface AuditEntry {
+  id: number;
+  user_id?: string | null;
+  action: string;
+  target_table: string;
+  record_id?: string | null;
+  details?: Record<string, unknown> | null;
+  created_at?: string | null;
 }

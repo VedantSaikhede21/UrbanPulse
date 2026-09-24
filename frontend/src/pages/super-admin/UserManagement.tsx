@@ -8,10 +8,9 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
-import type { Ticket } from '../../lib/types';
+import type { Officer, Ticket } from '../../lib/types';
 
-
-interface UserEntry {
+interface CitizenEntry {
   id: string;
   ticketCount: number;
   categories: string[];
@@ -20,8 +19,9 @@ interface UserEntry {
 export const UserManagement: React.FC = () => {
   useDocumentTitle('User Management');
   const breadcrumbs = useBreadcrumbs();
-  const [citizens, setCitizens] = useState<UserEntry[]>([]);
-  const [officers, setOfficers] = useState<UserEntry[]>([]);
+  const [citizens, setCitizens] = useState<CitizenEntry[]>([]);
+  const [officers, setOfficers] = useState<Officer[]>([]);
+  const [officerTicketCounts, setOfficerTicketCounts] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,38 +29,36 @@ export const UserManagement: React.FC = () => {
   const loadData = () => {
     setLoading(true);
     setError(null);
-    apiFetch('/api/tickets')
-      .then(async res => {
-        if (!res.ok) throw new Error(`API error (${res.status})`);
-        return res.json();
+    Promise.all([
+      apiFetch('/api/tickets'),
+      apiFetch('/api/officers'),
+    ])
+      .then(async ([ticketRes, officerRes]) => {
+        if (!ticketRes.ok) throw new Error(`Tickets API error (${ticketRes.status})`);
+        if (!officerRes.ok) throw new Error(`Officers API error (${officerRes.status})`);
+        return Promise.all([ticketRes.json(), officerRes.json()]);
       })
-      .then((data: Ticket[]) => {
+      .then(([ticketData, officerData]) => {
+        const tickets = ticketData as Ticket[];
         const citizenMap = new Map<string, { count: number; cats: Set<string> }>();
-        const officerMap = new Map<string, { count: number; cats: Set<string> }>();
-
-        data.forEach(t => {
-          const cId = t.id.split('-')[0] || 'unknown';
-          if (!citizenMap.has(cId)) citizenMap.set(cId, { count: 0, cats: new Set() });
-          citizenMap.get(cId)!.count++;
-          citizenMap.get(cId)!.cats.add(t.category);
-
-          if (t.assigned_officer) {
-            if (!officerMap.has(t.assigned_officer)) officerMap.set(t.assigned_officer, { count: 0, cats: new Set() });
-            officerMap.get(t.assigned_officer)!.count++;
-            officerMap.get(t.assigned_officer)!.cats.add(t.category);
+        const officerCounts: Record<string, number> = {};
+        tickets.forEach(t => {
+          if (t.citizen_id) {
+            if (!citizenMap.has(t.citizen_id)) citizenMap.set(t.citizen_id, { count: 0, cats: new Set() });
+            citizenMap.get(t.citizen_id)!.count++;
+            citizenMap.get(t.citizen_id)!.cats.add(t.category);
+          }
+          if (t.assigned_officer_id) {
+            officerCounts[t.assigned_officer_id] = (officerCounts[t.assigned_officer_id] ?? 0) + 1;
           }
         });
-
         setCitizens(
           Array.from(citizenMap.entries()).map(([id, d]) => ({
             id, ticketCount: d.count, categories: Array.from(d.cats),
           })),
         );
-        setOfficers(
-          Array.from(officerMap.entries()).map(([id, d]) => ({
-            id, ticketCount: d.count, categories: Array.from(d.cats),
-          })),
-        );
+        setOfficers(officerData as Officer[]);
+        setOfficerTicketCounts(officerCounts);
         setLoading(false);
       })
       .catch(err => {
@@ -75,7 +73,7 @@ export const UserManagement: React.FC = () => {
     c.id.toLowerCase().includes(search.toLowerCase()),
   );
   const filteredOfficers = officers.filter(o =>
-    o.id.toLowerCase().includes(search.toLowerCase()),
+    `${o.name} ${o.department} ${o.id}`.toLowerCase().includes(search.toLowerCase()),
   );
 
   if (error) {
@@ -87,7 +85,6 @@ export const UserManagement: React.FC = () => {
           </div>
           <h2 className="text-base font-semibold mb-1.5">Failed to load user data</h2>
           <p className="text-sm text-text-secondary max-w-xs mb-5">{error}</p>
-          <p className="text-xs text-text-tertiary mb-5">View-only user directory. Full CRUD available after auth module integration.</p>
           <button type="button" onClick={loadData} className="focus-ring px-4 py-2 bg-brand-lime text-background font-semibold text-xs rounded hover:bg-brand-dim">
             Retry
           </button>
@@ -103,7 +100,7 @@ export const UserManagement: React.FC = () => {
       <div className="border-b border-border-default pb-6">
         <h1 className="text-2xl font-serif italic font-bold">User Management</h1>
         <p className="text-text-tertiary text-xs mt-1">
-          View-only directory derived from ticket data. Full CRUD requires auth module integration.
+          Directory of citizens (from authenticated ticket activity) and field officers.
         </p>
       </div>
 
@@ -117,7 +114,7 @@ export const UserManagement: React.FC = () => {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
             <input
               type="text"
-              placeholder="Search by user ID..."
+              placeholder="Search by user ID, name, or department..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="focus-ring w-full bg-surface-card border border-border-default rounded pl-9 pr-4 py-2.5 text-xs font-mono text-foreground focus:outline-none focus:border-brand-lime"
@@ -128,7 +125,7 @@ export const UserManagement: React.FC = () => {
             <EmptyState
               icon={Users}
               title="No user data available"
-              message="Users will be derived from ticket activity once reports are filed."
+              message="Users will appear here once citizens file reports and officers are created."
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -144,7 +141,7 @@ export const UserManagement: React.FC = () => {
                     <div key={c.id} className="bg-surface-card border border-border-default rounded-xl p-4 space-y-2 hover:border-border-hover transition-colors duration-150">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-mono text-text-secondary">#{c.id.slice(0, 8)}</span>
-                        <span className="text-[10px] font-mono text-brand-lime">{c.ticketCount} tickets</span>
+                        <span className="text-[10px] font-mono text-brand-lime">{c.ticketCount} ticket{c.ticketCount !== 1 ? 's' : ''}</span>
                       </div>
                       <p className="text-xs text-text-tertiary">
                         Categories: {c.categories.join(', ') || 'N/A'}
@@ -165,11 +162,17 @@ export const UserManagement: React.FC = () => {
                   filteredOfficers.map(o => (
                     <div key={o.id} className="bg-surface-card border border-border-default rounded p-4 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono text-text-secondary">#{o.id.slice(0, 8)}</span>
-                        <span className="text-[10px] font-mono text-brand-lime">{o.ticketCount} assigned</span>
+                        <span className="text-xs font-semibold text-foreground">{o.name}</span>
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                          o.is_active
+                            ? 'text-green-400 border-green-800/30 bg-green-950/30'
+                            : 'text-red-400 border-red-800/30 bg-red-950/30'
+                        }`}>
+                          {o.is_active ? 'Active' : 'Inactive'}
+                        </span>
                       </div>
                       <p className="text-xs text-text-tertiary">
-                        Categories: {o.categories.join(', ') || 'N/A'}
+                        {o.department} · {officerTicketCounts[o.id] ?? 0} assignment{officerTicketCounts[o.id] !== 1 ? 's' : ''}
                       </p>
                     </div>
                   ))

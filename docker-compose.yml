@@ -13,7 +13,13 @@ services:
       # (dev mode allows unsigned JWTs and demo seed endpoints).
       - ENV=${ENV:-production}
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      # Explicit IPv4-only host binding. Docker's default dual-stack publish
+      # ("8000:8000") also opens a [::] listener whose IPv6 path is broken on
+      # this host (connection resets). localhost resolves to ::1 first, so
+      # Chrome hits the dead IPv6 listener and never falls back. Binding to
+      # 127.0.0.1 publishes IPv4 only: ::1 is refused instantly and Chrome's
+      # Happy Eyeballs falls back to 127.0.0.1.
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     volumes:
       - uploads_data:/app/uploads
     restart: unless-stopped
@@ -44,7 +50,8 @@ services:
       backend:
         condition: service_started
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      # IPv4-only host binding — see backend ports comment (broken [::] path).
+      - "127.0.0.1:${FRONTEND_PORT:-80}:80"
     restart: unless-stopped
     networks:
       - urbanpulse-net

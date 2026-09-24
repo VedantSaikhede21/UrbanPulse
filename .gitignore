@@ -85,3 +85,7 @@ run_commands.txt
 *.pptx
 proposal/proposal.pdf
 UrbanPulse_AI_Project_Proposal.pdf
+
+# Archived / unused folders
+/archive/
+
