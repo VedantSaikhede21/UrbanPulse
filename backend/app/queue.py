@@ -28,7 +28,9 @@ by the time the worker runs. The function must be idempotent
 """
 from __future__ import annotations
 
+import asyncio
 import os
+from functools import wraps
 from typing import Optional
 
 import structlog
@@ -114,7 +116,7 @@ async def enqueue_triage(ticket_id: str) -> bool:
         logger.info("arq_disabled_no_redis_url", ticket_id=ticket_id)
         return False
     try:
-        await pool.enqueue_job("triage_ticket", ticket_id)
+        await pool.enqueue_job("triage_ticket", ticket_id, _job_id=f"triage:{ticket_id}")
         logger.info("arq_enqueued", ticket_id=ticket_id)
         return True
     except Exception as e:
@@ -208,6 +210,16 @@ def triage_ticket(ctx: dict, ticket_id: str) -> dict:
         db.close()
 
 
+@wraps(triage_ticket)
+async def triage_ticket_async(ctx: dict, ticket_id: str) -> dict:
+    return await asyncio.to_thread(triage_ticket, ctx, ticket_id)
+
+
+async def load_worker_graphs(ctx: dict) -> None:
+    from app.agents import runtime
+    runtime.load_graphs()
+
+
 # ── Worker settings (used by `arq app.queue.WorkerSettings`) ──
 
 class WorkerSettings:
@@ -220,8 +232,9 @@ class WorkerSettings:
     running more worker containers, not more concurrency per
     worker.
     """
-    functions = [triage_ticket]
-    redis_settings = _redis_settings  # called at worker startup
+    functions = [triage_ticket_async]
+    redis_settings = _redis_settings() or RedisSettings(host="localhost", port=6379)
+    on_startup = load_worker_graphs
     max_jobs = 1
     job_timeout = 300  # 5 minutes — well above any real pipeline run
     health_check_interval = 30

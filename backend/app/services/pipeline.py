@@ -188,17 +188,19 @@ def run_triage_sync(
     final_state_dict = state.model_dump()
 
     try:
+        seen_logs = 0
         # Run graph synchronously
         for step in graph.stream(state):
             for node_name, node_output in step.items():
                 if isinstance(node_output, dict):
                     final_state_dict.update(node_output)
-                # Persist any new trace entries from this node.
                 logs = node_output.get("trace_logs", []) if isinstance(node_output, dict) else []
-                if logs:
+                new_logs = logs[seen_logs:]
+                seen_logs = len(logs)
+                if new_logs:
                     annotated = [
                         {**entry, "node": entry.get("node") or node_name}
-                        for entry in logs
+                        for entry in new_logs
                     ]
                     agent_logs.record_trace_entries(db, str(ticket.id), annotated)
 
