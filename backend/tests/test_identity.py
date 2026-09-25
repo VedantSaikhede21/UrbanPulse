@@ -302,13 +302,37 @@ def test_citizen_sees_only_own_tickets(client, db_engine, test_citizen):
 
 
 def test_citizen_cannot_read_another_citizens_ticket(client, db_engine, test_citizen):
+    # Self-sufficient: create a second citizen's ticket instead of
+    # relying on seeded demo data (CI databases start empty).
+    other_id = str(uuid.uuid4())
+    other_token = _mint_token(other_id, f"other-{uuid.uuid4().hex[:8]}@test.urbanpulse", "citizen")
     test_citizen["token"] = _mint_token(test_citizen["id"], test_citizen["email"], "citizen")
-    alice_ticket = _alice_ticket_id(db_engine)
+    try:
+        res = client.post(
+            "/api/tickets",
+            headers=_auth_headers(other_token),
+            json={
+                "category": "Water Leak",
+                "severity": "low",
+                "description": "Other citizen ticket.",
+                "latitude": 12.9715,
+                "longitude": 77.5945,
+                "status": "reported",
+                "priority_score": 1,
+            },
+        )
+        assert res.status_code == 201
+        other_ticket = res.json()["id"]
 
-    res = client.get(
-        f"/api/tickets/{alice_ticket}", headers=_auth_headers(test_citizen["token"])
-    )
-    assert res.status_code == 404
+        res = client.get(
+            f"/api/tickets/{other_ticket}", headers=_auth_headers(test_citizen["token"])
+        )
+        assert res.status_code == 404
+    finally:
+        with db_engine.begin() as conn:
+            conn.execute(text("DELETE FROM tickets WHERE citizen_id = :cid"), {"cid": other_id})
+            conn.execute(text("DELETE FROM audit_logs WHERE user_id = :cid"), {"cid": other_id})
+            conn.execute(text("DELETE FROM citizens WHERE id = :cid"), {"cid": other_id})
 
 
 def test_citizen_cannot_list_another_citizens_tickets(client, db_engine, test_citizen):
@@ -334,10 +358,21 @@ def test_citizen_cannot_use_staff_endpoints(client, db_engine, test_citizen):
     test_citizen["token"] = _mint_token(test_citizen["id"], test_citizen["email"], "citizen")
     headers = _auth_headers(test_citizen["token"])
 
-    with db_engine.connect() as conn:
-        row = conn.execute(text("SELECT id FROM tickets LIMIT 1")).fetchone()
-    assert row is not None
-    ticket_id = str(row[0])
+    res = client.post(
+        "/api/tickets",
+        headers=headers,
+        json={
+            "category": "Roads & Potholes",
+            "severity": "medium",
+            "description": "Staff boundary probe.",
+            "latitude": 12.9715,
+            "longitude": 77.5945,
+            "status": "reported",
+            "priority_score": 2,
+        },
+    )
+    assert res.status_code == 201
+    ticket_id = res.json()["id"]
 
     res = client.patch(
         f"/api/tickets/{ticket_id}/status",
@@ -408,16 +443,43 @@ def test_officer_sees_open_queue(client, db_engine, test_citizen):
             conn.execute(text("DELETE FROM officers WHERE id = :id"), {"id": officer_id})
 
 
-def test_officer_queue_filtered_to_assigned_officer(client, db_engine):
-    with db_engine.connect() as conn:
-        row = conn.execute(
-            text("SELECT id FROM officers WHERE is_active = true LIMIT 1")
-        ).fetchone()
-    assert row is not None
-    officer_id = str(row[0])
-    token = _mint_token(officer_id, "officer.demo@bbmp.gov.in", "officer")
+def test_officer_queue_filtered_to_assigned_officer(client, db_engine, test_citizen):
+    # Self-sufficient: provision an officer, create + assign a ticket,
+    # then confirm the queue only shows their assignment.
+    from conftest import delete_officer, provision_officer
 
-    res = client.get("/api/officers/queue", headers=_auth_headers(token))
-    assert res.status_code == 200
-    for t in res.json():
-        assert t["assigned_officer_id"] == officer_id
+    officer_id = str(uuid.uuid4())
+    provision_officer(db_engine, officer_id, "officer", "Queue Officer")
+    test_citizen["token"] = _mint_token(test_citizen["id"], test_citizen["email"], "citizen")
+    token = _mint_token(officer_id, "officer.demo@bbmp.gov.in", "officer")
+    try:
+        res = client.post(
+            "/api/tickets",
+            headers=_auth_headers(test_citizen["token"]),
+            json={
+                "category": "Garbage & Sanitation",
+                "severity": "low",
+                "description": "Assignment filter probe.",
+                "latitude": 12.9715,
+                "longitude": 77.5945,
+                "status": "reported",
+                "priority_score": 1,
+            },
+        )
+        assert res.status_code == 201
+        mine = res.json()["id"]
+
+        res = client.patch(
+            f"/api/tickets/{mine}/assign",
+            headers=_auth_headers(token),
+            json={"officer_id": officer_id},
+        )
+        assert res.status_code == 200
+
+        res = client.get("/api/officers/queue", headers=_auth_headers(token))
+        assert res.status_code == 200
+        for t in res.json():
+            assert t["assigned_officer_id"] == officer_id
+        assert mine in {t["id"] for t in res.json()}
+    finally:
+        delete_officer(db_engine, officer_id)

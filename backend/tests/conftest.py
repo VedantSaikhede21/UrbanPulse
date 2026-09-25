@@ -1,11 +1,12 @@
 """Shared helpers for backend integration tests.
 
 Production auth resolves staff roles from the officers table (single
-source of truth) — a bare JWT role claim is not enough. Tests that need
+source of truth) — a bare JWT claim is not enough. Tests that need
 a staff identity must provision the Officer row first and remove it
 after, otherwise staff tokens downgrade to citizen and staff endpoints
 answer 401/403.
 """
+import pytest
 from sqlalchemy import text
 
 VALID_STAFF_ROLES = ("officer", "dept_head", "admin", "super_admin")
@@ -27,3 +28,22 @@ def provision_officer(engine, officer_id, role="officer", name="Test Officer", d
 def delete_officer(engine, officer_id):
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM officers WHERE id = :id"), {"id": officer_id})
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Slowapi counters are process-wide and keyed by client IP, so the
+    whole suite shares one TestClient bucket. Without a reset, POST
+    /api/tickets (20/minute) starts answering 429 partway through a
+    full-suite run. Prod limits stay intact — only the test process
+    state is cleared."""
+    try:
+        from app.limiter import limiter
+
+        storage = getattr(limiter, "_storage", None)
+        reset = getattr(storage, "reset", None)
+        if callable(reset):
+            reset()
+    except Exception:
+        pass
+    yield

@@ -99,13 +99,16 @@ export DATABASE_URL="$TARGET_DB_URL"
   export ENV=development
   # load_dotenv is not used; Settings reads the live process env.
   # The .env file is NOT sourced — DATABASE_URL was exported above.
-  alembic upgrade head
-) >/dev/null
+  # NOTE: `python3 -m alembic`, not bare `alembic` — the console script
+  # is not on PATH on CI runners / minimal images. `python3`
+  # (not `python`) because bare `python` does not exist there.
+  python3 -m alembic upgrade head
+)
 (
   cd backend
   export ENV=development
-  python -c "from app.db.seed import seed_db; seed_db()"
-) >/dev/null
+  python3 -c "from app.db.seed import seed_db; seed_db()"
+)
 
 # 3. Snapshot row counts.
 snapshot() {

@@ -26,12 +26,24 @@ def _settings(**overrides) -> Settings:
 class TestDevBypassRefusedInNonDev:
     def test_production_with_anonymous_bypass_raises(self):
         with pytest.raises(ValidationError) as exc:
-            _settings(ENV="production", DEV_ALLOW_ANONYMOUS=True)
+            _settings(
+                ENV="production",
+                DEV_ALLOW_ANONYMOUS=True,
+                SUPABASE_JWT_SECRET="dummy-secret-for-test",
+                SUPABASE_URL="https://abcd1234.supabase.co",
+                SUPABASE_ANON_KEY="dummy-anon-key-for-test",
+            )
         assert "DEV_ALLOW_ANONYMOUS" in str(exc.value)
 
     def test_staging_with_anonymous_bypass_raises(self):
         with pytest.raises(ValidationError) as exc:
-            _settings(ENV="staging", DEV_ALLOW_ANONYMOUS=True)
+            _settings(
+                ENV="staging",
+                DEV_ALLOW_ANONYMOUS=True,
+                SUPABASE_JWT_SECRET="dummy-secret-for-test",
+                SUPABASE_URL="https://abcd1234.supabase.co",
+                SUPABASE_ANON_KEY="dummy-anon-key-for-test",
+            )
         assert "DEV_ALLOW_ANONYMOUS" in str(exc.value)
 
     @pytest.mark.parametrize("env", ["production", "staging", "test", "preview"])
