@@ -75,12 +75,13 @@ jobs:
         run: pytest -q
 
       - name: Pyrefly type-check
-        # Pyrefly is the project's type-checker; run on a non-Python
-        # runner is fine because we install it in a previous step.
+        # The requirements-installed interpreter has every third-party
+        # dep; point Pyrefly at it explicitly or all imports resolve
+        # as missing (185 false errors before this flag existed).
         working-directory: backend
         run: |
           pip install pyrefly
-          pyrefly check .
+          pyrefly check --python-interpreter-path "$(which python)" .
 
   # ── Frontend: type-check + build + lint ──────────────────
   frontend:
