@@ -24,6 +24,13 @@ const pipelineStages = [
 
 const allStages = [...beforeStages, ...pipelineStages];
 
+/** Cadence of the hero pipeline demo. Tuned so a full cycle lands near 6s:
+ * long enough to read each stage, short enough that a looping card never feels
+ * like it is waiting on something. */
+const STEP_MS = 550;
+const SETTLE_MS = 700;
+const HOLD_MS = 3000;
+
 const ticketVariants = {
   initial: { opacity: 0, y: 12, scale: 0.97 },
   enter: {
@@ -71,11 +78,12 @@ function formatDate() {
 
 export const HeroSection: React.FC = () => {
   const heroRef = useRef<HTMLDivElement>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const runIdRef = useRef(0);
   const prefersReducedMotion = useReducedMotion();
   const [totalScroll, setTotalScroll] = useState(0);
   const [activeIdx, setActiveIdx] = useState(-1);
   const [hoveredStage, setHoveredStage] = useState<string | null>(null);
-  const [hasStarted, setHasStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [showBeforeAfter, setShowBeforeAfter] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -87,16 +95,22 @@ export const HeroSection: React.FC = () => {
     return () => window.removeEventListener('resize', handler);
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setHasStarted(true), 600);
-    return () => clearTimeout(timer);
-  }, []);
+  const clearTimers = () => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  };
 
-  const runPipeline = () => {
+  const runPipeline = (loop = false) => {
+    clearTimers();
+    // A run id invalidates callbacks queued by a previous run, so pressing
+    // Replay mid-sequence cannot have the old timers keep writing state.
+    const runId = ++runIdRef.current;
+    const alive = () => runIdRef.current === runId;
+
+    setActiveIdx(-1);
+    setIsConnected(false);
     setIsComplete(false);
     setShowBeforeAfter(false);
-    setIsConnected(false);
-    setActiveIdx(-1);
 
     if (prefersReducedMotion) {
       setActiveIdx(allStages.length - 1);
@@ -107,25 +121,41 @@ export const HeroSection: React.FC = () => {
     }
 
     allStages.forEach((_, i) => {
-      setTimeout(() => {
+      timersRef.current.push(setTimeout(() => {
+        if (!alive()) return;
         setActiveIdx(i);
         if (i === beforeStages.length) {
           setIsConnected(true);
         }
         if (i === allStages.length - 1) {
-          setTimeout(() => {
+          timersRef.current.push(setTimeout(() => {
+            if (!alive()) return;
             setIsComplete(true);
             setShowBeforeAfter(true);
-          }, 800);
+          }, SETTLE_MS));
         }
-      }, i * 600);
+      }, i * STEP_MS));
     });
+
+    if (loop) {
+      const cycle = allStages.length * STEP_MS + SETTLE_MS + HOLD_MS;
+      timersRef.current.push(setTimeout(() => {
+        if (alive()) runPipeline(true);
+      }, cycle));
+    }
   };
 
+  // The hero card is the landing page's only motion. It used to run once and
+  // then sit frozen at the finished state, so anyone who arrived after the
+  // ~4s sequence, or scrolled back up, saw a static card and read the page as
+  // broken. Repeating it keeps the demo alive on a screen left open.
   useEffect(() => {
-    if (!hasStarted) return;
-    runPipeline();
-  }, [hasStarted, prefersReducedMotion]);
+    runPipeline(true);
+    return () => {
+      runIdRef.current++;
+      clearTimers();
+    };
+  }, [prefersReducedMotion]);
 
   const pageScroll = useScroll();
   // Scroll-linked fade/scale is motion too: when the user has asked for reduced
@@ -249,7 +279,7 @@ export const HeroSection: React.FC = () => {
                       type="button"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      onClick={runPipeline}
+                      onClick={() => runPipeline()}
                       aria-label="Replay the resolution journey"
                       className="-my-2 inline-flex h-11 items-center rounded-md px-2 text-[11px] font-mono text-brand-lime underline transition-colors hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime"
                     >
