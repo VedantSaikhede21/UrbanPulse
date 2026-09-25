@@ -12,7 +12,7 @@
 - [ ] **Citizen password confirmed** — `barhatevinay7777@gmail.com` (role: citizen, UUID `328f9669-7e4c-4dcf-a2b7-22fd6d0a4b68`). MANUAL — cannot be automated safely.
 - [ ] **Officer password confirmed** — `roads.officer@bbmp.gov.in` (role: officer, UUID `663123bc-746c-47eb-9554-c80506455ee4`). MANUAL — cannot be automated safely.
 - [ ] **Admin password confirmed** — `city.admin@bbmp.gov.in` (role: admin, UUID `093fff7a-77b4-4a31-a144-7f88aa797022`). MANUAL — cannot be automated safely.
-- [ ] Internet reachable: Supabase (Google login), CARTO/OSM map tiles, Gemini 2.5 Flash.
+- [ ] Internet reachable: Supabase (Google login), map tiles (CARTO when `VITE_CARTO_API_KEY` is set, otherwise OpenStreetMap), Gemini 2.5 Flash.
 - [ ] Backup available: `/tmp/opencode/demo_backup_20260812.sql` (reversible restore if a demo run mutates data).
 - [ ] Browser: two tabs pre-opened (citizen + officer), logged out.
 
@@ -21,8 +21,8 @@
 | Email | Role | UUID | Maps to |
 |-------|------|------|---------|
 | barhatevinay7777@gmail.com | citizen | 328f9669-…a4b68 | Citizen row "Vijay Barhate" ✓ |
-| roads.officer@bbmp.gov.in | officer | 663123bc-…55ee4 | **No Officer row** → queue shows ALL open tickets (verified: 20 = reported + assigned + in_progress) |
-| city.admin@bbmp.gov.in | admin | 093fff7a-…797022 | No Officer row → admin pages see all tickets |
+| roads.officer@bbmp.gov.in | officer | 663123bc-…55ee4 | Local demo DB: officer row provisioned; verify the live account before the demo |
+| city.admin@bbmp.gov.in | admin | 093fff7a-…797022 | Local demo DB: admin row provisioned; verify the live account before the demo |
 | vedantsaikhede21@gmail.com | officer | e6397d26-…66e2f | Officer row "vedant saikhede" (Roads) → filtered queue |
 
 Note: roads.officer does **not** map to Dave Kumar. This is intentional and

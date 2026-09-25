@@ -7,6 +7,7 @@ async function main() {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const errors = [];
+  const mapTileRequests = [];
   let pass = true;
 
   const suppressedErrorPatterns = ['favicon', 'Failed to fetch'];
@@ -18,6 +19,17 @@ async function main() {
     errors.push(`CONSOLE ERROR: ${msg.text()}`);
   });
   page.on('pageerror', err => errors.push(`PAGE ERROR: ${err.message}`));
+  page.on('request', request => {
+    const url = request.url();
+    if (url.includes('tile.openstreetmap.org') || url.includes('basemaps.cartocdn.com')) {
+      mapTileRequests.push(url);
+    }
+  });
+
+  const permissionPolicy = await page.request.get(BASE).then(response => response.headers()['permissions-policy'] || '');
+  if (!permissionPolicy.includes('geolocation=(self)')) {
+    errors.push('Security policy: geolocation=(self) missing from frontend response');
+  }
 
   async function nav(url) {
     await page.goto(url, { waitUntil: 'load', timeout: 20000 });
@@ -125,7 +137,7 @@ async function main() {
 
   // ── 5. Admin: City Analytics ────────────────────────
   console.log('\n=== 5. Admin: City Analytics ===');
-  if (await nav(`${BASE}/admin/analytics`)) {
+  if (await nav(`${BASE}/admin/city-analytics`)) {
     const body = await page.textContent('body') || '';
     if (body.includes('Pulse') || body.includes('City')) {
       console.log('  ✓ Analytics loaded');
@@ -175,7 +187,26 @@ async function main() {
   if (await nav(`${BASE}/public-map`)) {
     const body = await page.textContent('body') || '';
     if (body.includes('incident') || body.includes('Incident')) {
-      console.log('  ✓ Public map loaded');
+      const tileState = await page.locator('.leaflet-tile').evaluateAll(tiles => ({
+        total: tiles.length,
+        loaded: tiles.filter(tile => tile.complete).length,
+      }));
+      if (tileState.total === 0 || tileState.loaded === 0) {
+        errors.push('Public map: no map tiles loaded');
+      }
+      const cartoTileRequests = mapTileRequests.filter(url => url.includes('basemaps.cartocdn.com'));
+      const osmTileRequests = mapTileRequests.filter(url => url.includes('tile.openstreetmap.org'));
+      if (cartoTileRequests.length === 0 && osmTileRequests.length === 0) {
+        errors.push('Public map: no supported tile request observed');
+      }
+      if (cartoTileRequests.some(url => !url.includes('key='))) {
+        errors.push('Public map: CARTO request is missing its API key');
+      }
+      if (tileState.total > 0 && tileState.loaded > 0 && (cartoTileRequests.length > 0 || osmTileRequests.length > 0)) {
+        console.log(`  ✓ Public map loaded with ${cartoTileRequests.length > 0 ? 'CARTO' : 'OpenStreetMap'} tiles`);
+      }
+    } else {
+      errors.push('Public map: no content rendered');
     }
   }
 

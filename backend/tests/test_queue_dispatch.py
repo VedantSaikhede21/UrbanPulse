@@ -80,9 +80,32 @@ def test_enqueue_triage_forwards_job_name_and_ticket_id():
         ticket_id = str(uuid.uuid4())
         result = asyncio.run(queue_mod.enqueue_triage(ticket_id))
         assert result is True
-        fake_pool.enqueue_job.assert_awaited_once_with("triage_ticket", ticket_id)
+        fake_pool.enqueue_job.assert_awaited_once_with(
+            "triage_ticket", ticket_id, _job_id=f"triage:{ticket_id}"
+        )
     finally:
         queue_mod._arq_pool = None
+
+
+def test_worker_registers_an_async_triage_job():
+    import inspect
+    from app import queue as queue_mod
+
+    assert inspect.iscoroutinefunction(queue_mod.WorkerSettings.functions[0])
+
+
+def test_worker_resolves_redis_settings_at_import():
+    from arq.connections import RedisSettings
+    from app import queue as queue_mod
+
+    assert isinstance(queue_mod.WorkerSettings.redis_settings, RedisSettings)
+
+
+def test_worker_loads_agent_graphs_on_startup():
+    import inspect
+    from app import queue as queue_mod
+
+    assert inspect.iscoroutinefunction(queue_mod.WorkerSettings.on_startup)
 
 
 # ── 4. triage_ticket lifecycle on success ──────────────────────

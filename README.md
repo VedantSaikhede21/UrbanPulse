@@ -25,7 +25,7 @@
 
 ## Overview
 
-UrbanPulse AI is a **pilot-ready civic infrastructure complaint triage system** that uses a 9-agent LangGraph pipeline to automatically classify, route, escalate, and track municipal issues. Citizens submit reports with photos and geo-location; an AI agent pipeline analyses, deduplicates, prioritises, and routes each ticket to the right department — all in real time with live SSE trace streaming.
+UrbanPulse AI is a **pilot-ready civic infrastructure complaint triage system** that uses an 8-agent LangGraph triage pipeline, plus a 2-agent verification graph, to automatically classify, route, escalate, and track municipal issues. Citizens submit reports with photos and geo-location; an AI agent pipeline analyses, deduplicates, prioritises, and routes each ticket to the right department — all in real time with live SSE trace streaming.
 
 ---
 
@@ -33,7 +33,7 @@ UrbanPulse AI is a **pilot-ready civic infrastructure complaint triage system** 
 
 | # | Feature | Description |
 |---|---------|-------------|
-| **🧠** | **AI Agent Pipeline** | 9-agent LangGraph pipeline — CX, Vision, Trust, Dedup, Priority, Routing, Escalation, Verification, Analytics. Falls back to rule-based logic when Gemini is unavailable. |
+| **🧠** | **AI Agent Pipeline** | 8-agent LangGraph triage pipeline — CX, Vision, Trust, Dedup, Priority, Routing, Escalation, Analytics — plus Verification on resolution. Falls back to rule-based logic when Gemini is unavailable. |
 | **📸** | **Multimodal Intake** | Citizens submit reports with photos, location pins, and text. Vision Agent classifies category and severity from images using Gemini 2.5 Flash. |
 | **📍** | **Spatial Deduplication** | PostGIS-powered geo-radius matching prevents duplicate reports within 100m of the same category. |
 | **📊** | **Live Agent Trace** | SSE streams each agent's reasoning to the frontend in real time — watch the pipeline think through every step. |
@@ -46,7 +46,7 @@ UrbanPulse AI is a **pilot-ready civic infrastructure complaint triage system** 
 
 ## Architecture
 
-### 9-Agent LangGraph Pipeline
+### 8-Agent LangGraph Triage Pipeline
 
 ```
 Citizen Report ──► ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
@@ -87,7 +87,7 @@ Both agents process through two compiled graphs: a **triage graph** (8 agents, s
 ┌──────────────┐     HTTP/SSE      ┌──────────────────┐     LangGraph      ┌────────────────┐
 │  React 18 +  │ ◄──────────────► │   FastAPI +      │ ◄──────────────► │    Gemini      │
 │  Vite +      │                  │   Uvicorn        │                  │  2.5 Flash     │
-│  Tailwind    │                  │   19 endpoints   │                  │                │
+│  Tailwind    │                  │   18 endpoints   │                  │                │
 │  (dark UI)   │                  │   Pydantic v2    │                  │  (fallback:    │
 │              │                  │                  │                  │   rule-based)  │
 └──────────────┘                  └────────┬─────────┘                  └────────────────┘
@@ -117,14 +117,16 @@ Both agents process through two compiled graphs: a **triage graph** (8 agents, s
 | **Frontend** | React 18 + TypeScript + Vite | SPA with lazy-loaded routing, `AnimatePresence` transitions |
 | **Styling** | Tailwind CSS v3 + Framer Motion | Dark editorial design system (`#C6F135` brand-lime accent) |
 | **Maps** | Leaflet + react-leaflet | Location pinning, ward heatmaps |
-| **Backend** | FastAPI + Python 3.10+ | 19 REST endpoints, SSE streaming, async agent dispatch |
-| **Agent Framework** | LangGraph + LangChain | 9-node state graph with shared `TicketState` schema |
+| **Backend** | FastAPI + Python 3.10+ | 18 REST endpoints, SSE streaming, async agent dispatch |
+| **Agent Framework** | LangGraph + LangChain | 8-node triage graph plus a 2-node verification graph with shared `TicketState` schema |
 | **AI** | Google Gemini 2.5 Flash | Category/severity classification, multimodal photo analysis, priority reasoning |
 | **Database** | Supabase (PostgreSQL + PostGIS) | Spatial queries (`ST_DWithin`, `ST_Contains`), RLS, JWT auth |
 | **Auth** | Supabase Auth | Phone OTP, JWT sessions, role-based guards (citizen/officer/dept/admin) |
 | **Storage** | Supabase Storage | Report photos, closure evidence |
 | **Migrations** | Alembic | Schema versioning |
 | **CI / Testing** | Playwright | E2E integration tests in `qa/` |
+
+Maps use CARTO dark raster tiles when `VITE_CARTO_API_KEY` is configured, with OpenStreetMap as the no-key fallback. Both require visible CARTO/OpenStreetMap attribution.
 
 ---
 
@@ -178,7 +180,7 @@ npm install
 npm run dev
 ```
 
-The app starts at `http://localhost:5173`.
+The app starts at `http://localhost:3000`.
 
 ### 4. Environment Variables
 
@@ -190,6 +192,7 @@ See [`.env.example`](.env.example) for all required config:
 | `SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
 | `DATABASE_URL` | Yes | PostgreSQL connection string with PostGIS |
 | `GEMINI_API_KEY` | No* | Google Gemini API key |
+| `VITE_CARTO_API_KEY` | No | CARTO basemap key; leave empty to use OpenStreetMap tiles |
 | `TWILIO_*` | No | WhatsApp notification credentials |
 
 *\*Gemini fallback to rule-based classification when unavailable.*
@@ -277,10 +280,10 @@ UrbanPulse/
 ├── backend/
 │   ├── app/
 │   │   ├── agents/
-│   │   │   └── graph.py          # 9-agent LangGraph pipeline
+│   │   │   └── graph.py          # 8-agent triage + 2-agent verification graphs
 │   │   ├── db/                   # Models, session, migrations
 │   │   ├── config.py             # Pydantic settings
-│   │   └── main.py               # FastAPI app (19 endpoints)
+│   │   └── main.py               # FastAPI app (18 endpoints)
 │   ├── alembic/                  # DB migrations
 │   └── requirements.txt
 ├── frontend/

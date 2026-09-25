@@ -116,7 +116,7 @@ async function main() {
 
   // ── Admin ───────────────────────────────────────────────
   console.log('\n=== Admin: Escalation + Incident Map + Analytics ===');
-  for (const path of ['/admin/escalation', '/admin/incident-map', '/admin/analytics']) {
+  for (const path of ['/admin/escalation', '/admin/incident-map', '/admin/city-analytics']) {
     const errors = await withPage(browser, async page => {
       const r = await navOk(page, `${BASE}${path}`);
       if (!r.ok) { failures.push(`${path}: ${r.reason}`); return; }
