@@ -4,6 +4,14 @@ pydantic==2.13.4
 pydantic-settings==2.14.2
 python-multipart==0.0.20
 langgraph==1.2.10
+# The agents call Gemini through google-genai (app/agents/graph.py does
+# `import google.genai as genai`). Without this package the import raises,
+# graph.py's except-branch sets GEMINI_AVAILABLE = False, and every one of the
+# 8 agents silently serves its rule-based fallback — the pipeline looks
+# healthy while no AI call is ever made. This went unnoticed because the
+# failure is invisible by construction; agents/serialisation now surface it
+# through ai_degraded.
+google-genai>=1.0.0,<2.0.0
 sqlalchemy==2.0.51
 psycopg2-binary==2.9.12
 geoalchemy2==0.20.0

@@ -15,6 +15,7 @@ try:
     import google.genai as genai
     from google.genai import types
     from app.config import settings
+    GEMINI_MODEL = getattr(settings, "GEMINI_MODEL", None) or "gemini-flash-lite-latest"
     if settings.GEMINI_API_KEY:
         _gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
         GEMINI_AVAILABLE = True
@@ -25,6 +26,7 @@ except Exception:
     _gemini_client = None
     GEMINI_AVAILABLE = False
     types = None
+    GEMINI_MODEL = "gemini-flash-lite-latest"
 
 logger = structlog.get_logger(__name__)
 
@@ -83,7 +85,7 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
     started = time.monotonic()
     try:
         resp = _gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=prompt,
         )
         latency_ms = int((time.monotonic() - started) * 1000)
@@ -94,7 +96,7 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
         # log stream is already there.
         logger.info(
             "gemini_call",
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             agent="cx",
             latency_ms=latency_ms,
             input_chars=len(prompt),
@@ -109,7 +111,7 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
         latency_ms = int((time.monotonic() - started) * 1000)
         logger.warning(
             "gemini_call",
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             agent="cx",
             latency_ms=latency_ms,
             input_chars=len(prompt),
@@ -139,13 +141,13 @@ def _ask_gemini_with_images(prompt: str, image_urls: List[str], fallback: str) -
                 parts.append(types.Part.from_uri(file_uri=url, mime_type="image/jpeg"))
                 n_images += 1
         resp = _gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=[types.Content(role="user", parts=parts)],
         )
         latency_ms = int((time.monotonic() - started) * 1000)
         logger.info(
             "gemini_call",
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             agent="vision",
             latency_ms=latency_ms,
             input_chars=len(prompt),
@@ -160,7 +162,7 @@ def _ask_gemini_with_images(prompt: str, image_urls: List[str], fallback: str) -
         latency_ms = int((time.monotonic() - started) * 1000)
         logger.warning(
             "gemini_call",
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             agent="vision",
             latency_ms=latency_ms,
             input_chars=len(prompt),
@@ -187,13 +189,13 @@ def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
             types.Part.from_uri(file_uri=audio_url, mime_type="audio/webm"),
         ]
         resp = _gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=[types.Content(role="user", parts=parts)],
         )
         latency_ms = int((time.monotonic() - started) * 1000)
         logger.info(
             "gemini_call",
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             agent="audio",
             latency_ms=latency_ms,
             input_chars=len(prompt),
@@ -208,7 +210,7 @@ def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
         latency_ms = int((time.monotonic() - started) * 1000)
         logger.warning(
             "gemini_call",
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             agent="audio",
             latency_ms=latency_ms,
             input_chars=len(prompt),

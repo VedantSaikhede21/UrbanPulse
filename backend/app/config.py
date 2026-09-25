@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     SUPABASE_STORAGE_BUCKET: str = ""
 
     GEMINI_API_KEY: Optional[str] = None
+    # Model id used by every agent call. Configurable on purpose: Google retires
+    # model ids for new users (gemini-2.5-flash now 404s with "no longer
+    # available to new users"), and the flash tier intermittently answers 503
+    # UNAVAILABLE under load. Being able to change this in the environment,
+    # without a rebuild, is the difference between a 5-second fix and a
+    # redeploy during a live demo.
+    #
+    # "latest" aliases track Google's current recommended model, so they do not
+    # 404 the way a pinned id does. Verified to accept both text and images
+    # (the Vision agent needs both).
+    GEMINI_MODEL: str = "gemini-flash-lite-latest"
 
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
