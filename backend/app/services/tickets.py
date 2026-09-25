@@ -75,10 +75,13 @@ def serialize_ticket(t: Ticket) -> dict:
         "voice_note_url": _resolve_media_url(t.voice_note_url),
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-        # ai_degraded is True when the AI pipeline is not running on a
-        # real Gemini call (no key, or import failed). Frontend surfaces
-        # this as a "AI reasoning unavailable, using basic triage" banner.
-        "ai_degraded": not getattr(agent_graph, "GEMINI_AVAILABLE", False),
+        # ai_degraded is True when this response was NOT produced by a live
+        # Gemini call — either no key is configured, or recent calls have been
+        # failing (quota exhaustion, auth). It used to be derived from key
+        # presence alone, so a 429 mid-demo silently served rule-based
+        # fallbacks behind a normal-looking trace. Frontend surfaces this as
+        # an "AI reasoning unavailable, using basic triage" banner.
+        "ai_degraded": not agent_graph.gemini_is_healthy(),
         # Phase 2.1: ARQ pipeline state. The frontend can use this
         # to keep the "AI thinking..." animation up while the
         # worker has the ticket, and to swap to "reasoning

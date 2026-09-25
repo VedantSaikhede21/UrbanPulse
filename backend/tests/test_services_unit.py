@@ -81,20 +81,40 @@ class TestResolveMediaUrl:
 class TestSerializeTicket:
     def test_ai_degraded_reflects_graph_availability(self, monkeypatch):
         # The frontend banner ("AI reasoning unavailable, using
-        # basic triage") reads the `ai_degraded` field. The
-        # serializer must surface GEMINI_AVAILABLE at read time
-        # so a backend that boots without an API key is honest
-        # with the user.
+        # basic triage") reads the `ai_degraded` field, so the
+        # serializer must reflect Gemini's *live* health at read time.
+        #
+        # This used to be `not GEMINI_AVAILABLE`, i.e. only "is a key
+        # configured" — which left a quota exhaustion invisible. It is
+        # now graph.gemini_is_healthy(), which additionally requires a
+        # live client and no recent call failures. See
+        # tests/test_gemini_health_flag.py for the failure-path cases.
         from app.agents import graph as agent_graph
 
         ticket = _ticket_fixture()
+
+        # No key -> degraded.
         monkeypatch.setattr(agent_graph, "GEMINI_AVAILABLE", False)
+        monkeypatch.setattr(agent_graph, "_gemini_client", None)
         out = tickets_service.serialize_ticket(ticket)
         assert out["ai_degraded"] is True
 
+        # Key plus a live client, no recent failures -> healthy. Both are
+        # patched because a key without a client is still not callable.
         monkeypatch.setattr(agent_graph, "GEMINI_AVAILABLE", True)
+        monkeypatch.setattr(agent_graph, "_gemini_client", object())
+        agent_graph._record_gemini_success()
         out = tickets_service.serialize_ticket(ticket)
         assert out["ai_degraded"] is False
+
+        # A key that is present but failing (429, auth) must also report
+        # degraded, otherwise the demo silently shows rule-based output.
+        class _QuotaExhausted(Exception):
+            pass
+
+        agent_graph._record_gemini_failure(_QuotaExhausted())
+        out = tickets_service.serialize_ticket(ticket)
+        assert out["ai_degraded"] is True
 
     def test_processing_state_default_is_pending(self):
         # A ticket that lacks a processing_state column (e.g. a

@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 
@@ -26,6 +27,44 @@ except Exception:
     types = None
 
 logger = structlog.get_logger(__name__)
+
+# Tracks whether Gemini is actually answering right now, as opposed to merely
+# being configured. `GEMINI_AVAILABLE` only proves a key exists, so a quota
+# exhaustion (429 RESOURCE_EXHAUSTED) mid-demo used to be invisible: every
+# agent silently returned its rule-based fallback and the UI showed a
+# normal-looking trace. The frontend banner keys off this via
+# services.tickets.serialize_ticket -> ai_degraded.
+_GEMINI_LAST_FAILURE: Optional[str] = None
+_GEMINI_LAST_FAILURE_AT: float = 0.0
+
+# A quota/auth failure is not transient, so the flag stays set for a while
+# after the last failure. Without a TTL the banner would flap on a single
+# blip; without persistence it would clear on the next unrelated success.
+_GEMINI_FAILURE_TTL_SECONDS = 300.0
+
+
+def gemini_is_healthy() -> bool:
+    """True only when a key exists AND recent calls have not been failing."""
+    if not GEMINI_AVAILABLE or _gemini_client is None:
+        return False
+    if _GEMINI_LAST_FAILURE is None:
+        return True
+    if (time.monotonic() - _GEMINI_LAST_FAILURE_AT) > _GEMINI_FAILURE_TTL_SECONDS:
+        return True
+    return False
+
+
+def _record_gemini_failure(err: BaseException) -> None:
+    global _GEMINI_LAST_FAILURE, _GEMINI_LAST_FAILURE_AT
+    _GEMINI_LAST_FAILURE = type(err).__name__
+    _GEMINI_LAST_FAILURE_AT = time.monotonic()
+    logger.warning("gemini_marked_degraded", error=_GEMINI_LAST_FAILURE)
+
+
+def _record_gemini_success() -> None:
+    global _GEMINI_LAST_FAILURE, _GEMINI_LAST_FAILURE_AT
+    _GEMINI_LAST_FAILURE = None
+    _GEMINI_LAST_FAILURE_AT = 0.0
 
 
 def _parse_json_response(raw: str, fallback: dict) -> dict:
@@ -64,6 +103,7 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
             ok=True,
         )
         text_response = getattr(resp, "text", None)
+        _record_gemini_success()
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
         latency_ms = int((time.monotonic() - started) * 1000)
@@ -79,6 +119,7 @@ def _ask_gemini(prompt: str, fallback: str) -> str:
             error=type(e).__name__,
         )
         logger.warning("gemini_call_failed", error=str(e))
+        _record_gemini_failure(e)
         from app.sentry import capture_exception
         capture_exception(e, agent="cx")
         return fallback
@@ -113,6 +154,7 @@ def _ask_gemini_with_images(prompt: str, image_urls: List[str], fallback: str) -
             ok=True,
         )
         text_response = getattr(resp, "text", None)
+        _record_gemini_success()
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
         latency_ms = int((time.monotonic() - started) * 1000)
@@ -128,6 +170,7 @@ def _ask_gemini_with_images(prompt: str, image_urls: List[str], fallback: str) -
             error=type(e).__name__,
         )
         logger.warning("gemini_multimodal_call_failed", error=str(e))
+        _record_gemini_failure(e)
         from app.sentry import capture_exception
         capture_exception(e, agent="vision")
         return fallback
@@ -159,6 +202,7 @@ def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
             ok=True,
         )
         text_response = getattr(resp, "text", None)
+        _record_gemini_success()
         return text_response.strip() if isinstance(text_response, str) else fallback
     except Exception as e:
         latency_ms = int((time.monotonic() - started) * 1000)
@@ -174,6 +218,7 @@ def _ask_gemini_with_audio(prompt: str, audio_url: str, fallback: str) -> str:
             error=type(e).__name__,
         )
         logger.warning("gemini_audio_call_failed", error=str(e))
+        _record_gemini_failure(e)
         from app.sentry import capture_exception
         capture_exception(e, agent="audio")
         return fallback
