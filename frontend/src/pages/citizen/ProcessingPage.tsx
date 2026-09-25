@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Loader, CheckCircle2, AlertCircle, AlertTriangle, Sparkles, Activity, Wifi, WifiOff } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch, apiUrl } from '../../lib/api';
-import { Skeleton, SkeletonCard } from '../../components/ui/Skeleton';
+import { Skeleton, SkeletonText } from '../../components/ui/Skeleton';
 import type { Ticket } from '../../lib/types';
 
 interface AgentStep {

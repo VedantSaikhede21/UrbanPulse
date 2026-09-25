@@ -41,14 +41,6 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function MetricSkeleton() {
-  return (
-    <MetricCard label="" icon={<div className="w-5 h-5" />}>
-      <SkeletonCard />
-    </MetricCard>
-  );
-}
-
 // 4-stage progress timeline shown on every recent-report card.
 // A stage is "reached" once the ticket's status is at or past it.
 const STATUS_STAGES: { key: string; label: string }[] = [

@@ -3,7 +3,7 @@ import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
-interface ToastData {
+export interface ToastData {
   id: string;
   type: ToastType;
   title: string;
@@ -11,7 +11,7 @@ interface ToastData {
   duration?: number;
 }
 
-interface ToastContextValue {
+export interface ToastContextValue {
   toast: (data: Omit<ToastData, 'id'>) => string;
   dismiss: (id: string) => void;
   dismissAll: () => void;

@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { X, AlertCircle, AlertTriangle, Info, Check } from 'lucide-react';
+import { X, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { Button } from './Button';
 
 type ConfirmVariant = 'danger' | 'warning' | 'info';
 type ConfirmSize = 'sm' | 'md' | 'lg';
 
-interface ConfirmModalProps {
+export interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;

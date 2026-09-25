@@ -4,7 +4,7 @@ import { User } from 'lucide-react';
 type AvatarSize = 'sm' | 'md' | 'lg';
 type AvatarShape = 'circle' | 'square';
 
-interface AvatarProps {
+export interface AvatarProps {
   src?: string;
   alt?: string;
   name?: string;
@@ -89,7 +89,7 @@ export function Avatar({ src, alt, name, size = 'md', shape = 'circle', status, 
   );
 }
 
-interface AvatarGroupProps {
+export interface AvatarGroupProps {
   children: React.ReactNode;
   max?: number;
   className?: string;

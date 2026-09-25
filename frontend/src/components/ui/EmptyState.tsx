@@ -2,7 +2,7 @@ import React from 'react';
 import { Inbox } from 'lucide-react';
 import { Button } from './Button';
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   icon?: React.ElementType;
   title: string;
   message: string;

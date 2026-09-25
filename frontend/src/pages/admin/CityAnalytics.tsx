@@ -3,7 +3,7 @@ import {
   Activity, AlertTriangle, FileText, TrendingUp, MapPin,
   CheckCircle2, Clock, BarChart2, RotateCcw,
 } from 'lucide-react';
-import { SkeletonCard, Skeleton } from '../../components/ui/Skeleton';
+import { SkeletonCard } from '../../components/ui/Skeleton';
 import { Badge } from '../../components/ui/Badge';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';

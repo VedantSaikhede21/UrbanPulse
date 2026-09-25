@@ -11,7 +11,7 @@ export interface LocationData {
   address?: string;
 }
 
-interface MapPickerProps {
+export interface MapPickerProps {
   value?: LocationData;
   onChange: (location: LocationData) => void;
 }

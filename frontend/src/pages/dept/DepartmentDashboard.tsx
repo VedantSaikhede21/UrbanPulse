@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle, FileText, Clock, CheckCircle2, Users,
-  Calendar, Loader, RotateCcw,
+  Calendar, RotateCcw,
 } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';

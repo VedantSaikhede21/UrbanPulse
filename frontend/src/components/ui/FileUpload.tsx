@@ -20,7 +20,7 @@ interface FileUploadError {
   message: string;
 }
 
-interface FileUploadProps {
+export interface FileUploadProps {
   value: FileData[];
   onChange: (files: FileData[]) => void;
   maxFiles?: number;

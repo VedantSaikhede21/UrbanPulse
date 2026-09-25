@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { signInWithPassword, sendPasswordResetEmail } from '../../lib/auth';
+import { signInWithPassword } from '../../lib/auth';
 import { Button } from '../../components/ui/Button';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 

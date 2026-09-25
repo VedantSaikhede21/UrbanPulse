@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, useInView, useMotionValue, animate } from 'framer-motion';
 import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import {
-  ArrowRight, CheckCircle2, Activity, Camera, TrendingUp, GitBranch, Eye, Clock, Shield, FileText, ArrowDown, AlertCircle,
+  ArrowRight, CheckCircle2, Camera, TrendingUp, GitBranch, Eye, Clock, Shield, FileText, ArrowDown, AlertCircle,
 } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { PipelineSection } from '../../components/pipeline/PipelineSection';
@@ -67,7 +67,6 @@ export const Landing: React.FC = () => {
         if (cancelled) return;
         const total = data.length;
         const resolved = data.filter((t: any) => ['resolved', 'verified'].includes(t.status)).length;
-        const resolvedPct = total > 0 ? Math.round((resolved / total) * 100) : 0;
         setStats({
           reportsToday: total,
           resolved,

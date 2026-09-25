@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect, createContext, useContext } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect, createContext } from 'react';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import { Skeleton } from './Skeleton';
 
-interface Column<T> {
+export interface Column<T> {
   key: string;
   header: string;
   accessor: (row: T) => React.ReactNode;
@@ -29,15 +29,9 @@ interface TableContextValue {
   selectable: boolean;
 }
 
-const TableContext = createContext<TableContextValue<unknown> | null>(null);
+const TableContext = createContext<TableContextValue | null>(null);
 
-const useTableContext = () => {
-  const ctx = useContext(TableContext) as TableContextValue | null;
-  if (!ctx) throw new Error('Table components must be used within a Table provider');
-  return ctx;
-};
-
-interface TableProps<T> {
+export interface TableProps<T> {
   columns: Column<T>[];
   data: T[];
   keyAccessor: (row: T) => string;
@@ -319,7 +313,7 @@ export function Table<T>({
   );
 }
 
-interface TableBodyProps {
+export interface TableBodyProps {
   children: React.ReactNode;
 }
 
@@ -327,7 +321,7 @@ const TableBody = ({ children }: TableBodyProps) => (
   <div className="bg-surface-card" role="rowgroup">{children}</div>
 );
 
-interface TableRowProps {
+export interface TableRowProps {
   children: React.ReactNode;
   className?: string;
   selected?: boolean;
@@ -353,7 +347,7 @@ const TableRow = ({ children, className = '', selected, striped, hoverable, onCl
   </div>
 );
 
-interface TableCellProps {
+export interface TableCellProps {
   children: React.ReactNode;
   className?: string;
   align?: 'left' | 'center' | 'right';
@@ -376,7 +370,7 @@ const TableCell = ({ children, className = '', align = 'left', sticky, width }: 
   </div>
 );
 
-interface TableHeaderProps {
+export interface TableHeaderProps {
   children: React.ReactNode;
   className?: string;
 }

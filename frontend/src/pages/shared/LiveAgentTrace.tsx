@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Activity, Sparkles, CheckCircle2, AlertCircle, Loader, Play, ClipboardPaste, AlertTriangle } from 'lucide-react';
+import { Activity, Sparkles, CheckCircle2, AlertCircle, Loader, Play, ClipboardPaste } from 'lucide-react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiUrl } from '../../lib/api';
 import { useToast } from '../../components/ui/Toast';

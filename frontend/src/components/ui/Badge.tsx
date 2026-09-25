@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 type BadgeVariant = 'status' | 'priority' | 'default';
 type BadgeValue = 'new' | 'progress' | 'resolved' | 'verified' | 'escalated' | 'low' | 'medium' | 'high' | string;
 
-interface BadgeProps {
+export interface BadgeProps {
   variant?: BadgeVariant;
   type?: BadgeVariant;
   value: BadgeValue;

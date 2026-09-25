@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 
-interface ToggleProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface ToggleProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   label?: string;
   description?: string;
   size?: 'sm' | 'md' | 'lg';
@@ -19,7 +19,7 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
 
     return (
       <label className={`inline-flex items-start gap-3 cursor-pointer ${className}`}>
-        <div className="relative flex items-center" style={{ minWidth: track.width, minHeight: track.height }}>
+        <div className="relative flex items-center">
           <input
             ref={ref}
             type="checkbox"

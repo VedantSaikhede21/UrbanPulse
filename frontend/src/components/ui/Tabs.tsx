@@ -17,7 +17,7 @@ const useTabsContext = () => {
   return ctx;
 };
 
-interface TabsProps {
+export interface TabsProps {
   defaultValue: string;
   variant?: TabsVariant;
   onChange?: (value: string) => void;
@@ -68,7 +68,7 @@ export function Tabs({ defaultValue, variant = 'underline', onChange, children, 
   );
 }
 
-interface TabListProps {
+export interface TabListProps {
   variant?: TabsVariant;
   children: React.ReactNode;
   className?: string;
@@ -116,7 +116,7 @@ function TabListComponent({ variant, children, className = '' }: TabListProps) {
 
 TabListComponent.displayName = 'TabList';
 
-interface TabProps {
+export interface TabProps {
   value: string;
   children: React.ReactNode;
   disabled?: boolean;
@@ -178,7 +178,7 @@ function TabComponent({ value, children, disabled, className = '', variant, isAc
 
 TabComponent.displayName = 'Tab';
 
-interface TabPanelProps {
+export interface TabPanelProps {
   value: string;
   children: React.ReactNode;
   className?: string;

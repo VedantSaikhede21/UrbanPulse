@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface CardProps {
+export interface CardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
@@ -24,7 +24,7 @@ export const Card: React.FC<CardProps> = ({ children, className = '', onClick, g
   );
 };
 
-interface InteractiveCardProps {
+export interface InteractiveCardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;

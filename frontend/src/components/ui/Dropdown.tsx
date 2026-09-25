@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useId, createContext, useContext } from 'react';
+import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 
@@ -8,7 +8,7 @@ type DropdownAlign = 'start' | 'end' | 'center';
 interface DropdownContextValue {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  triggerRef: React.RefObject<HTMLElement>;
+  triggerRef: React.RefObject<HTMLButtonElement>;
   menuRef: React.RefObject<HTMLDivElement>;
   onItemSelect: (value: string) => void;
   selectedValue?: string;
@@ -24,7 +24,7 @@ const useDropdownContext = () => {
   return ctx;
 };
 
-interface DropdownProps {
+export interface DropdownProps {
   children: React.ReactNode;
   placement?: DropdownPlacement;
   align?: DropdownAlign;
@@ -41,7 +41,7 @@ export function Dropdown({
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [selectedValue, setSelectedValue] = useState<string | undefined>();
-  const triggerRef = useRef<HTMLElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const handleItemSelect = (value: string) => {
@@ -179,7 +179,7 @@ export function Dropdown({
   );
 }
 
-interface DropdownTriggerProps {
+export interface DropdownTriggerProps {
   children: React.ReactNode;
   className?: string;
   'aria-label'?: string;
@@ -226,7 +226,7 @@ function DropdownTriggerComponent({ children, className = '', 'aria-label': aria
 
 DropdownTriggerComponent.displayName = 'DropdownTrigger';
 
-interface DropdownMenuProps {
+export interface DropdownMenuProps {
   children: React.ReactNode;
   className?: string;
   minWidth?: string;
@@ -264,7 +264,7 @@ function DropdownMenuComponent({ children, className = '', minWidth = '160px', m
 
 DropdownMenuComponent.displayName = 'DropdownMenu';
 
-interface DropdownItemProps {
+export interface DropdownItemProps {
   value: string;
   children: React.ReactNode;
   disabled?: boolean;
@@ -318,7 +318,7 @@ function DropdownItemComponent({ value, children, disabled, className = '', icon
 
 DropdownItemComponent.displayName = 'DropdownItem';
 
-interface DropdownSectionProps {
+export interface DropdownSectionProps {
   label?: string;
   children: React.ReactNode;
   className?: string;
@@ -346,7 +346,7 @@ function DropdownSectionComponent({ label, children, className = '' }: DropdownS
 
 DropdownSectionComponent.displayName = 'DropdownSection';
 
-interface DropdownSeparatorProps {
+export interface DropdownSeparatorProps {
   className?: string;
 }
 

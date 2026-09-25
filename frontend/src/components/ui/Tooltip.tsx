@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect, useId } from 'react';
+import React, { useState, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 
 type TooltipPlacement = 'top' | 'bottom' | 'left' | 'right';
 
-interface TooltipProps {
+export interface TooltipProps {
   content: React.ReactNode;
   children: React.ReactElement;
   placement?: TooltipPlacement;

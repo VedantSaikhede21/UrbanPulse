@@ -10,12 +10,6 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import type { LucideIcon } from 'lucide-react';
 
-interface AgentInfo {
-  name: string;
-  icon: LucideIcon;
-  description: string;
-}
-
 interface AgentMetric {
   name: string;
   node: string;

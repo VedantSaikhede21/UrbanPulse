@@ -1,10 +1,9 @@
-import React from 'react';
 import { Check } from 'lucide-react';
 
 type ProgressVariant = 'determinate' | 'indeterminate' | 'steps';
 type ProgressSize = 'sm' | 'md' | 'lg';
 
-interface ProgressBarProps {
+export interface ProgressBarProps {
   value?: number;
   max?: number;
   variant?: ProgressVariant;
@@ -100,7 +99,7 @@ export function ProgressBar({
   );
 }
 
-interface CircularProgressProps {
+export interface CircularProgressProps {
   value: number;
   max?: number;
   size?: number;
