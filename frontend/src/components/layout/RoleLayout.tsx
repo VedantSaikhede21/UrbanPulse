@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../ui/Toast';
 import { homeForRole } from './RoleGuard';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, apiUrl } from '../../lib/api';
 import {
   Menu, X, User, FileText, Map, AlertTriangle, BarChart2, CheckSquare, Settings, Play,
   HelpCircle, Home, Activity, Database, Users, Layers, ShieldCheck, LogOut
@@ -38,7 +38,10 @@ export const RoleLayout: React.FC<RoleLayoutProps> = ({ children }) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 8000);
       try {
-        const res = await fetch('/api/health/ready', { cache: 'no-store', signal: controller.signal });
+        // apiUrl(), not a raw '/api/...' path: on Vercel the frontend and the
+        // API live on different origins, so a same-origin path would 404 and
+        // pin the badge to OFFLINE.
+        const res = await fetch(apiUrl('/api/health/ready'), { cache: 'no-store', signal: controller.signal });
         if (cancelled) return;
         if (!res.ok) {
           setApiStatus(res.status >= 500 ? 'degraded' : 'offline');
