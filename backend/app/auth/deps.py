@@ -3,6 +3,7 @@ from typing import Optional
 
 import jwt
 from fastapi import Depends, Header, HTTPException
+from jwt import PyJWKClient
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,81 @@ from app.services import audit
 JWT_SECRET = settings.SUPABASE_JWT_SECRET or "placeholder-secret"
 
 VALID_ROLES = {"citizen", "officer", "dept_head", "admin", "super_admin"}
+
+# Supabase signs user access tokens with the project's asymmetric signing keys
+# and stamps the key id in the header, so real tokens arrive as ES256/RS256
+# with a `kid`. Verifying those with the legacy shared secret fails with
+# "The specified alg value is not allowed", which surfaced as a 401 on every
+# authenticated endpoint while the login itself still appeared to succeed.
+#
+# HS256 is retained for tokens minted before the key migration, and for any
+# service still presenting a legacy secret-signed token. The algorithm is never
+# taken on trust: the asymmetric branch resolves the key from the project's
+# JWKS and pins the algorithm to this allowlist, which is what rules out alg
+# confusion. "none" is deliberately absent.
+ASYMMETRIC_ALGORITHMS = {"ES256", "ES384", "ES512", "RS256", "RS384", "RS512"}
+
+_jwk_client: Optional[PyJWKClient] = None
+
+
+def _get_jwk_client() -> PyJWKClient:
+    """Project JWKS client, built once per process."""
+    global _jwk_client
+    if _jwk_client is None:
+        if not settings.SUPABASE_URL:
+            raise HTTPException(
+                status_code=500,
+                detail="SUPABASE_URL not configured; cannot verify Supabase tokens",
+            )
+        # The endpoint is public, so no apikey header is required. cache_keys
+        # with a lifespan keeps this to one fetch per key-rotation window
+        # instead of one HTTP round trip per request.
+        _jwk_client = PyJWKClient(
+            f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json",
+            cache_keys=True,
+            lifespan=300,
+        )
+    return _jwk_client
+
+
+def _decode_supabase_token(token: str) -> dict:
+    """Verify a Supabase access token against the right key and return claims."""
+    header = jwt.get_unverified_header(token)
+    algorithm = header.get("alg")
+
+    if algorithm == "HS256":
+        if not JWT_SECRET or JWT_SECRET == "placeholder-secret":
+            if settings.ENV != "development":
+                raise HTTPException(
+                    status_code=500,
+                    detail="JWT_SECRET not configured. Set SUPABASE_JWT_SECRET in .env",
+                )
+            key, algorithms = JWT_SECRET, ["HS256"]
+            decode_options = {"verify_signature": False}
+        else:
+            key, algorithms = JWT_SECRET, ["HS256"]
+            decode_options = {}
+    elif algorithm in ASYMMETRIC_ALGORITHMS:
+        # Resolves the token's `kid` against the JWKS and verifies the
+        # signature with the project's public key.
+        key = _get_jwk_client().get_signing_key_from_jwt(token).key
+        algorithms = [algorithm]
+        decode_options = {}
+    else:
+        raise HTTPException(
+            status_code=401, detail=f"Unsupported token algorithm: {algorithm}"
+        )
+
+    return jwt.decode(
+        token,
+        key,
+        algorithms=algorithms,
+        options=decode_options,
+        # Supabase Auth user tokens always carry aud="authenticated".
+        # PyJWT >= 2.13 rejects tokens that HAVE an aud claim when no
+        # audience is specified, so this is required for real tokens.
+        audience="authenticated",
+    )
 
 
 class AuthUser:
@@ -50,24 +126,7 @@ def _resolve_user(
         scheme, token = authorization.split()
         if scheme.lower() != "bearer":
             raise HTTPException(status_code=401, detail="Invalid authentication scheme")
-        decode_algorithms = ["HS256"]
-        if not JWT_SECRET or JWT_SECRET == "placeholder-secret":
-            if settings.ENV == "development":
-                decode_options = {"verify_signature": False}
-            else:
-                raise HTTPException(status_code=500, detail="JWT_SECRET not configured. Set SUPABASE_JWT_SECRET in .env")
-        else:
-            decode_options = {}
-        payload = jwt.decode(
-            token,
-            JWT_SECRET,
-            algorithms=decode_algorithms,
-            options=decode_options,
-            # Supabase Auth user tokens always carry aud="authenticated".
-            # PyJWT >= 2.13 rejects tokens that HAVE an aud claim when no
-            # audience is specified, so this is required for real tokens.
-            audience="authenticated",
-        )
+        payload = _decode_supabase_token(token)
         user_id = payload.get("sub")
         email = payload.get("email")
         phone = payload.get("phone")

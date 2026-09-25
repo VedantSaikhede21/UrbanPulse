@@ -95,3 +95,6 @@ UrbanPulse_AI_Project_Proposal.pdf
 qa/backups/
 # QA-generated demo credentials — never commit
 .env.qa-users
+
+# QA-generated demo credentials — never commit
+.env.qa-users
