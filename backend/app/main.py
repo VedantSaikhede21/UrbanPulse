@@ -19,7 +19,7 @@ from app.agents import runtime
 from app.auth.deps import AuthUser, get_current_user, get_optional_user
 from app.config import settings
 from app.db.session import get_db
-from app.db.models import Ticket, Officer
+from app.db.models import Citizen, Officer, Ticket
 from app.logging import configure_logging
 from app.routers.analytics import router as analytics_router
 from app.routers.agents import router as agents_router
@@ -579,32 +579,47 @@ async def process_ticket_sse(
     # HTTP), so the client polls /api/tickets/{id} until
     # processing_state moves to 'completed' and re-opens the
     # SSE stream if it wants the trace replay.
+    def replay_events() -> list[dict]:
+        events = [
+            {
+                'agent': entry.get('agent'),
+                'action': entry.get('action'),
+                'reasoning': entry.get('reasoning'),
+                'node': entry.get('node'),
+                'status': 'done',
+            }
+            for entry in agent_logs.list_trace(db, ticket_id)
+        ]
+        events.append({
+            'agent': 'Pipeline',
+            'action': 'Complete',
+            'node': 'END',
+            'status': 'done',
+            'result': {
+                'category': ticket.category,
+                'severity': ticket.severity,
+                'priority_score': ticket.priority_score,
+                'status': ticket.status,
+            },
+        })
+        return events
+
     async def event_stream():
-        if ticket.processing_state in ("completed", "failed"):
-            entries = agent_logs.list_trace(db, ticket_id)
-            for entry in entries:
-                yield f"data: {_json.dumps({
-                    'agent': entry.get('agent'),
-                    'action': entry.get('action'),
-                    'reasoning': entry.get('reasoning'),
-                    'node': entry.get('node'),
-                    'status': 'done',
-                })}\n\n"
+        if ticket.processing_state == "failed":
             yield f"data: {_json.dumps({
                 'agent': 'Pipeline',
-                'action': 'Complete',
+                'action': 'Failed',
                 'node': 'END',
-                'status': 'done',
-                'result': {
-                    'category': ticket.category,
-                    'severity': ticket.severity,
-                    'priority_score': ticket.priority_score,
-                    'status': ticket.status,
-                },
+                'status': 'error',
+                'reasoning': 'The AI pipeline could not finish this report. Open the report to retry later.',
             })}\n\n"
             return
 
-        # pending or processing — make sure the worker has it.
+        if ticket.processing_state == "completed":
+            for payload in replay_events():
+                yield f"data: {_json.dumps(payload)}\n\n"
+            return
+
         if ticket.processing_state == "pending":
             try:
                 from app.queue import enqueue_triage
@@ -618,6 +633,44 @@ async def process_ticket_sse(
             'node': 'WAIT',
             'status': 'running',
         })}\n\n"
+
+        deadline = asyncio.get_running_loop().time() + 90
+        while ticket.processing_state not in ("completed", "failed"):
+            if asyncio.get_running_loop().time() >= deadline:
+                yield f"data: {_json.dumps({
+                    'agent': 'Pipeline',
+                    'action': 'Still processing',
+                    'node': 'END',
+                    'status': 'error',
+                    'reasoning': 'The AI pipeline is taking longer than expected. The report is saved; open it from your dashboard.',
+                })}\n\n"
+                return
+            await asyncio.sleep(0.4)
+            try:
+                db.expire(ticket)
+                db.refresh(ticket)
+            except Exception:
+                yield f"data: {_json.dumps({
+                    'agent': 'Pipeline',
+                    'action': 'Disconnected',
+                    'node': 'END',
+                    'status': 'error',
+                    'reasoning': 'The pipeline status could not be refreshed. Open the report to check its current state.',
+                })}\n\n"
+                return
+
+        if ticket.processing_state == "failed":
+            yield f"data: {_json.dumps({
+                'agent': 'Pipeline',
+                'action': 'Failed',
+                'node': 'END',
+                'status': 'error',
+                'reasoning': 'The AI pipeline could not finish this report. Open the report to retry later.',
+            })}\n\n"
+            return
+
+        for payload in replay_events():
+            yield f"data: {_json.dumps(payload)}\n\n"
 
     return StreamingResponse(
         event_stream(),

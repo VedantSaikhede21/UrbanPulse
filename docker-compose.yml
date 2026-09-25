@@ -43,6 +43,7 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
         VITE_API_URL: ${VITE_API_URL:-}
+        VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}
     container_name: urbanpulse-frontend
     depends_on:
       # service_started (not service_healthy): if the DB is slow, the
@@ -86,7 +87,8 @@ services:
       - .env
     environment:
       - ENV=${ENV:-production}
-    command: ["arq", "app.queue.WorkerSettings"]
+    entrypoint: ["arq"]
+    command: ["app.queue.WorkerSettings"]
     volumes:
       - backups_data:/app/backups
     restart: unless-stopped

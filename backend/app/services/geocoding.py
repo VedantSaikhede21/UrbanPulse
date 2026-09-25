@@ -7,6 +7,7 @@ import structlog
 from typing import Optional, Tuple
 import httpx
 from app.config import settings
+from app.city import CITY_GEOCODE_VIEWBOX, CITY_NAME
 
 logger = structlog.get_logger(__name__)
 
@@ -14,8 +15,14 @@ logger = structlog.get_logger(__name__)
 class GeocodingService:
     """Service for geocoding text addresses/landmarks via Nominatim."""
 
-    # Bangalore bounding box: left, top, right, bottom (lon_min, lat_max, lon_max, lat_min)
-    BANGALORE_VIEWBOX = "77.5,13.0,77.7,12.9"
+    # Nominatim `viewbox` = lon_min,lat_max,lon_max,lat_min.
+    #
+    # This used to be hard-coded to a Bengaluru bounding box
+    # ("77.5,13.0,77.7,12.9") with `bounded=1`, which meant a Navi Mumbai
+    # resident texting an address got **zero** results — the query was
+    # hard-clipped to a city 850 km away. The box is now the deployment's
+    # actual catchment and is overridable per environment.
+    CITY_VIEWBOX = CITY_GEOCODE_VIEWBOX
 
     # OSM class/type combinations that indicate precise, addressable locations
     HIGH_CONFIDENCE_TYPES = {
@@ -125,7 +132,7 @@ class GeocodingService:
         zero-results response in production.
 
         Args:
-            query: Address, landmark, or place name (e.g., "pothole near MG Road market")
+            query: Address, landmark, or place name (e.g., "pothole near the bus stop")
 
         Returns:
             Tuple of (latitude, longitude, confidence, display_name) or None if not found
@@ -139,7 +146,7 @@ class GeocodingService:
                 "format": "json",
                 "limit": 1,
                 "addressdetails": 1,
-                "viewbox": self.BANGALORE_VIEWBOX,
+                "viewbox": self.CITY_VIEWBOX,
                 "bounded": 1,
             }
             resp = await self.client.get(self.base_url, params=params)
@@ -164,13 +171,13 @@ class GeocodingService:
             return (lat, lng, confidence, display_name)
 
         except httpx.TimeoutException as e:
-            logger.warning("geocoding_timeout", query=query, error=str(e))
+            logger.warning("geocoding_timeout", city=CITY_NAME, query=query, error=str(e))
             return None
         except httpx.HTTPError as e:
-            logger.warning("geocoding_http_error", query=query, error=str(e))
+            logger.warning("geocoding_http_error", city=CITY_NAME, query=query, error=str(e))
             return None
         except (ValueError, KeyError) as e:
-            logger.warning("geocoding_bad_response", query=query, error=str(e))
+            logger.warning("geocoding_bad_response", city=CITY_NAME, query=query, error=str(e))
             return None
         except Exception as e:
             # ponytail: catch-all kept for true unknowns; tight exception

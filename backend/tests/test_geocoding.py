@@ -414,12 +414,18 @@ class TestGeocodingEnhancedConfidence:
 
     @pytest.mark.asyncio
     async def test_geocode_uses_viewbox_and_bounded_params(self, service):
-        """Geocode should call Nominatim with viewbox and bounded parameters for Bangalore."""
+        """Geocode must bound the lookup to the deployment's own city catchment.
+
+        This used to assert a hard-coded Bengaluru viewbox, which is why a
+        Navi Mumbai resident's address resolved to nothing.
+        """
+        from app.city import CITY_GEOCODE_VIEWBOX
+
         response = [
             {
-                "lat": "12.9715",
-                "lon": "77.5945",
-                "display_name": "MG Road, Bangalore",
+                "lat": "19.0440",
+                "lon": "73.0610",
+                "display_name": "5th Main Road, Kharghar, Navi Mumbai",
                 "class": "highway",
                 "type": "primary",
                 "importance": 0.05,
@@ -430,12 +436,31 @@ class TestGeocodingEnhancedConfidence:
         mock_response.raise_for_status = MagicMock()
         service._client.get = AsyncMock(return_value=mock_response)
 
-        await service.geocode("MG Road")
+        await service.geocode("5th Main Road Kharghar")
 
         call_args = service._client.get.call_args
         params = call_args[1]["params"]
-        assert params["viewbox"] == "77.5,13.0,77.7,12.9"
+        assert params["viewbox"] == CITY_GEOCODE_VIEWBOX
+        assert params["viewbox"] != "77.5,13.0,77.7,12.9"  # Bengaluru must not come back
         assert params["bounded"] == 1
+
+    @pytest.mark.asyncio
+    async def test_viewbox_encloses_navi_mumbai(self, service):
+        """The viewbox must actually contain the serviced city, or lookups clip."""
+        from app.city import (
+            CITY_CENTER_LAT,
+            CITY_CENTER_LNG,
+            CITY_GEOCODE_VIEWBOX,
+            WARDS,
+        )
+
+        lon_min, lat_max, lon_max, lat_min = (float(v) for v in CITY_GEOCODE_VIEWBOX.split(","))
+        assert lon_min < CITY_CENTER_LNG < lon_max
+        assert lat_min < CITY_CENTER_LAT < lat_max
+        for ward in WARDS:
+            w_lon_min, w_lat_min, w_lon_max, w_lat_max = ward.bounds
+            assert lon_min <= w_lon_min and w_lon_max <= lon_max, f"{ward.name} outside viewbox lon"
+            assert lat_min <= w_lat_min and w_lat_max <= lat_max, f"{ward.name} outside viewbox lat"
 
     @pytest.mark.asyncio
     async def test_confidence_capped_at_1_0(self, service):

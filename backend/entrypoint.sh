@@ -33,4 +33,8 @@ else
   echo "[entrypoint] Migrations did not complete — starting uvicorn anyway (degraded mode)."
 fi
 
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips "*"
+# Honour the platform's injected PORT. Railway, Render and Fly all assign a
+# random port via $PORT and route traffic to it; hardcoding 8000 made the
+# container healthy locally but unreachable once deployed. Defaults to 8000 so
+# local Docker Compose behaviour is unchanged.
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips "*"

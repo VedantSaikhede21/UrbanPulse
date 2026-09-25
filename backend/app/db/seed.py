@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from geoalchemy2 import WKTElement
 from app.db.session import engine, SessionLocal, Base
 from app.db.models import Ward, Citizen, Officer, Department, Ticket, AuditLog
+from app.city import CITY_NAME, WARDS
+from app.db.seed_locations import location_for, place_for
 
 def seed_db():
     from app.config import settings
@@ -55,31 +57,17 @@ def seed_db():
         db.query(Ward).delete()
         db.commit()
 
-        # 4. Seed Wards (using mock coordinates around a central city grid)
-        print("Seeding Wards...")
-        ward_data = [
-            {
-                "name": "Ward 1 - Market Square",
-                "boundary": "POLYGON((77.58 12.96, 77.60 12.96, 77.60 12.98, 77.58 12.98, 77.58 12.96))",
-                "uhs_score": 88.5
-            },
-            {
-                "name": "Ward 2 - Greenfield Suburb",
-                "boundary": "POLYGON((77.60 12.96, 77.62 12.96, 77.62 12.98, 77.60 12.98, 77.60 12.96))",
-                "uhs_score": 94.2
-            },
-            {
-                "name": "Ward 3 - Industrial Corridor",
-                "boundary": "POLYGON((77.58 12.94, 77.60 12.94, 77.60 12.96, 77.58 12.96, 77.58 12.94))",
-                "uhs_score": 72.1
-            }
-        ]
-        
-        for w in ward_data:
+        # 4. Seed Wards
+        # Ward names and boundaries come from app.city, which is scoped to
+        # Navi Mumbai, Maharashtra. These used to be Bengaluru polygons
+        # (77.58-77.62 / 12.94-12.98) with invented names like
+        # "Market Square" / "Greenfield Suburb".
+        print(f"Seeding Wards for {CITY_NAME}...")
+        for w in WARDS:
             ward = Ward(
-                name=w["name"],
-                boundary=WKTElement(w["boundary"], srid=4326),
-                uhs_score=w["uhs_score"]
+                name=w.name,
+                boundary=WKTElement(w.wkt, srid=4326),
+                uhs_score=w.uhs_score
             )
             db.add(ward)
         db.commit()
@@ -103,47 +91,65 @@ def seed_db():
         db.commit()
 
         print("Seeding Officers...")
-        officer_dave = Officer(name="Dave Kumar", department="Roads", department_id=dept_roads.id, is_active=True)
-        officer_elisa = Officer(name="Elisa Roy", department="Water", department_id=dept_water.id, is_active=True)
-        officer_frank = Officer(name="Frank D'Souza", department="Sanitation", department_id=dept_sanitation.id, is_active=True)
-        officer_grace = Officer(name="Grace Murthy", department="Electrical", department_id=dept_electrical.id, is_active=True)
-        
-        db.add_all([officer_dave, officer_elisa, officer_frank, officer_grace])
+        # NOTE: `app.auth.deps` takes a staff user's role from THIS table, not
+        # from the JWT. Seeding only field officers meant no admin/super_admin
+        # row existed, so every admin-only endpoint (notably /api/audit)
+        # answered 403 for every user in the deployment.
+        officer_dave = Officer(name="Dave Kumar", role="officer", department="Roads", department_id=dept_roads.id, is_active=True)
+        officer_elisa = Officer(name="Elisa Roy", role="officer", department="Water", department_id=dept_water.id, is_active=True)
+        officer_frank = Officer(name="Frank D'Souza", role="officer", department="Sanitation", department_id=dept_sanitation.id, is_active=True)
+        officer_grace = Officer(name="Grace Murthy", role="officer", department="Electrical", department_id=dept_electrical.id, is_active=True)
+
+        # NOTE: `officers.department` carries a CHECK constraint
+        # (Roads|Water|Sanitation|Electrical). Admin rows are city-wide, so
+        # they are attached to a real department to satisfy it — authorisation
+        # reads `role`, not `department`.
+        head_roads = Officer(name="Anita Desai", role="dept_head", department="Roads", department_id=dept_roads.id, is_active=True)
+        head_water = Officer(name="Rohit Salvi", role="dept_head", department="Water", department_id=dept_water.id, is_active=True)
+        city_admin = Officer(name="Meera Iyer", role="admin", department="Roads", is_active=True)
+        super_admin = Officer(name="Karthik Rao", role="super_admin", department="Roads", is_active=True)
+
+        db.add_all([
+            officer_dave, officer_elisa, officer_frank, officer_grace,
+            head_roads, head_water, city_admin, super_admin,
+        ])
         db.commit()
 
         # 7. Seed Tickets
+        # Coordinates resolve inside real Navi Mumbai wards so the
+        # ST_Contains ward join in analytics.py attributes them correctly.
         print("Seeding Tickets...")
         ticket_1 = Ticket(
             citizen_id=citizen_alice.id,
-            latitude=12.9715,
-            longitude=77.5945,
+            latitude=location_for("pothole")[0],
+            longitude=location_for("pothole")[1],
             location_source="gps",
             category="Roads & Potholes",
             severity="medium",
-            description="Deep pothole right near the bus stop intersection. Hazardous for bikers.",
+            description=f"Deep pothole right near the bus stop at {place_for('pothole')}. Hazardous for bikers.",
             status="assigned",
             priority_score=2,
             assigned_officer_id=officer_dave.id
         )
         ticket_2 = Ticket(
             citizen_id=citizen_bob.id,
-            latitude=12.9730,
-            longitude=77.6120,
+            latitude=location_for("water_leak")[0],
+            longitude=location_for("water_leak")[1],
             location_source="gps",
             category="Water Leak",
             severity="high",
-            description="Main pipe line burst, water is spraying over the sidewalk.",
+            description=f"Main pipe line burst near {place_for('water_leak')}, water is spraying over the sidewalk.",
             status="reported",
             priority_score=3
         )
         ticket_3 = Ticket(
             citizen_id=citizen_charlie.id,
-            latitude=12.9510,
-            longitude=77.5910,
+            latitude=location_for("garbage")[0],
+            longitude=location_for("garbage")[1],
             location_source="gps",
             category="Garbage & Sanitation",
             severity="low",
-            description="Overflowing dumpsters behind the commercial market space.",
+            description=f"Overflowing dumpsters behind the commercial market space at {place_for('garbage')}.",
             status="in_progress",
             priority_score=1,
             assigned_officer_id=officer_frank.id

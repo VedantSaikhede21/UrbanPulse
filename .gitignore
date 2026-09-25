@@ -89,3 +89,7 @@ UrbanPulse_AI_Project_Proposal.pdf
 # Archived / unused folders
 /archive/
 
+
+# Local QA artifacts / data snapshots — never commit
+.playwright-mcp/
+qa/backups/
