@@ -33,7 +33,7 @@ cd "$REPO_ROOT"
 BACKUP_DIR="$REPO_ROOT/backups/test-$$"
 mkdir -p "$BACKUP_DIR"
 
-PG_IMAGE="${BACKUP_PG_IMAGE:-postgis/postgis:16-3.4}"
+PG_IMAGE="${BACKUP_PG_IMAGE:-postgis/postgis:15-3.4}"
 CONTAINER="urbanpulse-bkrt-$$"
 TARGET_DB_URL="postgresql://postgres:postgres@localhost:55432/postgres"
 BACKUP_FILE=""
@@ -94,21 +94,26 @@ done
 # let that env var leak back to the host.
 log "applying migrations + seed against throwaway DB"
 export DATABASE_URL="$TARGET_DB_URL"
-(
-  cd backend
-  export ENV=development
-  # load_dotenv is not used; Settings reads the live process env.
-  # The .env file is NOT sourced — DATABASE_URL was exported above.
-  # NOTE: `python3 -m alembic`, not bare `alembic` — the console script
-  # is not on PATH on CI runners / minimal images. `python3`
-  # (not `python`) because bare `python` does not exist there.
-  python3 -m alembic upgrade head
-)
-(
-  cd backend
-  export ENV=development
-  python3 -c "from app.db.seed import seed_db; seed_db()"
-)
+migrated=0
+for attempt in 1 2 3; do
+  (
+    cd backend
+    export ENV=development
+    # load_dotenv is not used; Settings reads the live process env.
+    # The .env file is NOT sourced — DATABASE_URL was exported above.
+    # NOTE: `python3 -m alembic`, not bare `alembic` — the console
+    # script is not on PATH on CI runners / minimal images. `python3`
+    # (not `python`) because bare `python` does not exist there.
+    python3 -m alembic upgrade head
+  ) && (
+    cd backend
+    export ENV=development
+    python3 -c "from app.db.seed import seed_db; seed_db()"
+  ) && { migrated=1; break; }
+  log "migrate+seed attempt $attempt failed — waiting for DB and retrying"
+  sleep 5
+done
+[ "$migrated" -eq 1 ] || fail "migrate+seed failed after 3 attempts"
 
 # 3. Snapshot row counts.
 snapshot() {
