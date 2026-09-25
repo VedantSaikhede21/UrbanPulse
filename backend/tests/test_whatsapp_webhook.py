@@ -12,8 +12,10 @@ from app.main import app
 from app.db.models import Citizen, Ticket
 from app.config import settings
 
-# Test database URL - use Supabase URL from .env
-DATABASE_URL = "postgresql://postgres.lppdrsgqppyfcstrpksg:Danger0722D%40%40@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres"
+# Test database URL — same database the app under test uses. NEVER point
+# this at production (a previous revision hardcoded the prod Supabase
+# URL here, including its password).
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 @pytest.fixture(scope="module")

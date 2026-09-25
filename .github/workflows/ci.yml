@@ -64,10 +64,11 @@ jobs:
       - name: Apply migrations
         working-directory: backend
         run: |
-          # Bootstrap the test schema before pytest starts. The
-          # integration suite inserts rows, so a missing table
-          # would surface as a noisy OperationalError stack.
-          python -c "from app.db.models import Base; from app.db.session import engine; Base.metadata.create_all(engine)"
+          # Real migration chain (not create_all): models intentionally
+          # exclude trigger-managed columns like tickets.location_geom,
+          # which only the 000_baseline migration creates. Testing the
+          # chain also validates new revisions before they reach prod.
+          python -m alembic upgrade head
 
       - name: Run pytest (unit + integration)
         working-directory: backend
