@@ -78,8 +78,9 @@ def upgrade() -> None:
         )
 
     # 2. Seed the 5 departments (idempotent ON CONFLICT).
+    bind = op.get_bind()
     for name, code, description in DEPARTMENT_SEEDS:
-        op.execute(
+        bind.execute(
             sa.text(
                 """
                 INSERT INTO departments (id, name, code, description, municipality, is_active, created_at, updated_at)
