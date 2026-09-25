@@ -357,15 +357,55 @@ def test_citizen_cannot_use_staff_endpoints(client, db_engine, test_citizen):
     assert res.status_code == 403
 
 
-def test_officer_sees_open_queue(client, db_engine):
+def test_officer_sees_open_queue(client, db_engine, test_citizen):
+    # Staff auth resolves roles from the officers table (single source of
+    # truth) — a bare JWT claim is not enough. Provision the row first,
+    # and create our own open ticket so the test never depends on the
+    # demo-DB contents.
     officer_id = str(uuid.uuid4())
     token = _mint_token(officer_id, "officer.demo@bbmp.gov.in", "officer")
+    test_citizen["token"] = _mint_token(test_citizen["id"], test_citizen["email"], "citizen")
+    with db_engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO officers (id, name, department, role, is_active) "
+                "VALUES (:id, 'Test Officer', 'Roads', 'officer', true)"
+            ),
+            {"id": officer_id},
+        )
+    try:
+        res = client.post(
+            "/api/tickets",
+            headers=_auth_headers(test_citizen["token"]),
+            json={
+                "category": "Roads & Potholes",
+                "severity": "medium",
+                "description": "Queue visibility probe.",
+                "latitude": 12.9715,
+                "longitude": 77.5945,
+                "status": "reported",
+                "priority_score": 2,
+            },
+        )
+        assert res.status_code == 201
+        mine = res.json()["id"]
 
-    res = client.get("/api/officers/queue", headers=_auth_headers(token))
-    assert res.status_code == 200
-    tickets = res.json()
-    assert len(tickets) > 0
-    assert all(t["status"] in ("reported", "assigned", "in_progress") for t in tickets)
+        res = client.patch(
+            f"/api/tickets/{mine}/assign",
+            headers=_auth_headers(token),
+            json={"officer_id": officer_id},
+        )
+        assert res.status_code == 200
+
+        res = client.get("/api/officers/queue", headers=_auth_headers(token))
+        assert res.status_code == 200
+        tickets = res.json()
+        assert len(tickets) > 0
+        assert all(t["status"] in ("reported", "assigned", "in_progress") for t in tickets)
+        assert mine in {t["id"] for t in tickets}
+    finally:
+        with db_engine.begin() as conn:
+            conn.execute(text("DELETE FROM officers WHERE id = :id"), {"id": officer_id})
 
 
 def test_officer_queue_filtered_to_assigned_officer(client, db_engine):

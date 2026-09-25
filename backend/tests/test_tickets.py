@@ -15,6 +15,7 @@ from sqlalchemy import create_engine, text
 
 from app.main import app
 from app.services import notifications, tickets
+from conftest import delete_officer, provision_officer
 
 JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -127,7 +128,7 @@ def test_find_nearby_tickets_propagates_db_error_instead_of_empty_list():
 
 def test_notifications_propagates_db_error_instead_of_empty_list():
     with pytest.raises(RuntimeError):
-        notifications.list_notifications(_ExplodingSession(), None)
+        notifications.list_notifications(_ExplodingSession(), str(uuid.uuid4()))
 
 
 # ── Invalid-UUID / missing-record semantics ────────────────────────────
@@ -172,26 +173,36 @@ def test_nearby_tickets_are_public_without_auth(client, test_citizen):
 # ── Status transition validation ────────────────────────────────────────
 
 
-def test_update_status_rejects_unknown_status(client, test_citizen):
+def test_update_status_rejects_unknown_status(client, db_engine, test_citizen):
     created = _create_ticket(client, test_citizen)
-    officer_token = _mint_token(str(uuid.uuid4()), "officer.demo@bbmp.gov.in", "officer")
+    officer_id = str(uuid.uuid4())
+    provision_officer(db_engine, officer_id, "officer", "Status Officer")
+    officer_token = _mint_token(officer_id, "officer.demo@bbmp.gov.in", "officer")
 
-    res = client.patch(
-        f"/api/tickets/{created['id']}/status",
-        headers=_auth_headers(officer_token),
-        json={"status": "banana"},
-    )
-    assert res.status_code == 422
+    try:
+        res = client.patch(
+            f"/api/tickets/{created['id']}/status",
+            headers=_auth_headers(officer_token),
+            json={"status": "banana"},
+        )
+        assert res.status_code == 422
+    finally:
+        delete_officer(db_engine, officer_id)
 
 
-def test_update_status_accepts_valid_transition(client, test_citizen):
+def test_update_status_accepts_valid_transition(client, db_engine, test_citizen):
     created = _create_ticket(client, test_citizen)
-    officer_token = _mint_token(str(uuid.uuid4()), "officer.demo@bbmp.gov.in", "officer")
+    officer_id = str(uuid.uuid4())
+    provision_officer(db_engine, officer_id, "officer", "Status Officer")
+    officer_token = _mint_token(officer_id, "officer.demo@bbmp.gov.in", "officer")
 
-    res = client.patch(
-        f"/api/tickets/{created['id']}/status",
-        headers=_auth_headers(officer_token),
-        json={"status": "in_progress"},
-    )
-    assert res.status_code == 200
-    assert res.json()["status"] == "in_progress"
+    try:
+        res = client.patch(
+            f"/api/tickets/{created['id']}/status",
+            headers=_auth_headers(officer_token),
+            json={"status": "in_progress"},
+        )
+        assert res.status_code == 200
+        assert res.json()["status"] == "in_progress"
+    finally:
+        delete_officer(db_engine, officer_id)

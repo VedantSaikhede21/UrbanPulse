@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
 from app.main import app
+from conftest import delete_officer, provision_officer
 
 JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -64,6 +65,15 @@ def created_officer_ids():
 
 
 @pytest.fixture(autouse=True)
+def staff_rows(db_engine, identities):
+    """Staff JWTs resolve roles from the officers table — provision rows
+    for the shared officer/admin identities."""
+    provision_officer(db_engine, identities["officer"]["id"], "officer", "Test Officer")
+    provision_officer(db_engine, identities["admin"]["id"], "admin", "Test Admin")
+    yield
+
+
+@pytest.fixture(autouse=True)
 def cleanup(db_engine, identities, created_officer_ids):
     yield
     ids = (
@@ -76,8 +86,10 @@ def cleanup(db_engine, identities, created_officer_ids):
         conn.execute(text("DELETE FROM tickets WHERE citizen_id = :cid"), {"cid": identities["citizen"]["id"]})
         conn.execute(text("DELETE FROM audit_logs WHERE user_id IN :ids"), {"ids": ids})
         conn.execute(text("DELETE FROM citizens WHERE id = :cid"), {"cid": identities["citizen"]["id"]})
-        if created_officer_ids:
-            conn.execute(text("DELETE FROM officers WHERE id IN :oids"), {"oids": tuple(created_officer_ids)})
+        conn.execute(
+            text("DELETE FROM officers WHERE id IN :oids"),
+            {"oids": (identities["officer"]["id"], identities["admin"]["id"], *created_officer_ids)},
+        )
 
 
 def _auth_headers(token: str) -> dict:
@@ -336,5 +348,3 @@ def test_create_officer_without_department_or_id_returns_422(
         json={"name": "No Dept"},
     )
     assert res.status_code == 422
-    details = row[0]
-    assert details["officer_id"] == officer["id"]

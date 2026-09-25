@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, text
 
 from app.main import app
 from app.services import audit
+from conftest import delete_officer, provision_officer
 
 JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -68,6 +69,18 @@ def test_staff():
         "admin": str(uuid.uuid4()),
         "super_admin": str(uuid.uuid4()),
     }
+
+
+@pytest.fixture(autouse=True)
+def staff_rows(db_engine, test_staff):
+    """Staff JWTs resolve roles from the officers table — provision rows."""
+    provision_officer(db_engine, test_staff["officer"], "officer", "Audit Officer")
+    provision_officer(db_engine, test_staff["dept_head"], "dept_head", "Audit Head")
+    provision_officer(db_engine, test_staff["admin"], "admin", "Audit Admin")
+    provision_officer(db_engine, test_staff["super_admin"], "super_admin", "Audit Super")
+    yield
+    for oid in test_staff.values():
+        delete_officer(db_engine, oid)
 
 
 @pytest.fixture(autouse=True)

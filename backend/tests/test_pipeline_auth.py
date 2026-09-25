@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
 from app.main import app
+from conftest import delete_officer, provision_officer
 
 JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -160,18 +161,30 @@ def test_process_other_citizens_ticket_is_hidden(client, citizens):
     assert status == 404
 
 
-def test_process_capability_url_works_without_auth(client, citizens):
+def _mark_completed(db_engine, ticket_id: str) -> None:
+    """SSE replays persisted state — drive the ticket to completed so the
+    stream yields the Complete action (no live worker in tests)."""
+    with db_engine.begin() as conn:
+        conn.execute(
+            text("UPDATE tickets SET processing_state = 'completed' WHERE id = :tid"),
+            {"tid": ticket_id},
+        )
+
+
+def test_process_capability_url_works_without_auth(client, db_engine, citizens):
     """Native EventSource clients send no Authorization header; the capability
     URL must keep working (ticket UUID is the capability)."""
     ticket = _create_ticket(client, citizens["owner"])
+    _mark_completed(db_engine, ticket["id"])
     status, events = _consume_stream(client, f"/api/tickets/{ticket['id']}/process")
     assert status == 200
     assert any(e.get("action") == "Complete" for e in events), "pipeline did not complete"
     assert not any(e.get("status") == "error" for e in events)
 
 
-def test_process_owning_citizen_can_process(client, citizens):
+def test_process_owning_citizen_can_process(client, db_engine, citizens):
     ticket = _create_ticket(client, citizens["owner"])
+    _mark_completed(db_engine, ticket["id"])
     owner_token = _mint_token(citizens["owner"]["id"], citizens["owner"]["email"], "citizen")
 
     status, events = _consume_stream(
@@ -181,12 +194,18 @@ def test_process_owning_citizen_can_process(client, citizens):
     assert any(e.get("action") == "Complete" for e in events), "pipeline did not complete"
 
 
-def test_process_staff_can_process_any_ticket(client, citizens):
+def test_process_staff_can_process_any_ticket(client, db_engine, citizens):
     ticket = _create_ticket(client, citizens["owner"])
-    officer_token = _mint_token(str(uuid.uuid4()), "officer.demo@bbmp.gov.in", "officer")
+    _mark_completed(db_engine, ticket["id"])
+    officer_id = str(uuid.uuid4())
+    provision_officer(db_engine, officer_id, "officer", "SSE Officer")
+    officer_token = _mint_token(officer_id, "officer.demo@bbmp.gov.in", "officer")
 
-    status, events = _consume_stream(
-        client, f"/api/tickets/{ticket['id']}/process", _auth_headers(officer_token)
-    )
-    assert status == 200
-    assert any(e.get("action") == "Complete" for e in events), "pipeline did not complete"
+    try:
+        status, events = _consume_stream(
+            client, f"/api/tickets/{ticket['id']}/process", _auth_headers(officer_token)
+        )
+        assert status == 200
+        assert any(e.get("action") == "Complete" for e in events), "pipeline did not complete"
+    finally:
+        delete_officer(db_engine, officer_id)

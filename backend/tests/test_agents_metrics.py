@@ -20,6 +20,7 @@ from sqlalchemy import create_engine
 
 from app.db.models import AgentLog, Base
 from app.main import app
+from conftest import delete_officer, provision_officer
 
 JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -52,8 +53,18 @@ def client():
 
 
 @pytest.fixture()
-def officer_token():
-    return _mint_token(str(uuid.uuid4()), "officer")
+def officer_token(db_engine):
+    oid = str(uuid.uuid4())
+    provision_officer(db_engine, oid, "officer", "Metrics Officer")
+    yield _mint_token(oid, "officer")
+    delete_officer(db_engine, oid)
+
+
+@pytest.fixture()
+def db_engine():
+    engine = create_engine(DATABASE_URL, connect_args={"connect_timeout": 10})
+    yield engine
+    engine.dispose()
 
 
 def test_metrics_endpoint_requires_staff(client):

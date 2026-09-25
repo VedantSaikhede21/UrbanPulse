@@ -76,9 +76,8 @@ class TestWhatsAppWebhook:
         }
 
         with patch("app.routers.whatsapp.twilio_service.send_whatsapp_message", new_callable=AsyncMock) as mock_send:
-            with patch("app.routers.whatsapp.pipeline.run_triage_sync") as mock_pipeline:
-                mock_pipeline.return_value = {"success": False, "error": "Pipeline not available"}
-                mock_send.return_value = True
+            with patch("app.routers.whatsapp.enqueue_triage", new_callable=AsyncMock) as mock_enqueue:
+                mock_enqueue.return_value = False
                 response = _make_webhook_request(client, form_data, env="development")
 
         assert response.status_code == 200
@@ -286,9 +285,9 @@ class TestWhatsAppWebhook:
             "Longitude": "77.5945",
         }
 
-        # Mock pipeline to raise exception
-        with patch("app.routers.whatsapp.pipeline.run_triage_sync") as mock_pipeline:
-            mock_pipeline.side_effect = Exception("Pipeline crashed")
+        # Mock enqueue to raise exception
+        with patch("app.routers.whatsapp.enqueue_triage", new_callable=AsyncMock) as mock_enqueue:
+            mock_enqueue.side_effect = Exception("Pipeline crashed")
             with patch("app.routers.whatsapp.twilio_service.send_whatsapp_message", new_callable=AsyncMock) as mock_send:
                 mock_send.return_value = True
                 response = _make_webhook_request(client, form_data, env="development")

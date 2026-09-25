@@ -22,12 +22,35 @@ class _FakeResponse:
         self.text = text
 
 
+class _FakePart:
+    @classmethod
+    def from_text(cls, text):
+        return {"text": text}
+
+    @classmethod
+    def from_uri(cls, file_uri, mime_type):
+        return {"uri": file_uri, "mime": mime_type}
+
+
+class _FakeContent:
+    def __init__(self, role, parts):
+        self.role = role
+        self.parts = parts
+
+
+class _FakeTypes:
+    Part = _FakePart
+    Content = _FakeContent
+
+
 @pytest.fixture()
 def fake_gemini(monkeypatch: pytest.MonkeyPatch):
     """Patch _gemini_client.models.generate_content to a fake.
 
     Returns the calls list so the test can assert the right
-    model was used.
+    model was used. Also stubs the google.genai types module,
+    which is an optional dependency (None when uninstalled) —
+    otherwise multimodal paths always take the fallback.
     """
     calls: list[dict] = []
 
@@ -41,6 +64,7 @@ def fake_gemini(monkeypatch: pytest.MonkeyPatch):
     fake_client.models = fake_models
     monkeypatch.setattr(agent_graph, "_gemini_client", fake_client)
     monkeypatch.setattr(agent_graph, "GEMINI_AVAILABLE", True)
+    monkeypatch.setattr(agent_graph, "types", _FakeTypes)
     return calls
 
 
