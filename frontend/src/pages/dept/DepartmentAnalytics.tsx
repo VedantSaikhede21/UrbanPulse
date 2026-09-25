@@ -11,16 +11,9 @@ import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
 import type { Ticket } from '../../lib/types';
 import type { Ward } from '../../lib/types';
+import { statusLabel } from '../../lib/ticketStatus';
 
 
-
-const STATUS_LABELS: Record<string, string> = {
-  reported: 'Reported',
-  assigned: 'Assigned',
-  in_progress: 'In Progress',
-  resolved: 'Resolved',
-  verified: 'Verified',
-};
 
 const SEVERITY_LABELS: Record<string, string> = {
   low: 'Low',
@@ -30,9 +23,9 @@ const SEVERITY_LABELS: Record<string, string> = {
 };
 
 function uhsColor(score: number): string {
-  if (score >= 80) return 'bg-green-500';
-  if (score >= 60) return 'bg-yellow-500';
-  return 'bg-red-500';
+  if (score >= 80) return 'bg-status-resolved';
+  if (score >= 60) return 'bg-status-progress';
+  return 'bg-status-escalated';
 }
 
 export const DepartmentAnalytics: React.FC = () => {
@@ -89,8 +82,8 @@ export const DepartmentAnalytics: React.FC = () => {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
         <div className="flex flex-col items-center justify-center py-24">
-          <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
-            <AlertTriangle size={24} className="text-red-400" />
+          <div className="w-14 h-14 rounded-full bg-status-escalated/10 border border-status-escalated/30 flex items-center justify-center mb-4">
+            <AlertTriangle size={24} className="text-status-escalated" />
           </div>
           <h2 className="text-base font-semibold mb-1.5">Failed to load analytics</h2>
           <p className="text-sm text-text-secondary max-w-xs mb-5">{error}</p>
@@ -172,7 +165,7 @@ export const DepartmentAnalytics: React.FC = () => {
                       </div>
                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                          className="h-full rounded-full bg-status-new transition-all duration-500"
                           style={{ width: `${(count / totalTickets) * 100}%` }}
                         />
                       </div>
@@ -200,9 +193,9 @@ export const DepartmentAnalytics: React.FC = () => {
                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
-                            severity === 'critical' ? 'bg-red-500' :
-                            severity === 'high' ? 'bg-orange-500' :
-                            severity === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                            severity === 'critical' ? 'bg-status-escalated' :
+                            severity === 'high' ? 'bg-status-progress' :
+                            severity === 'medium' ? 'bg-status-progress' : 'bg-status-resolved'
                           }`}
                           style={{ width: `${(count / totalTickets) * 100}%` }}
                         />
@@ -225,7 +218,7 @@ export const DepartmentAnalytics: React.FC = () => {
                   {Object.entries(statusCounts).map(([status, count]) => (
                     <div key={status} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-text-secondary">{STATUS_LABELS[status] || status}</span>
+                        <span className="text-text-secondary">{statusLabel(status)}</span>
                         <span className="font-mono text-foreground font-bold">{count}</span>
                       </div>
                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">

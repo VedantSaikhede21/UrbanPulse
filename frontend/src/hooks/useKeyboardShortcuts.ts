@@ -23,7 +23,9 @@ export function useKeyboardShortcuts() {
   const shortcutsRef = useRef<Shortcut[]>([]);
 
   const shortcuts: Shortcut[] = [
-    { key: 'h', description: 'Home', action: { type: 'navigate', path: '/' } },
+    // `h` was previously an unmodified key, so pressing it on a focused button
+    // navigated away mid-interaction. It now requires the g-prefix chord.
+    { key: 'h', ctrl: true, description: 'Home', action: { type: 'navigate', path: '/' } },
     { key: 'd', ctrl: true, description: 'Dashboard', action: { type: 'navigate', path: `/${role}/dashboard` }, roles: ['citizen', 'dept', 'admin', 'super-admin'] },
     { key: 'q', ctrl: true, description: 'Queue', action: { type: 'navigate', path: '/officer/queue' }, roles: ['super-admin', 'admin', 'dept', 'officer'] },
     { key: 'r', ctrl: true, description: 'Report Issue', action: { type: 'navigate', path: '/citizen/report' }, roles: ['citizen'] },

@@ -48,8 +48,8 @@ export const OfficerManagement: React.FC = () => {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
         <div className="flex flex-col items-center justify-center py-24">
-          <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
-            <AlertTriangle size={24} className="text-red-400" />
+          <div className="w-14 h-14 rounded-full bg-status-escalated/10 border border-status-escalated/30 flex items-center justify-center mb-4">
+            <AlertTriangle size={24} className="text-status-escalated" />
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load officer data</h3>
           <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
@@ -96,8 +96,8 @@ export const OfficerManagement: React.FC = () => {
                   <span
                     className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono font-semibold uppercase tracking-wider mt-1 ${
                       officer.is_active
-                        ? 'text-green-400 bg-green-950/30 border border-green-800/30'
-                        : 'text-red-400 bg-red-950/30 border border-red-800/30'
+                        ? 'text-status-resolved bg-status-resolved/10 border border-status-resolved/30'
+                        : 'text-status-escalated bg-status-escalated/10 border border-status-escalated/30'
                     }`}
                   >
                     <BadgeCheck size={12} />

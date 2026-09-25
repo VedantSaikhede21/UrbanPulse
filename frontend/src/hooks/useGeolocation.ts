@@ -16,6 +16,10 @@ export function useGeolocation() {
   });
 
   const requestLocation = useCallback(() => {
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      setState({ latitude: null, longitude: null, loading: false, error: 'Location access needs HTTPS or localhost. Open the app on 127.0.0.1 and try again.' });
+      return;
+    }
     if (!navigator.geolocation) {
       setState({ latitude: null, longitude: null, loading: false, error: 'Geolocation is not supported by your browser' });
       return;

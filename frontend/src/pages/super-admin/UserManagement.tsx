@@ -80,8 +80,8 @@ export const UserManagement: React.FC = () => {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
         <div className="flex flex-col items-center justify-center py-24">
-          <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
-            <AlertTriangle size={24} className="text-red-400" />
+          <div className="w-14 h-14 rounded-full bg-status-escalated/10 border border-status-escalated/30 flex items-center justify-center mb-4">
+            <AlertTriangle size={24} className="text-status-escalated" />
           </div>
           <h2 className="text-base font-semibold mb-1.5">Failed to load user data</h2>
           <p className="text-sm text-text-secondary max-w-xs mb-5">{error}</p>
@@ -165,8 +165,8 @@ export const UserManagement: React.FC = () => {
                         <span className="text-xs font-semibold text-foreground">{o.name}</span>
                         <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
                           o.is_active
-                            ? 'text-green-400 border-green-800/30 bg-green-950/30'
-                            : 'text-red-400 border-red-800/30 bg-red-950/30'
+                            ? 'text-status-resolved border-status-resolved/30 bg-status-resolved/10'
+                            : 'text-status-escalated border-status-escalated/30 bg-status-escalated/10'
                         }`}>
                           {o.is_active ? 'Active' : 'Inactive'}
                         </span>

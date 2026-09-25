@@ -1,6 +1,26 @@
 export type FileKind = 'image' | 'video' | 'audio' | 'unknown';
 
-export const ACCEPT_IMAGES = ['image/jpeg', 'image/png', 'image/webp'];
+/**
+ * HEIC/HEIF are the default iPhone camera format. They were rejected outright,
+ * so a citizen photographing a pothole on the most common phone in the country
+ * got "Unsupported file type: .heic" at the last step of the wizard.
+ * AVIF is accepted for the same reason (modern Android/desktop cameras).
+ */
+export const ACCEPT_IMAGES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+  'image/avif',
+];
+
+/** Extensions allowed to stand in when the browser reports an empty MIME type. */
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'avif'];
+
 export const ACCEPT_VIDEO = ['video/mp4', 'video/quicktime', 'video/webm'];
 export const ACCEPT_AUDIO = ['audio/webm', 'audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a'];
 
@@ -26,9 +46,14 @@ export interface FileValidation {
 }
 
 export function validateFile(file: File, maxSizeMB: number): FileValidation {
-  if (!ALL_MIME_TYPES.includes(file.type)) {
-    const ext = file.name.split('.').pop() || '';
-    return { valid: false, error: `Unsupported file type: .${ext}` };
+  // Some browsers (notably iOS Safari) hand over an empty `type` for camera
+  // captures, so fall back to the extension before rejecting.
+  const hasKnownMime = ALL_MIME_TYPES.includes(file.type);
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const hasKnownExt = hasKnownMime || IMAGE_EXTENSIONS.includes(ext);
+
+  if (!hasKnownExt) {
+    return { valid: false, error: `Unsupported file type: .${ext || 'unknown'}` };
   }
   if (file.size > maxSizeMB * 1024 * 1024) {
     return { valid: false, error: `File exceeds ${maxSizeMB} MB limit (${formatFileSize(file.size)})` };

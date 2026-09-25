@@ -8,13 +8,18 @@ const beforeStages = [
   { id: 'waiting', label: 'Waiting...', time: '', isWaiting: true },
 ];
 
+/**
+ * `evidence` was previously only reachable through a mouse-only tooltip, so it
+ * was invisible to keyboard users and to anyone on a touch device. Each stage
+ * now carries the copy and reveals it on hover, focus, tap, or Enter/Space.
+ */
 const pipelineStages = [
-  { id: 'connected', label: 'UrbanPulse Connected', time: '9:15 AM', icon: Search },
-  { id: 'analyzed', label: 'AI Identified', time: '9:16 AM', icon: Search },
-  { id: 'assigned', label: 'Assigned to Department', time: '9:22 AM', icon: Wrench },
-  { id: 'fixed', label: 'Repaired', time: '11:47 AM', icon: Wrench, isClimax: true },
-  { id: 'verified', label: 'Verified', time: '11:49 AM', icon: CheckCircle2 },
-  { id: 'notified', label: 'Citizen Notified', time: '11:51 AM', icon: Bell },
+  { id: 'connected', label: 'UrbanPulse Connected', time: '9:15 AM', icon: Search, evidence: 'Fast-tracked · Priority: 1' },
+  { id: 'analyzed', label: 'AI Identified', time: '9:16 AM', icon: Camera, evidence: 'Location: Sector 17, Navi Mumbai' },
+  { id: 'assigned', label: 'Assigned to Department', time: '9:22 AM', icon: Wrench, evidence: 'Officer: Roads Dept, Navi Mumbai' },
+  { id: 'fixed', label: 'Repaired', time: '11:47 AM', icon: Wrench, isClimax: true, evidence: 'Repair photo uploaded' },
+  { id: 'verified', label: 'Verified', time: '11:49 AM', icon: CheckCircle2, evidence: 'Before/after match confirmed' },
+  { id: 'notified', label: 'Citizen Notified', time: '11:51 AM', icon: Bell, evidence: 'SMS sent · Citizen confirmed' },
 ];
 
 const allStages = [...beforeStages, ...pipelineStages];
@@ -123,8 +128,10 @@ export const HeroSection: React.FC = () => {
   }, [hasStarted, prefersReducedMotion]);
 
   const pageScroll = useScroll();
-  const heroOpacity = useTransform(pageScroll.scrollYProgress, [0, 0.15], [1, 0]);
-  const heroScale = useTransform(pageScroll.scrollYProgress, [0, 0.15], [1, 0.95]);
+  // Scroll-linked fade/scale is motion too: when the user has asked for reduced
+  // motion the hero must stay fully opaque and un-scaled.
+  const heroOpacity = useTransform(pageScroll.scrollYProgress, [0, 0.15], [1, prefersReducedMotion ? 1 : 0]);
+  const heroScale = useTransform(pageScroll.scrollYProgress, [0, 0.15], [1, prefersReducedMotion ? 1 : 0.95]);
   const heroHeight = heroRef.current?.offsetHeight || window.innerHeight * 0.9;
   const scrollProgress = useTransform(pageScroll.scrollY, [heroHeight, totalScroll || 1], [0, 1]);
 
@@ -160,7 +167,7 @@ export const HeroSection: React.FC = () => {
               )}
               <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-lime" />
             </span>
-            <span className="font-mono text-xs text-foreground">Pilot demo · Navi Mumbai</span>
+            <span className="font-mono text-xs text-foreground">Live civic issue resolution · Navi Mumbai</span>
           </motion.div>
 
           {/* Headline — no serif */}
@@ -196,18 +203,18 @@ export const HeroSection: React.FC = () => {
             className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto mb-14"
           >
             <Link
-              to="/auth/citizen-login"
+              to="/public-map"
               className="group relative inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-brand-lime text-background font-semibold px-7 py-3 rounded-xl transition-all duration-200 hover:brightness-110 active:scale-[0.98] shadow-lg shadow-brand-lime/20 text-sm"
             >
-              <span>Report an Issue</span>
+              <span>See the live city map</span>
               <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
               <div className="absolute inset-0 rounded-xl glow-lime opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
             <Link
-              to="/trace"
+              to="/auth/citizen-login"
               className="group inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-surface-card border border-border-default hover:border-brand-lime/30 text-text-primary hover:text-foreground font-medium px-7 py-3 rounded-xl transition-all duration-200 text-sm"
             >
-              <span>Track a Complaint</span>
+              <span>Report an Issue</span>
             </Link>
           </motion.div>
 
@@ -231,18 +238,20 @@ export const HeroSection: React.FC = () => {
                         exit={{ opacity: 0 }}
                         className="flex items-center gap-1 bg-brand-lime/10 border border-brand-lime/20 rounded-full px-2 py-0.5"
                       >
-                        <Zap size={9} className="text-brand-lime" />
-                        <span className="text-[8px] font-mono text-brand-lime font-medium">Connected</span>
+                        <Zap size={10} className="text-brand-lime" aria-hidden="true" />
+                        <span className="text-[10px] font-mono text-brand-lime font-medium">Connected</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  <span className="text-[9px] font-mono text-text-quaternary">{formatDate()}</span>
+                  <span className="text-[10px] font-mono text-text-quaternary">{formatDate()}</span>
                   {isComplete && (
                     <motion.button
+                      type="button"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       onClick={runPipeline}
-                      className="text-[9px] font-mono text-brand-lime underline hover:no-underline"
+                      aria-label="Replay the resolution journey"
+                      className="-my-2 inline-flex h-11 items-center rounded-md px-2 text-[11px] font-mono text-brand-lime underline transition-colors hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime"
                     >
                       Replay
                     </motion.button>
@@ -288,7 +297,7 @@ export const HeroSection: React.FC = () => {
                             <span className="absolute inset-0 rounded-full animate-ping bg-text-quaternary/30" />
                           )}
                         </div>
-                        <div className={`text-[9px] font-medium mt-2 transition-colors ${
+                        <div className={`text-[10px] font-medium mt-2 transition-colors ${
                           isActive ? 'text-text-quaternary' : 'text-border-default'
                         }`}>
                           {stage.label}
@@ -331,12 +340,18 @@ export const HeroSection: React.FC = () => {
                     const isHovered = hoveredStage === stage.id;
 
                     return (
-                      <div
+                      <button
                         key={stage.id}
-                        className="flex flex-col items-center relative cursor-pointer"
+                        type="button"
+                        className="flex flex-col items-center relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime rounded px-0.5"
                         style={{ width: `${100 / pipelineStages.length}%` }}
                         onMouseEnter={() => setHoveredStage(stage.id)}
                         onMouseLeave={() => setHoveredStage(null)}
+                        onFocus={() => setHoveredStage(stage.id)}
+                        onBlur={() => setHoveredStage(null)}
+                        onClick={() => setHoveredStage(prev => (prev === stage.id ? null : stage.id))}
+                        aria-expanded={isHovered}
+                        aria-label={`${stage.label}${isActive ? `, ${stage.time}` : ', not reached yet'}. ${stage.evidence}`}
                       >
                         <div className={`relative z-10 w-3 h-3 rounded-full transition-all duration-500 ${
                           isActive ? 'bg-brand-lime' : 'bg-border-default'
@@ -346,50 +361,34 @@ export const HeroSection: React.FC = () => {
                             <span className="absolute inset-0 rounded-full animate-ping bg-brand-lime/40" />
                           )}
                         </div>
-                        <div className={`text-[9px] font-medium mt-2 transition-colors ${
+                        <div className={`text-[10px] font-medium mt-2 transition-colors text-center ${
                           isActive ? 'text-foreground' : 'text-text-quaternary'
                         } ${stage.isClimax && isActive ? 'text-sm font-semibold' : ''}`}>
                           {stage.label}
                         </div>
                         {isActive && (
-                          <div className="text-[7px] font-mono text-text-tertiary mt-0.5">
+                          <div className="text-[10px] font-mono text-text-tertiary mt-0.5">
                             {stage.time}
                           </div>
                         )}
 
-                        {/* Hover evidence */}
+                        {/* Stage evidence: hover, focus, or tap */}
                         <AnimatePresence>
                           {isHovered && isActive && (
                             <motion.div
                               initial={{ opacity: 0, y: 4 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: 4 }}
-                              className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-background border border-border-default rounded-md px-2.5 py-1.5 shadow-md z-30"
+                              className="absolute -bottom-10 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-md border border-border-default bg-background px-2.5 py-1.5 shadow-md"
                             >
-                              <div className="flex items-center gap-1.5">
-                                {stage.id === 'analyzed' && (
-                                  <><Camera size={9} className="text-text-tertiary" /><span className="text-[8px] font-mono text-text-tertiary">Location: Sector 17, NMMC</span></>
-                                )}
-                                {stage.id === 'assigned' && (
-                                  <><Wrench size={9} className="text-text-tertiary" /><span className="text-[8px] font-mono text-text-tertiary">Officer: Roads Dept, NMMC</span></>
-                                )}
-                                {stage.id === 'fixed' && (
-                                  <><Camera size={9} className="text-text-tertiary" /><span className="text-[8px] font-mono text-text-tertiary">Repair photo uploaded</span></>
-                                )}
-                                {stage.id === 'verified' && (
-                                  <><CheckCircle2 size={9} className="text-text-tertiary" /><span className="text-[8px] font-mono text-text-tertiary">Before/after match confirmed</span></>
-                                )}
-                                {stage.id === 'notified' && (
-                                  <><Bell size={9} className="text-text-tertiary" /><span className="text-[8px] font-mono text-text-tertiary">SMS sent · Citizen confirmed</span></>
-                                )}
-                                {stage.id === 'connected' && (
-                                  <><Search size={9} className="text-text-tertiary" /><span className="text-[8px] font-mono text-text-tertiary">Queue bypassed · Priority: 1</span></>
-                                )}
-                              </div>
+                              <span className="flex items-center gap-1.5 text-[10px] font-mono text-text-secondary">
+                                <stage.icon size={10} className="text-text-tertiary" aria-hidden="true" />
+                                {stage.evidence}
+                              </span>
                             </motion.div>
                           )}
                         </AnimatePresence>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -454,7 +453,7 @@ export const HeroSection: React.FC = () => {
                             <div className="flex items-center gap-2">
                               <span className={`text-sm font-medium ${
                                 pipelineActiveIdx >= pipelineStages.length - 1
-                                  ? 'text-green-500'
+                                  ? 'text-status-resolved'
                                   : 'text-foreground'
                               }`}>
                                 {pipelineActiveIdx === 0 && 'Connected to UrbanPulse'}
@@ -465,11 +464,11 @@ export const HeroSection: React.FC = () => {
                                 {pipelineActiveIdx >= 5 && 'Citizen notified ✓'}
                               </span>
                               {pipelineActiveIdx >= 5 && (
-                                <span className="text-[9px] font-mono text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded">Resolved</span>
+                                <span className="text-[10px] font-mono text-status-resolved bg-status-resolved/10 px-1.5 py-0.5 rounded">Resolved</span>
                               )}
                             </div>
                             <p className="text-xs text-text-tertiary mt-1">
-                              {pipelineActiveIdx === 0 && 'Queue prioritized · Route: Roads Dept, NMMC'}
+                              {pipelineActiveIdx === 0 && 'Queue prioritized · Route: Roads Dept, Navi Mumbai'}
                               {pipelineActiveIdx === 1 && 'Vision: Pothole detected · Geo: Sector 17 confirmed'}
                               {pipelineActiveIdx === 2 && 'Officer notified · ETA: 45 min'}
                               {pipelineActiveIdx === 3 && 'Before/after photos uploaded'}
@@ -509,10 +508,10 @@ export const HeroSection: React.FC = () => {
                             <motion.div
                               initial={{ scale: 0 }}
                               animate={{ scale: 1 }}
-                              className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-lg px-2.5 py-1.5 shrink-0"
+                              className="flex items-center gap-1.5 bg-status-resolved/10 border border-status-resolved/30 rounded-lg px-2.5 py-1.5 shrink-0"
                             >
-                              <CheckCircle2 size={12} className="text-green-500" />
-                              <span className="text-[10px] font-mono text-green-500 font-medium">2h 37m</span>
+                              <CheckCircle2 size={12} className="text-status-resolved" />
+                              <span className="text-[10px] font-mono text-status-resolved font-medium">1h 40m</span>
                             </motion.div>
                           )}
                         </div>

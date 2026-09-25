@@ -54,7 +54,7 @@ export const SlaCountdown: React.FC<SlaCountdownProps> = ({
 
   if (tone === 'met') {
     return (
-      <div className={`inline-flex items-center gap-1 font-mono ${variant === 'full' ? 'text-xs' : 'text-[10px]'} text-emerald-400`}>
+      <div className={`inline-flex items-center gap-1 font-mono ${variant === 'full' ? 'text-xs' : 'text-[10px]'} text-status-resolved`}>
         <CheckCircle2 size={variant === 'full' ? 12 : 10} />
         <span>Resolved within SLA</span>
       </div>
@@ -84,8 +84,8 @@ export const SlaCountdown: React.FC<SlaCountdownProps> = ({
 
 const TONE_STYLES: Record<Exclude<SlaTone, 'unknown' | 'met'>, { text: string }> = {
   'on-track': { text: 'text-text-tertiary' },
-  'at-risk': { text: 'text-amber-300' },
-  'overdue': { text: 'text-red-300' },
+  'at-risk': { text: 'text-status-progress' },
+  'overdue': { text: 'text-status-escalated' },
 };
 
 export function computeTone(

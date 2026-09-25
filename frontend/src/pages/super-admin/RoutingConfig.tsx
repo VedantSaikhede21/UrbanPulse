@@ -65,8 +65,7 @@ export const RoutingConfig: React.FC = () => {
       <div className="border-b border-border-default pb-6">
         <h1 className="text-2xl font-serif italic font-bold">Department Routing Rules</h1>
         <p className="text-text-tertiary text-xs mt-1">
-          Category-to-department mapping rules. Changes require backend deployment.
-          <span className="ml-3 inline-block px-1.5 py-0.5 rounded bg-status-progress/10 text-status-progress text-[9px] font-mono border border-status-progress/30">Demo Configuration</span>
+          Category-to-department mapping rules, read live from the routing config.
         </p>
       </div>
 

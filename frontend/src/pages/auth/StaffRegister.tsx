@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
-import { ArrowLeft } from 'lucide-react';
+import { AuthAlert, AuthLayout, AuthLink, AuthSuccess, PasswordField, TextField } from '../../components/layout/AuthLayout';
 
 export default function StaffRegister() {
   useDocumentTitle('Staff Registration');
@@ -12,12 +12,13 @@ export default function StaffRegister() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -26,55 +27,84 @@ export default function StaffRegister() {
     });
     setLoading(false);
     if (error) { setError(error.message); return; }
-    navigate('/auth/post-login');
+    if (data.session) {
+      navigate('/auth/post-login');
+      return;
+    }
+    setSuccess(true);
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface-base p-4 font-sans">
-      <div className="w-full max-w-[420px]">
-
-        {/* Back to Home link */}
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-text-quaternary hover:text-brand-lime transition-colors mb-6 focus-ring"
-          aria-label="Back to home page"
-        >
-          <ArrowLeft size={16} />
-          Back to Home
-        </Link>
-
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 bg-surface-card border border-border-default rounded-xl px-5 py-2.5 mb-4">
-            <span className="text-2xl">🛡️</span>
-            <span className="text-text-primary font-bold text-lg tracking-[-0.5px]">UrbanPulse Staff</span>
-          </div>
-          <h1 className="text-text-primary text-2xl font-bold mb-1">Staff Registration</h1>
-          <p className="text-text-tertiary text-sm m-0">
-            Create your officer account
+    <AuthLayout
+      variant="staff"
+      eyebrow="Staff Operations"
+      title={success ? 'Account created' : 'Create your staff account'}
+      subtitle={
+        success
+          ? 'One last step before you can start working tickets.'
+          : 'Registers you as a field officer. A super admin activates your access.'
+      }
+      footer={
+        success ? (
+          <AuthLink to="/auth/staff-login">Back to Staff Login</AuthLink>
+        ) : (
+          <>
+            Already have an account? <AuthLink to="/auth/staff-login">Staff Login</AuthLink>
+            <span className="mx-2 text-text-quaternary" aria-hidden="true">·</span>
+            <AuthLink to="/auth/citizen-login">Citizen Portal</AuthLink>
+          </>
+        )
+      }
+    >
+      {success ? (
+        <AuthSuccess title="Confirm your email">
+          <p>
+            We sent a confirmation link to <strong className="text-text-primary">{email}</strong>. Confirm it,
+            then ask a super admin to activate your officer access.
           </p>
-        </div>
+        </AuthSuccess>
+      ) : (
+        <form onSubmit={handleRegister}>
+          <TextField
+            id="reg-email"
+            label="Work email"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            placeholder="officer@municipality.gov.in"
+            autoComplete="email"
+            required
+          />
+          <PasswordField
+            id="reg-password"
+            label="Password"
+            value={password}
+            onChange={setPassword}
+            placeholder="Minimum 6 characters"
+            autoComplete="new-password"
+            minLength={6}
+            hint="Minimum 6 characters. Use a password you do not reuse elsewhere."
+            required
+          />
 
-        <form onSubmit={handleRegister} className="bg-surface-card border border-border-default rounded-2xl p-8">
-          <label htmlFor="reg-email" className="block text-text-secondary text-sm mb-2 font-medium">Work Email</label>
-          <input id="reg-email" type="email" placeholder="officer@municipality.gov.in" required value={email}
-            onChange={e=>setEmail(e.target.value)} aria-label="Work email"
-            className="focus-ring w-full px-4 py-3 mb-5 rounded-lg border border-border-default bg-surface-raised text-text-primary placeholder:text-text-quaternary" />
-          <label htmlFor="reg-password" className="block text-text-secondary text-sm mb-2 font-medium">Password</label>
-          <input id="reg-password" type="password" placeholder="Min 6 characters" required minLength={6} value={password}
-            onChange={e=>setPassword(e.target.value)} aria-label="Password"
-            className="focus-ring w-full px-4 py-3 mb-5 rounded-lg border border-border-default bg-surface-raised text-text-primary placeholder:text-text-quaternary" />
-          {error && <p role="alert" className="text-status-escalated text-sm mb-4">{error}</p>}
-          <Button type="submit" disabled={loading} fullWidth size="lg" variant="primary" loading={loading}>
-            Create Staff Account
+          {error && (
+            <div className="mb-4">
+              <AuthAlert variant="error" message={error} />
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={loading}
+            fullWidth
+            size="lg"
+            variant="primary"
+            loading={loading}
+          >
+            Create staff account
           </Button>
         </form>
-        <p className="text-center text-text-tertiary text-sm mt-6">
-          Already have an account?{' '}
-          <Link to="/auth/staff-login" className="text-brand-lime font-medium hover:underline">
-            Staff Login →
-          </Link>
-        </p>
-      </div>
-    </div>
+      )}
+    </AuthLayout>
   );
 }

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/urbanpulse-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>UrbanPulse AI — Pilot-Ready Civic Triage</title>
+    <title>UrbanPulse AI — AI-Powered Civic Triage</title>
     <meta name="description" content="UrbanPulse AI is a multi-agent civic infrastructure platform that classifies, prioritizes, deduplicates, and assigns civic issues to the right department automatically." />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,10 +17,25 @@
           <path d="M4 28h8l6-18 8 36 6-24 4 12h8" stroke="#C6F135" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
           <circle cx="36" cy="28" r="3" fill="#C6F135"/>
         </svg>
+        <style>
+          /* Inlined on purpose: the bundle's stylesheet (and therefore the
+             pulse-dot keyframe) has not loaded yet at splash time, so the
+             animation is defined here to avoid a static, dead-looking splash. */
+          @keyframes up-splash-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.35; transform: scale(0.7); }
+          }
+          .up-splash-dot {
+            animation: up-splash-pulse 1.5s ease-in-out infinite;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .up-splash-dot { animation: none; opacity: 0.7; }
+          }
+        </style>
         <div style="display:flex;gap:6px;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#C6F135;animation:pulse-dot 1.5s ease-in-out infinite;"></span>
-          <span style="width:8px;height:8px;border-radius:50%;background:#C6F135;animation:pulse-dot 1.5s ease-in-out 0.3s infinite;"></span>
-          <span style="width:8px;height:8px;border-radius:50%;background:#C6F135;animation:pulse-dot 1.5s ease-in-out 0.6s infinite;"></span>
+          <span class="up-splash-dot" style="width:8px;height:8px;border-radius:50%;background:#C6F135;"></span>
+          <span class="up-splash-dot" style="width:8px;height:8px;border-radius:50%;background:#C6F135;animation-delay:0.2s;"></span>
+          <span class="up-splash-dot" style="width:8px;height:8px;border-radius:50%;background:#C6F135;animation-delay:0.4s;"></span>
         </div>
         <p style="color:#6b7280;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;margin:0;">Loading UrbanPulse AI</p>
       </div>

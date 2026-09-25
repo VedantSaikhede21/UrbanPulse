@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { Bell, CheckCircle2, AlertTriangle, Info, X, Clock } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, Info, Clock, ArrowRight } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { apiFetch } from '../../lib/api';
@@ -19,13 +20,16 @@ interface Notification {
 }
 
 const TYPE_CONFIG: Record<NotificationType, { icon: React.ComponentType<any>; color: string; bg: string }> = {
-  status: { icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-950/30 border-emerald-800/20' },
-  alert: { icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-950/30 border-amber-800/20' },
-  info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
+  status: { icon: CheckCircle2, color: 'text-status-resolved', bg: 'bg-status-resolved/10 border-status-resolved/30' },
+  alert: { icon: AlertTriangle, color: 'text-status-progress', bg: 'bg-status-progress/10 border-status-progress/30' },
+  info: { icon: Info, color: 'text-status-new', bg: 'bg-status-new/10 border-status-new/30' },
 };
 
 function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+  // A null/absent timestamp previously produced "NaNd ago".
+  const ts = Date.parse(dateStr);
+  if (Number.isNaN(ts)) return '';
+  const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
@@ -103,6 +107,7 @@ async function postMarkAllRead(): Promise<number> {
 
 export const Notifications: React.FC = () => {
   useDocumentTitle('Notifications');
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,9 +150,10 @@ export const Notifications: React.FC = () => {
     });
   }, []);
 
-  const dismissNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
+  // There is no DELETE /api/notifications endpoint, so a per-row "dismiss"
+  // control could only mutate local state and the row reappeared on the next
+  // load. The per-row control was removed rather than shipped as a fake;
+  // "Mark all read" is the real, persisted action.
 
   const markAllRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -247,11 +253,24 @@ export const Notifications: React.FC = () => {
                   className={`flex items-start gap-4 bg-panel-card border border-panel-border rounded-lg p-4 group ${
                     !n.read ? 'border-l-2 border-l-brand-lime' : ''
                   }`}
-                  onClick={() => markRead(n.id)}
+                  onClick={() => {
+                    markRead(n.id);
+                    // A status update is only actionable if it takes the citizen
+                    // to the report it refers to. The card used to just flip the
+                    // read flag, so every notification was a dead end.
+                    if (n.ticket_id) navigate(`/citizen/report/${n.ticket_id}`);
+                  }}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${n.title}: ${n.message}`}
-                  onKeyDown={e => { if (e.key === 'Enter') markRead(n.id); }}
+                  aria-label={n.ticket_id
+                    ? `${n.title}: ${n.message}. Open report`
+                    : `${n.title}: ${n.message}`}
+                  onKeyDown={e => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    markRead(n.id);
+                    if (n.ticket_id) navigate(`/citizen/report/${n.ticket_id}`);
+                  }}
                 >
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${config.bg}`}>
                     <Icon size={16} className={config.color} />
@@ -269,15 +288,27 @@ export const Notifications: React.FC = () => {
                         <Clock size={10} />
                         {n.time}
                       </span>
+                      {n.ticket_id && (
+                        <span className="flex items-center gap-1 text-[10px] font-medium text-brand-lime">
+                          View report
+                          <ArrowRight size={10} />
+                        </span>
+                      )}
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={e => { e.stopPropagation(); dismissNotification(n.id); }}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-panel-border/30 text-gray-500 hover:text-gray-300 transition-all"
-                    aria-label={`Dismiss ${n.title}`}
+                    onClick={e => { e.stopPropagation(); markRead(n.id); }}
+                    onKeyDown={e => {
+                      // Without this the keydown bubbles to the card's
+                      // role="button" handler, whose preventDefault() cancels
+                      // the native button activation.
+                      e.stopPropagation();
+                    }}
+                    className="shrink-0 p-1.5 rounded hover:bg-panel-border/30 text-gray-500 hover:text-gray-300 transition-all min-w-[28px] min-h-[28px] flex items-center justify-center"
+                    aria-label={n.read ? `${n.title} (read)` : `Mark ${n.title} as read`}
                   >
-                    <X size={14} />
+                    <CheckCircle2 size={14} />
                   </button>
                 </motion.div>
               );

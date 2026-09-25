@@ -21,6 +21,11 @@ const statusColorMap: Record<string, string> = {
   resolved: 'bg-status-resolved/10 text-status-resolved',
   verified: 'bg-status-verified/10 text-status-verified',
   escalated: 'bg-status-escalated/10 text-status-escalated',
+  // Urban Health Score bands. These words are the label the user should read,
+  // so they need a colour entry; without one they fell through to grey.
+  healthy: 'bg-status-resolved/10 text-status-resolved',
+  moderate: 'bg-status-progress/10 text-status-progress',
+  critical: 'bg-status-escalated/10 text-status-escalated',
 };
 
 const priorityColorMap: Record<string, string> = {

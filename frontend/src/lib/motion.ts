@@ -35,6 +35,16 @@ export const pageTransition: Variants = {
   exit: { opacity: 0, y: -4, transition: { duration: 0.1 } },
 };
 
+/**
+ * DESIGN: "Page transitions should skip animation on reduced motion."
+ * Cross-fade only — no travel, no spring.
+ */
+export const reducedPageTransition: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.12 } },
+  exit: { opacity: 0, transition: { duration: 0.08 } },
+};
+
 export const fadeInUp: Variants = {
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0, transition: springTransition },

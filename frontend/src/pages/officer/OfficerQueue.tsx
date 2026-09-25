@@ -2,14 +2,15 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle, Calendar, CheckCircle2, MapPin,
-  PlayCircle, Upload, Wrench, Filter,
+  PlayCircle, Wrench, Filter, Camera, ShieldAlert, RotateCcw,
 } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { apiFetch, apiUrl } from '../../lib/api';
+import { apiFetch, apiUrl, apiUpload } from '../../lib/api';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useToast } from '../../components/ui/Toast';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { SlaCountdown } from '../../components/ui/SlaCountdown';
@@ -18,7 +19,22 @@ import type { Ticket } from '../../lib/types';
 
 type StatusFilter = 'all' | 'assigned' | 'in_progress';
 
+/** Distinguishes "you may not see this" from "the network is down". */
+type QueueError = { kind: 'permission' } | { kind: 'network'; message: string };
+
 const POLL_INTERVAL = 15_000;
+
+/** "just now" / "40s ago" / "3m ago" — powers the live-freshness label. */
+function relativeTime(iso?: string | null): string {
+  if (!iso) return 'just now';
+  const diff = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(diff) || diff < 0) return 'just now';
+  const secs = Math.floor(diff / 1000);
+  if (secs < 10) return 'just now';
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  return `${mins}m ago`;
+}
 
 function statusBadgeValue(status: string): string {
   if (status === 'reported') return 'new';
@@ -45,29 +61,52 @@ export const OfficerQueue: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
-  const [closureUrl, setClosureUrl] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [startingId, setStartingId] = useState<string | null>(null);
+  /**
+   * Closure evidence is stored PER TICKET. It used to be a single component
+   * value that `onFocus` rebound to whichever card was focused, so typing a
+   * photo URL for ticket A and then touching ticket B armed B's "Submit
+   * Closure" with A's evidence.
+   */
+  const [closureUrls, setClosureUrls] = useState<Record<string, string>>({});
+  /** Ticket awaiting explicit confirmation before the irreversible resolve. */
+  const [pendingResolve, setPendingResolve] = useState<string | null>(null);
+  const [error, setError] = useState<QueueError | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [, setClockTick] = useState(0);
 
   const hasLoadedOnce = useRef(false);
 
   const loadQueue = useCallback(() => {
     apiFetch('/api/officers/queue')
-      .then(res => {
+      .then(async res => {
+        if (res.status === 401 || res.status === 403) {
+          // A permission problem is not a connection problem. Reporting it as
+          // "Connection Error" with a raw status code is both alarming and
+          // useless to the officer.
+          const kind: QueueError = { kind: 'permission' };
+          if (!hasLoadedOnce.current) setError(kind);
+          else toast({ type: 'error', title: 'Queue unavailable', message: 'Your account cannot access the officer queue.' });
+          setLoading(false);
+          return;
+        }
         if (!res.ok) throw new Error(`Failed to load queue (${res.status})`);
         return res.json();
       })
       .then(data => {
+        if (data === undefined) return; // permission path already handled
         setTickets(data);
         setLoading(false);
         hasLoadedOnce.current = true;
+        setLastUpdatedAt(new Date().toISOString());
         setError(null);
       })
       .catch((err: unknown) => {
         setLoading(false);
         const message = err instanceof Error ? err.message : 'Unknown error';
         if (!hasLoadedOnce.current) {
-          setError(`Could not load officer queue: ${message}`);
+          setError({ kind: 'network', message });
         } else {
           // Show toast for silent refresh failures
           toast({ type: 'error', title: 'Queue refresh failed', message });
@@ -80,23 +119,41 @@ export const OfficerQueue: React.FC = () => {
 
   useEffect(() => {
     loadQueueRef.current();
-    const interval = setInterval(() => loadQueueRef.current(), POLL_INTERVAL);
+    const interval = setInterval(() => {
+      // Don't burn battery and bandwidth polling a tab nobody is looking at.
+      if (document.hidden) return;
+      loadQueueRef.current();
+    }, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, []);
 
+  // A 1s tick, not 15s: the poll resets `lastUpdatedAt` on the same 15s boundary,
+  // so a matching tick made the freshness label permanently read "just now".
+  useEffect(() => {
+    const id = setInterval(() => setClockTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const handleStartWork = async (ticketId: string) => {
-    await apiFetch(`/api/tickets/${ticketId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'in_progress' }),
-    });
-    loadQueue();
+    if (startingId) return;
+    setStartingId(ticketId);
+    try {
+      const res = await apiFetch(`/api/tickets/${ticketId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'in_progress' }),
+      });
+      if (!res.ok) throw new Error(`Start work failed (${res.status})`);
+      toast({ type: 'success', title: 'Work started', message: 'Ticket moved to In Progress.' });
+      loadQueue();
+    } catch (err: unknown) {
+      toast({ type: 'error', title: 'Could not start work', message: err instanceof Error ? err.message : 'Please try again.' });
+    } finally {
+      setStartingId(null);
+    }
   };
 
-  const handleResolve = async (ticketId: string) => {
-    if (!closureUrl.trim()) {
-      setError('Provide a closure photo URL before submitting.');
-      return;
-    }
+  const handleResolve = async (ticketId: string, closureUrl: string) => {
+    if (resolvingId) return; // guard against a double-tap firing two resolves
     setResolvingId(ticketId);
     setError(null);
     try {
@@ -106,11 +163,43 @@ export const OfficerQueue: React.FC = () => {
       });
       if (!res.ok) throw new Error('Resolve failed');
       toast({ type: 'success', title: 'Ticket resolved', message: 'Verification process initiated' });
-      setClosureUrl('');
+      setClosureUrls(prev => {
+        const next = { ...prev };
+        delete next[ticketId];
+        return next;
+      });
       setResolvingId(null);
+      setPendingResolve(null);
       loadQueue();
     } catch {
       toast({ type: 'error', title: 'Resolution failed', message: 'Could not submit resolution. Try again.' });
+      setResolvingId(null);
+    }
+  };
+
+  /**
+   * Upload the closure photo and resolve in one confirmed action.
+   * A field officer has a camera, not a URL — the previous UI asked them to
+   * type a "Closure photo URL" it could never accept in the field.
+   */
+  const handleResolveWithPhoto = async (ticketId: string, file: File) => {
+    if (resolvingId) return;
+    setResolvingId(ticketId);
+    setError(null);
+    try {
+      const up = await apiUpload(`/api/tickets/${ticketId}/closure-media`, file);
+      if (!up.ok) throw new Error('Photo upload failed');
+      const body = await up.json();
+      const url: string | undefined = body?.closure_media_url ?? body?.url ?? body?.media_url;
+      if (!url) throw new Error('Upload did not return a media URL');
+      setResolvingId(null);
+      await handleResolve(ticketId, url);
+    } catch (err) {
+      toast({
+        type: 'error',
+        title: 'Could not attach the photo',
+        message: err instanceof Error ? err.message : 'Upload failed. Try again.',
+      });
       setResolvingId(null);
     }
   };
@@ -136,24 +225,42 @@ export const OfficerQueue: React.FC = () => {
   }
 
   if (!loading && error && tickets.length === 0) {
+    const isPermission = error.kind === 'permission';
     return (
-      <div className="p-6 max-w-6xl mx-auto flex flex-col items-center justify-center min-h-screen text-center space-y-4">
-        <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/40 flex items-center justify-center">
-          <AlertTriangle size={24} className="text-red-400" />
-        </div>
-        <h2 className="text-lg font-semibold text-red-300">Connection Error</h2>
-        <p className="text-sm text-text-secondary max-w-md">{error}</p>
-        <button
-          type="button"
-          onClick={() => {
-            setError(null);
-            setLoading(true);
-            loadQueue();
-          }}
-          className="focus-ring inline-flex items-center gap-1.5 px-5 py-2 bg-brand-lime text-background font-semibold text-sm rounded hover:bg-brand-lime-hover transition-all active:scale-[0.97]"
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center space-y-4 p-6 text-center">
+        <div
+          className={`flex h-14 w-14 items-center justify-center rounded-full border ${
+            isPermission
+              ? 'border-status-progress/30 bg-status-progress/10'
+              : 'border-status-escalated/30 bg-status-escalated/10'
+          }`}
         >
-          Retry
-        </button>
+          {isPermission ? (
+            <ShieldAlert size={24} className="text-status-progress" aria-hidden="true" />
+          ) : (
+            <AlertTriangle size={24} className="text-status-escalated" aria-hidden="true" />
+          )}
+        </div>
+        <h2 className="text-lg font-semibold">{isPermission ? 'No queue assigned to you yet' : 'We could not load your queue'}</h2>
+        <p className="max-w-md text-sm text-text-secondary">
+          {isPermission
+            ? 'Your account is active, but no tickets are assigned to it. If you think that is wrong, ask a department head to link your officer record.'
+            : "We couldn't reach the queue service. Check your connection and try again."}
+        </p>
+        {!isPermission && (
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              loadQueue();
+            }}
+            className="focus-ring inline-flex h-11 items-center gap-1.5 rounded-lg bg-brand-lime px-5 text-sm font-semibold text-background transition-all hover:bg-brand-lime-hover active:scale-[0.98]"
+          >
+            <RotateCcw size={14} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
+            Try again
+          </button>
+        )}
       </div>
     );
   }
@@ -169,14 +276,14 @@ export const OfficerQueue: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-red-950/30 border border-red-800/40 text-red-300 text-sm px-4 py-3 rounded flex items-center gap-2">
-          <AlertTriangle size={14} />
-          {error}
+        <div className="bg-status-escalated/10 border border-status-escalated/30 text-status-escalated text-sm px-4 py-3 rounded flex items-center gap-2">
+          <AlertTriangle size={14} aria-hidden="true" />
+          {error.kind === 'network' ? error.message : 'Your account cannot access the officer queue.'}
           <button
             type="button"
             aria-label="Dismiss error"
             onClick={() => setError(null)}
-            className="focus-ring ml-auto text-red-400 hover:text-red-200 text-xs"
+            className="focus-ring ml-auto text-status-escalated hover:text-status-escalated text-xs"
           >
             Dismiss
           </button>
@@ -202,9 +309,6 @@ export const OfficerQueue: React.FC = () => {
               {f.label}
             </button>
           ))}
-          <span className="text-[10px] text-text-quaternary ml-auto font-mono">
-            Polling every {POLL_INTERVAL / 1000}s
-          </span>
         </div>
       )}
 
@@ -261,10 +365,12 @@ export const OfficerQueue: React.FC = () => {
                 {ticket.status === 'assigned' && (
                   <button
                     onClick={() => handleStartWork(ticket.id)}
+                    disabled={startingId === ticket.id}
+                    aria-busy={startingId === ticket.id}
                     aria-label={`Start work on ticket ${ticket.id.slice(0, 8)}`}
-                    className="focus-ring inline-flex items-center gap-1.5 text-xs bg-orange-950/40 text-orange-300 border border-orange-800/40 px-3 py-1.5 rounded hover:bg-orange-950/60 transition-all active:scale-[0.97]"
+                    className="focus-ring inline-flex items-center gap-1.5 text-xs bg-status-progress/10 text-status-progress border border-status-progress/30 px-3 py-1.5 rounded hover:bg-status-progress/10 transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Wrench size={14} /> Start Work
+                    <Wrench size={14} /> {startingId === ticket.id ? 'Starting…' : 'Start Work'}
                   </button>
                 )}
                 <Link
@@ -282,60 +388,53 @@ export const OfficerQueue: React.FC = () => {
               </div>
 
               {(ticket.status === 'assigned' || ticket.status === 'in_progress') && (
-                <div className="bg-background/50 border border-border-default rounded p-4 space-y-3">
-                  <p className="text-xs font-mono text-text-tertiary uppercase tracking-wider">Submit Resolution</p>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                <div className="rounded border border-border-default bg-background/50 p-4 space-y-3">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-text-tertiary">
+                    Submit resolution
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <label
+                      htmlFor={`closure-photo-${ticket.id}`}
+                      className="focus-ring inline-flex min-h-[44px] flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border-default px-4 text-xs font-medium text-text-primary transition-colors hover:border-brand-lime/40 hover:text-foreground"
+                    >
+                      <Camera size={14} aria-hidden="true" />
+                      {resolvingId === ticket.id ? 'Uploading photo…' : 'Take / upload closure photo'}
+                    </label>
                     <input
-                      id="closure-photo-url"
-                      type="url"
-                      aria-label="Closure photo URL"
-                      placeholder="Closure photo URL (after repair)"
-                      value={resolvingId === ticket.id ? closureUrl : ''}
-                      onFocus={() => setResolvingId(ticket.id)}
+                      id={`closure-photo-${ticket.id}`}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="sr-only"
+                      disabled={resolvingId !== null}
                       onChange={e => {
-                        setResolvingId(ticket.id);
-                        setClosureUrl(e.target.value);
+                        const file = e.target.files?.[0];
+                        e.target.value = ''; // allow re-picking the same file
+                        if (file) handleResolveWithPhoto(ticket.id, file);
                       }}
-                      className="focus-ring flex-1 bg-background border border-border-default rounded px-3 py-2 text-sm text-foreground placeholder:text-text-quaternary"
+                    />
+
+                    {/* Manual fallback: paste a link if the upload is not possible. */}
+                    <input
+                      type="url"
+                      aria-label={`Closure photo link for ticket ${ticket.id.slice(0, 8)}`}
+                      placeholder="Or paste a photo link"
+                      value={closureUrls[ticket.id] ?? ''}
+                      onChange={e => setClosureUrls(prev => ({ ...prev, [ticket.id]: e.target.value }))}
+                      className="focus-ring min-h-[44px] flex-1 rounded-lg border border-border-default bg-background px-3 py-2 text-sm text-foreground placeholder:text-text-quaternary"
                     />
                     <button
                       type="button"
-                      aria-label={`Resolve ticket ${ticket.id.slice(0, 8)} with sample photo`}
-                      onClick={() => {
-                        const sampleUrl = 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=600';
-                        setClosureUrl(sampleUrl);
-                        setResolvingId(ticket.id);
-                        apiFetch(`/api/tickets/${ticket.id}/resolve`, {
-                          method: 'POST',
-                          body: JSON.stringify({ closure_media_url: sampleUrl }),
-                        })
-                          .then(res => {
-                            if (!res.ok) throw new Error('Resolve failed');
-                            toast({ type: 'success', title: 'Ticket resolved (sample)' });
-                            setClosureUrl('');
-                            setResolvingId(null);
-                            loadQueue();
-                          })
-                          .catch(() => {
-                            toast({ type: 'error', title: 'Resolution failed' });
-                            setResolvingId(null);
-                          });
-                      }}
-                      className="focus-ring inline-flex items-center justify-center gap-1.5 text-xs bg-brand-lime text-background font-semibold px-4 py-2 rounded hover:bg-brand-lime-hover disabled:opacity-50"
-                    >
-                      <Upload size={14} />
-                      Use Sample & Resolve
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Submit closure for ticket ${ticket.id.slice(0, 8)}`}
-                      onClick={() => handleResolve(ticket.id)}
-                      disabled={resolvingId !== ticket.id || !closureUrl.trim()}
-                      className="focus-ring inline-flex items-center justify-center gap-1.5 text-xs border border-border-default text-text-primary px-4 py-2 rounded hover:text-foreground disabled:opacity-50"
+                      onClick={() => closureUrls[ticket.id]?.trim() && setPendingResolve(ticket.id)}
+                      disabled={!closureUrls[ticket.id]?.trim() || resolvingId !== null}
+                      className="focus-ring inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-border-default px-4 text-xs text-text-primary transition-colors hover:text-foreground disabled:opacity-50"
                     >
                       Submit Closure
                     </button>
                   </div>
+                  <p className="text-caption text-text-quaternary">
+                    A closure photo is required so the verification step has evidence to review.
+                  </p>
                 </div>
               )}
             </div>
@@ -343,10 +442,27 @@ export const OfficerQueue: React.FC = () => {
         </div>
       )}
 
-      <div className="text-xs text-text-quaternary flex items-center gap-1">
-        <AlertTriangle size={12} />
-        Queue sorted by priority score (highest first).
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-text-quaternary">
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-status-resolved" aria-hidden="true" />
+          Live · updated {relativeTime(lastUpdatedAt)}
+        </span>
+        <span>Highest priority first.</span>
       </div>
+
+      {/* Resolving a ticket is terminal, so it is always confirmed first. */}
+      <ConfirmModal
+        isOpen={pendingResolve !== null}
+        onClose={() => setPendingResolve(null)}
+        onConfirm={() => {
+          if (pendingResolve) handleResolve(pendingResolve, closureUrls[pendingResolve]);
+        }}
+        confirmLoading={resolvingId !== null}
+        title="Close this ticket?"
+        description="Resolving a ticket starts the verification step and closes it for the citizen. This cannot be undone."
+        confirmLabel="Yes, resolve ticket"
+        cancelLabel="Keep working"
+      />
     </div>
   );
 };

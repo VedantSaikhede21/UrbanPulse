@@ -83,7 +83,7 @@ export const LiveAgentTrace: React.FC = () => {
       try {
         const data: AgentStep = JSON.parse(event.data);
 
-        if (data.status === 'done') {
+        if (data.status === 'done' && data.node === 'END') {
           setDone(true);
           setRunning(false);
           if (data.result) setFinalResult(data.result);
@@ -201,7 +201,7 @@ export const LiveAgentTrace: React.FC = () => {
         ) : (
           <button
             onClick={stopTrace}
-            className="flex items-center gap-2 bg-red-900/40 border border-red-800/50 text-red-400 hover:bg-red-900/60 font-semibold px-5 py-2.5 rounded text-xs transition-colors"
+            className="flex items-center gap-2 bg-status-escalated/10 border border-status-escalated/30 text-status-escalated hover:bg-status-escalated/10 font-semibold px-5 py-2.5 rounded text-xs transition-colors"
           >
             Stop
           </button>
@@ -291,9 +291,9 @@ export const LiveAgentTrace: React.FC = () => {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-950/40 border border-red-800/40 rounded-lg p-4 flex gap-3 items-start">
-          <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
-          <p className="text-red-400 text-xs leading-relaxed">{error}</p>
+        <div className="bg-status-escalated/10 border border-status-escalated/30 rounded-lg p-4 flex gap-3 items-start">
+          <AlertCircle size={16} className="text-status-escalated shrink-0 mt-0.5" />
+          <p className="text-status-escalated text-xs leading-relaxed">{error}</p>
         </div>
       )}
 

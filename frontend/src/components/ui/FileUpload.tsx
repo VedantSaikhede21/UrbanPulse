@@ -77,7 +77,7 @@ const FileCard: React.FC<{
 
       <div className="p-2 space-y-0.5">
         <p className="text-[10px] text-gray-300 truncate leading-tight" title={file.name}>{file.name}</p>
-        <p className="text-[9px] text-gray-500 font-mono">{formatFileSize(file.size)}</p>
+        <p className="text-[10px] text-gray-500 font-mono">{formatFileSize(file.size)}</p>
       </div>
     </div>
   );

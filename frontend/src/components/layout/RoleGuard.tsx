@@ -13,7 +13,16 @@ export const RoleGuard: React.FC<Props> = ({ allow, children }) => {
   const { user, role, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) return <div style={{ padding: '2rem', color: '#9ca3af' }}>Loading…</div>;
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-busy="true">
+        <div className="flex items-center gap-3 text-sm text-gray-400">
+          <span className="w-5 h-5 rounded-full border-2 border-brand-lime/30 border-t-brand-lime animate-spin" />
+          Loading your workspace…
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     const target = allow.includes('citizen') ? '/auth/citizen-login' : '/auth/staff-login';

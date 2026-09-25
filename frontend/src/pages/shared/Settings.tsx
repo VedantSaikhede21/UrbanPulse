@@ -5,8 +5,9 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../components/ui/Toast';
+import { useNavigate } from 'react-router-dom';
 
-type Theme = 'dark' | 'light';
 
 const SETTINGS_SECTIONS = [
   {
@@ -29,14 +30,39 @@ const SETTINGS_SECTIONS = [
   },
 ];
 
+/**
+ * Shown in place of a control that would otherwise look interactive but do
+ * nothing. A toggle that silently changes nothing is worse than no toggle,
+ * so unavailable options are labelled instead of faked.
+ */
+const UnavailableChip: React.FC = () => (
+  <span className="inline-flex items-center rounded-md border border-border-default bg-surface-raised px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-text-quaternary">
+    Not available yet
+  </span>
+);
+
 export const Settings: React.FC = () => {
   useDocumentTitle('Settings');
   const breadcrumbs = useBreadcrumbs();
-  const [theme, setTheme] = useState<Theme>('dark');
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(false);
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('appearance');
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+      toast({ type: 'success', title: 'Signed out', message: 'Your session has ended securely.' });
+      navigate('/auth/citizen-login', { replace: true });
+    } catch {
+      toast({ type: 'error', title: 'Sign out failed', message: 'Please try again.' });
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8 min-h-screen text-foreground font-sans">
@@ -73,35 +99,15 @@ export const Settings: React.FC = () => {
         {activeSection === 'appearance' && (
           <div className="space-y-4">
             <h2 className="text-lg font-serif italic font-bold">Appearance</h2>
+            <p className="-mt-2 text-body-sm text-text-secondary">
+              UrbanPulse ships with a single dark control-room theme.
+            </p>
             <div className="space-y-3">
-              <SettingRow icon={Moon} label="Dark Mode">
-                <button
-                  type="button"
-                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  className={`focus-ring relative w-12 h-6 rounded-full transition-colors ${
-                    theme === 'dark' ? 'bg-brand-lime' : 'bg-border-default'
-                  }`}
-                  role="switch"
-                  aria-checked={theme === 'dark'}
-                  aria-label="Toggle dark mode"
-                >
-                  <span
-                    className={`absolute top-0.5 w-5 h-5 bg-background rounded-full shadow transition-transform ${
-                      theme === 'dark' ? 'translate-x-6' : 'translate-x-0.5'
-                    }`}
-                  />
-                </button>
+              <SettingRow icon={Moon} label="Dark Mode" description="Always on — the app is dark by design.">
+                <UnavailableChip />
               </SettingRow>
-              <SettingRow icon={Globe} label="Language">
-                <select
-                  className="focus-ring bg-surface-card border border-border-default rounded px-3 py-1.5 text-xs text-text-primary"
-                  defaultValue="en"
-                  aria-label="Select language"
-                >
-                  <option value="en">English</option>
-                  <option value="hi">हिन्दी</option>
-                  <option value="mr">मराठी</option>
-                </select>
+              <SettingRow icon={Globe} label="Language" description="Interface translations are not available yet.">
+                <UnavailableChip />
               </SettingRow>
             </div>
           </div>
@@ -110,42 +116,16 @@ export const Settings: React.FC = () => {
         {activeSection === 'notifications' && (
           <div className="space-y-4">
             <h2 className="text-lg font-serif italic font-bold">Notification Preferences</h2>
+            <p className="-mt-2 text-body-sm text-text-secondary">
+              Today you are notified inside the app and by WhatsApp when a report changes status.
+              These additional channels are not wired up yet.
+            </p>
             <div className="space-y-3">
-              <SettingRow icon={Smartphone} label="Push Notifications" description="Receive real-time updates on your reports">
-                <button
-                  type="button"
-                  onClick={() => setPushEnabled(!pushEnabled)}
-                  className={`focus-ring relative w-12 h-6 rounded-full transition-colors ${
-                    pushEnabled ? 'bg-brand-lime' : 'bg-border-default'
-                  }`}
-                  role="switch"
-                  aria-checked={pushEnabled}
-                  aria-label="Toggle push notifications"
-                >
-                  <span
-                    className={`absolute top-0.5 w-5 h-5 bg-background rounded-full shadow transition-transform ${
-                      pushEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                    }`}
-                  />
-                </button>
+              <SettingRow icon={Smartphone} label="Push Notifications" description="Browser push is not available yet.">
+                <UnavailableChip />
               </SettingRow>
-              <SettingRow icon={Bell} label="Email Digest" description="Weekly summary of your activity">
-                <button
-                  type="button"
-                  onClick={() => setEmailEnabled(!emailEnabled)}
-                  className={`focus-ring relative w-12 h-6 rounded-full transition-colors ${
-                    emailEnabled ? 'bg-brand-lime' : 'bg-border-default'
-                  }`}
-                  role="switch"
-                  aria-checked={emailEnabled}
-                  aria-label="Toggle email digest"
-                >
-                  <span
-                    className={`absolute top-0.5 w-5 h-5 bg-background rounded-full shadow transition-transform ${
-                      emailEnabled ? 'translate-x-6' : 'translate-x-0.5'
-                    }`}
-                  />
-                </button>
+              <SettingRow icon={Bell} label="Email Digest" description="Email digests are not available yet.">
+                <UnavailableChip />
               </SettingRow>
             </div>
           </div>
@@ -155,19 +135,35 @@ export const Settings: React.FC = () => {
           <div className="space-y-4">
             <h2 className="text-lg font-serif italic font-bold">Account</h2>
             <div className="space-y-3">
-              <SettingRow icon={Shield} label="Session" description="You are currently logged in">
-                <span className="text-[10px] font-mono text-brand-lime bg-brand-lime/10 px-2 py-1 rounded">Active</span>
-              </SettingRow>
-              <SettingRow icon={LogOut} label="Sign Out" description="End your current session">
-                <button
-                  type="button"
-                  onClick={() => signOut?.()}
-                  className="focus-ring px-3 py-1.5 text-xs font-medium text-red-400 border border-red-800/30 rounded hover:bg-red-950/30 transition-colors"
-                  aria-label="Sign out of your account"
-                >
-                  Sign Out
-                </button>
-              </SettingRow>
+              {user ? (
+                <>
+                  <SettingRow icon={Shield} label="Session" description="You are currently logged in">
+                    <span className="text-[10px] font-mono text-brand-lime bg-brand-lime/10 px-2 py-1 rounded">Active</span>
+                  </SettingRow>
+                  <SettingRow icon={LogOut} label="Sign Out" description="End your current session">
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      disabled={signingOut}
+                      aria-busy={signingOut}
+                      className="focus-ring px-3 py-1.5 text-xs font-medium text-status-escalated border border-status-escalated/30 rounded hover:bg-status-escalated/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      aria-label="Sign out of your account"
+                    >
+                      {signingOut ? 'Signing out…' : 'Sign Out'}
+                    </button>
+                  </SettingRow>
+                </>
+              ) : (
+                <SettingRow icon={LogOut} label="Account access" description="Sign in to manage your session">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/auth/citizen-login')}
+                    className="focus-ring px-3 py-1.5 text-xs font-medium text-brand-lime border border-brand-lime/30 rounded hover:bg-brand-lime/10 transition-colors"
+                  >
+                    Sign In
+                  </button>
+                </SettingRow>
+              )}
             </div>
           </div>
         )}

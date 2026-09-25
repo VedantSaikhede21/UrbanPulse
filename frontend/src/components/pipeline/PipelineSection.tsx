@@ -7,45 +7,45 @@ const timeline = [
     icon: Camera,
     title: 'Citizen reports a streetlight',
     detail: 'Ward 12, Navi Mumbai — snapped after last night\'s storm',
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/10',
-    border: 'border-blue-500/25',
+    color: 'text-status-new',
+    bg: 'bg-status-new/10',
+    border: 'border-status-new/30',
   },
   {
     time: '8:44 AM',
     icon: Cpu,
     title: 'AI verifies & routes to department',
     detail: 'Damage confirmed · 98% confidence · Priority: High',
-    color: 'text-purple-400',
-    bg: 'bg-purple-500/10',
-    border: 'border-purple-500/25',
+    color: 'text-status-verified',
+    bg: 'bg-status-verified/10',
+    border: 'border-status-verified/30',
   },
   {
     time: '9:02 AM',
     icon: MapPin,
     title: 'Officer assigned',
     detail: 'Electrical team · ETA: 12 minutes',
-    color: 'text-cyan-400',
-    bg: 'bg-cyan-500/10',
-    border: 'border-cyan-500/25',
+    color: 'text-status-progress',
+    bg: 'bg-status-progress/10',
+    border: 'border-status-progress/30',
   },
   {
     time: '10:21 AM',
     icon: Wrench,
     title: 'Repair completed',
     detail: 'Streetlight replaced · Before/after photo verified',
-    color: 'text-green-400',
-    bg: 'bg-green-500/10',
-    border: 'border-green-500/25',
+    color: 'text-status-resolved',
+    bg: 'bg-status-resolved/10',
+    border: 'border-status-resolved/30',
   },
   {
     time: '10:23 AM',
     icon: Bell,
     title: 'Citizen notified',
     detail: 'SMS sent · "Your issue has been resolved"',
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/25',
+    color: 'text-status-progress',
+    bg: 'bg-status-progress/10',
+    border: 'border-status-progress/30',
   },
 ];
 
@@ -57,7 +57,7 @@ export function PipelineSection() {
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ amount: 0, once: true }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-16"
         >
@@ -78,7 +78,7 @@ export function PipelineSection() {
                 key={i}
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, margin: '-50px' }}
+                viewport={{ amount: 0, once: true }}
                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: i * 0.1 }}
                 className="flex gap-5"
               >
@@ -103,7 +103,7 @@ export function PipelineSection() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ amount: 0, once: true }}
             transition={{ duration: 0.5, delay: 0.5 }}
             className="flex items-center gap-3 justify-center pt-6 border-t border-border-default mt-2"
           >
@@ -111,7 +111,7 @@ export function PipelineSection() {
               <CheckCircle2 size={14} />
             </div>
             <div>
-              <span className="text-sm font-medium text-brand-lime">Resolved in 2h 31m</span>
+              <span className="text-sm font-medium text-status-resolved">Resolved in 1h 40m</span>
               <span className="text-xs text-text-tertiary block">Citizen notified · Ticket closed</span>
             </div>
           </motion.div>

@@ -10,6 +10,7 @@ import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { apiFetch } from '../../lib/api';
 import type { Ticket } from '../../lib/types';
+import { statusLabel } from '../../lib/ticketStatus';
 
 
 interface CityPulseData {
@@ -20,21 +21,13 @@ interface CityPulseData {
 }
 
 function uhsColor(score: number): string {
-  if (score >= 80) return 'bg-green-500';
-  if (score >= 60) return 'bg-yellow-500';
-  return 'bg-red-500';
+  if (score >= 80) return 'bg-status-resolved';
+  if (score >= 60) return 'bg-status-progress';
+  return 'bg-status-escalated';
 }
 
 const OPEN_STATUSES = ['reported', 'assigned', 'in_progress'];
 const RESOLVED_STATUSES = ['resolved', 'verified'];
-const STATUS_LABELS: Record<string, string> = {
-  reported: 'Reported',
-  assigned: 'Assigned',
-  in_progress: 'In Progress',
-  resolved: 'Resolved',
-  verified: 'Verified',
-};
-
 export const CityAnalytics: React.FC = () => {
   useDocumentTitle('City Analytics');
   const breadcrumbs = useBreadcrumbs();
@@ -85,8 +78,8 @@ export const CityAnalytics: React.FC = () => {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
         <div className="flex flex-col items-center justify-center py-24">
-          <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
-            <AlertTriangle size={24} className="text-red-400" />
+          <div className="w-14 h-14 rounded-full bg-status-escalated/10 border border-status-escalated/30 flex items-center justify-center mb-4">
+            <AlertTriangle size={24} className="text-status-escalated" />
           </div>
           <h2 className="text-base font-semibold mb-1.5">Failed to load analytics</h2>
           <p className="text-sm text-text-secondary max-w-xs mb-5">{error}</p>
@@ -154,23 +147,23 @@ export const CityAnalytics: React.FC = () => {
                 <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary block">Open</span>
                 <span className="text-2xl font-serif italic font-bold block">{openTickets}</span>
               </div>
-              <div className="w-10 h-10 rounded bg-orange-950/40 flex items-center justify-center text-orange-400 border border-orange-800/30">
+              <div className="w-10 h-10 rounded bg-status-progress/10 flex items-center justify-center text-status-progress border border-status-progress/30">
                 <Clock size={18} />
               </div>
             </div>
             <div className="bg-surface-card border border-border-default p-5 rounded flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary block">Resolved</span>
-                <span className="text-2xl font-serif italic font-bold text-brand-lime block">{resolvedTickets}</span>
+                <span className="text-2xl font-serif italic font-bold text-status-resolved block">{resolvedTickets}</span>
               </div>
-              <div className="w-10 h-10 rounded bg-brand-soft flex items-center justify-center text-brand-lime border border-brand-lime/10">
+              <div className="w-10 h-10 rounded bg-status-resolved/10 flex items-center justify-center text-status-resolved border border-status-resolved/30">
                 <CheckCircle2 size={18} />
               </div>
             </div>
             <div className="bg-surface-card border border-border-default p-5 rounded flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary block">Critical Wards</span>
-                <span className={`text-2xl font-serif italic font-bold block ${(pulse?.critical_wards || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                <span className={`text-2xl font-serif italic font-bold block ${(pulse?.critical_wards || 0) > 0 ? 'text-status-escalated' : 'text-status-resolved'}`}>
                   {pulse?.critical_wards || 0}
                 </span>
               </div>
@@ -194,7 +187,7 @@ export const CityAnalytics: React.FC = () => {
                   {Object.entries(statusCounts).map(([status, count]) => (
                     <div key={status} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-text-secondary">{STATUS_LABELS[status] || status}</span>
+                        <span className="text-text-secondary">{statusLabel(status)}</span>
                         <span className="font-mono text-foreground font-bold">{count}</span>
                       </div>
                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -227,7 +220,7 @@ export const CityAnalytics: React.FC = () => {
                       </div>
                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                          className="h-full rounded-full bg-status-new transition-all duration-500"
                           style={{ width: `${(count / totalTickets) * 100}%` }}
                         />
                       </div>
@@ -290,12 +283,12 @@ export const CityAnalytics: React.FC = () => {
             {pulse && pulse.pulse_alerts.length > 0 && (
               <div className="bg-surface-card border border-border-default rounded-lg p-5 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Activity size={16} className="text-amber-400" />
+                  <Activity size={16} className="text-status-progress" />
                   <h2 className="text-sm font-semibold">Pulse Alerts</h2>
                 </div>
                 <div className="space-y-2">
                   {pulse.pulse_alerts.map((alert, i) => (
-                    <div key={i} className="bg-amber-950/20 border border-amber-800/30 text-amber-300 text-xs px-3 py-2 rounded flex items-start gap-2">
+                    <div key={i} className="bg-status-progress/10 border border-status-progress/30 text-status-progress text-xs px-3 py-2 rounded flex items-start gap-2">
                       <AlertTriangle size={12} className="shrink-0 mt-0.5" />
                       <span>{alert}</span>
                     </div>

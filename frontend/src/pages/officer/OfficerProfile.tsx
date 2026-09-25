@@ -66,8 +66,16 @@ export const OfficerProfile: React.FC = () => {
 
   const assignedCount = tickets.filter(t => t.status === 'assigned').length;
   const inProgressCount = tickets.filter(t => t.status === 'in_progress').length;
-  const reportedCount = tickets.filter(t => t.status === 'reported').length;
-  const resolvedCount = tickets.filter(t => ['resolved', 'verified'].includes(t.status)).length;
+  // The queue endpoint only returns status IN ('assigned','in_progress','reported')
+  // (main.py:445), so the old "Reported" and "Resolved" cards could never be
+  // non-zero from this payload — they printed a permanent, meaningless 0.
+  //
+  // A fifth card was tried twice and removed both times because the open-only
+  // payload cannot support it: verification_status is only ever written as
+  // 'needs_review'/'verified'/NULL, and every queue ticket carries NULL, so any
+  // verification-based count is either always 0 or just a duplicate of the
+  // queue total. These four are the metrics the data can actually support.
+  const highPriorityCount = tickets.filter(t => t.priority_score >= 3).length;
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8 min-h-screen">
@@ -114,8 +122,8 @@ export const OfficerProfile: React.FC = () => {
           {/* Metric cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-panel-card border border-border-default p-4 rounded">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary">Reported</span>
-              <p className="text-2xl font-serif italic font-bold mt-1">{reportedCount}</p>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary">In Queue</span>
+              <p className="text-2xl font-serif italic font-bold mt-1">{tickets.length}</p>
             </div>
             <div className="bg-panel-card border border-border-default p-4 rounded">
               <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary">Assigned</span>
@@ -126,8 +134,8 @@ export const OfficerProfile: React.FC = () => {
               <p className="text-2xl font-serif italic font-bold mt-1 text-status-progress">{inProgressCount}</p>
             </div>
             <div className="bg-panel-card border border-border-default p-4 rounded">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary">Resolved</span>
-              <p className="text-2xl font-serif italic font-bold mt-1 text-status-resolved">{resolvedCount}</p>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary">High Priority</span>
+              <p className="text-2xl font-serif italic font-bold mt-1 text-status-escalated">{highPriorityCount}</p>
             </div>
           </div>
 

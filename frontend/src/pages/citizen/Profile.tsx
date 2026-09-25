@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Award, FileText, TrendingUp, MapPin, Calendar, Target } from 'lucide-react';
+import { CheckCircle2, Award, FileText, TrendingUp, MapPin, Calendar, Target } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
@@ -14,27 +14,55 @@ export const Profile: React.FC = () => {
   const breadcrumbs = useBreadcrumbs();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     apiFetch('/api/tickets')
-      .then(res => res.json())
-      .then(data => { if (!cancelled) { setTickets(data); setLoading(false); } })
-      .catch(() => { if (!cancelled) setLoading(false); });
+      .then(async res => {
+        if (!res.ok) throw new Error(`Tickets API error (${res.status})`);
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : data.tickets;
+        if (!Array.isArray(items)) throw new Error('Tickets API returned an invalid response');
+        return items as Ticket[];
+      })
+      .then(data => {
+        if (!cancelled) {
+          setTickets(data);
+          setError(null);
+          setLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setTickets([]);
+          setError(err instanceof Error ? err.message : 'Failed to load profile activity');
+          setLoading(false);
+        }
+      });
     return () => { cancelled = true; };
   }, []);
 
+  // `resolved` is pre-verification (the field team marked it done); only
+  // `verified` means the citizen confirmed closure. Both count as resolved
+  // work here, so the label below says "resolved or verified" rather than
+  // claiming field verification that has not happened yet.
   const resolvedCount = tickets.filter(t => t.status === 'resolved' || t.status === 'verified').length;
-  const trustScore = Math.min(100, 50 + resolvedCount * 10);
-  const level = trustScore >= 80 ? 'Trusted' : trustScore >= 50 ? 'Verified' : 'New';
+  const resolutionRate = tickets.length > 0 ? Math.round((resolvedCount / tickets.length) * 100) : 0;
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8 min-h-screen text-foreground font-sans">
       <Breadcrumbs items={breadcrumbs} />
       <div className="border-b border-border-default pb-6">
         <h1 className="text-2xl font-serif italic font-bold">Citizen Profile</h1>
-        <p className="text-text-tertiary text-xs mt-1">Your reputation, activity, and trust score across the platform.</p>
+        <p className="text-text-tertiary text-xs mt-1">Your reports and how many have been resolved after field verification.</p>
       </div>
+
+      {error && (
+        <div role="alert" className="rounded-lg border border-status-escalated/30 bg-status-escalated/10 px-4 py-3 text-sm text-status-escalated">
+          {error}. Try refreshing the page.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <motion.div
@@ -45,16 +73,16 @@ export const Profile: React.FC = () => {
         >
           <div className="flex items-center gap-4 mb-4">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-lime/20 to-brand-lime/5 border border-brand-lime/20 flex items-center justify-center">
-              <Shield size={22} className="text-brand-lime" />
+              <CheckCircle2 size={22} className="text-brand-lime" />
             </div>
             <div>
-              <p className="text-xs text-text-tertiary">Trust Score</p>
-              <p className="text-2xl font-bold font-serif italic text-brand-lime">{loading ? '...' : trustScore}</p>
+              <p className="text-xs text-text-tertiary">Reports Resolved</p>
+              <p className="text-2xl font-bold font-serif italic text-brand-lime">{loading ? '...' : resolvedCount}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Award size={14} className="text-text-tertiary" />
-            <span className="text-xs text-text-tertiary">Level: {loading ? '...' : level}</span>
+              <span className="text-xs text-text-tertiary">Marked resolved or verified</span>
           </div>
         </motion.div>
 
@@ -65,8 +93,8 @@ export const Profile: React.FC = () => {
           className="bg-panel-card border border-border-default rounded-lg p-6 card-glow"
         >
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-full bg-blue-950/40 border border-blue-800/30 flex items-center justify-center">
-              <FileText size={22} className="text-blue-400" />
+            <div className="w-12 h-12 rounded-full bg-status-new/10 border border-status-new/30 flex items-center justify-center">
+              <FileText size={22} className="text-status-new" />
             </div>
             <div>
               <p className="text-xs text-text-tertiary">Total Reports</p>
@@ -86,19 +114,19 @@ export const Profile: React.FC = () => {
           className="bg-panel-card border border-border-default rounded-lg p-6 card-glow"
         >
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-full bg-amber-950/40 border border-amber-800/30 flex items-center justify-center">
-              <Target size={22} className="text-amber-400" />
+            <div className="w-12 h-12 rounded-full bg-status-progress/10 border border-status-progress/30 flex items-center justify-center">
+              <Target size={22} className="text-status-progress" />
             </div>
             <div>
-              <p className="text-xs text-text-tertiary">Credibility</p>
+              <p className="text-xs text-text-tertiary">Resolution Rate</p>
               <p className="text-2xl font-bold font-serif italic">
-                {loading ? '...' : `${tickets.length > 0 ? Math.round((resolvedCount / tickets.length) * 100) : 0}%`}
+                {loading ? '...' : `${resolutionRate}%`}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Award size={14} className="text-text-tertiary" />
-            <span className="text-xs text-text-tertiary">Resolution rate</span>
+            <Target size={14} className="text-text-tertiary" />
+            <span className="text-xs text-text-tertiary">Share of your reports closed</span>
           </div>
         </motion.div>
       </div>

@@ -13,22 +13,27 @@ import type { Ward, CityPulse } from '../../lib/types';
 
 
 function uhsColor(score: number): string {
-  if (score >= 80) return 'bg-green-500';
-  if (score >= 60) return 'bg-yellow-500';
-  return 'bg-red-500';
+  if (score >= 80) return 'bg-status-resolved';
+  if (score >= 50) return 'bg-status-progress';
+  return 'bg-status-escalated';
 }
 
 function uhsLabel(score: number): string {
   if (score >= 80) return 'Healthy';
-  if (score >= 60) return 'Moderate';
+  if (score >= 50) return 'Moderate';
   return 'Critical';
 }
 
 function uhsTextColor(score: number): string {
-  if (score >= 80) return 'text-green-400';
-  if (score >= 60) return 'text-yellow-400';
-  return 'text-red-400';
+  if (score >= 80) return 'text-status-resolved';
+  if (score >= 50) return 'text-status-progress';
+  return 'text-status-escalated';
 }
+
+// The Badge component's `priority` palette only knows low/medium/high, so
+// passing 'healthy'/'moderate'/'critical' fell through to the default grey and
+// every ward badge rendered colourless. The status palette now carries those
+// words, so the badge keeps its human label AND gains the right colour.
 
 export const WardHealth: React.FC = () => {
   useDocumentTitle('Ward Health');
@@ -123,7 +128,7 @@ export const WardHealth: React.FC = () => {
               <div className="bg-surface-card border border-border-default p-6 rounded flex items-center justify-between">
                 <div className="space-y-1.5">
                   <span className="text-text-tertiary text-[10px] font-mono uppercase tracking-wider block">Critical Wards</span>
-                  <span className={`text-3xl font-serif italic font-bold block ${pulse.critical_wards > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  <span className={`text-3xl font-serif italic font-bold block ${pulse.critical_wards > 0 ? 'text-status-escalated' : 'text-status-resolved'}`}>
                     {pulse.critical_wards}
                   </span>
                 </div>
@@ -149,7 +154,7 @@ export const WardHealth: React.FC = () => {
                       <p className="text-[10px] font-mono text-text-tertiary mt-0.5">Ward #{ward.id}</p>
                     </div>
                     <Badge
-                      type="priority"
+                      type="status"
                       value={uhsLabel(ward.uhs_score).toLowerCase()}
                     />
                   </div>
@@ -200,7 +205,7 @@ export const WardHealth: React.FC = () => {
               {pulse.pulse_alerts.map((alert, i) => (
                 <div
                   key={i}
-                  className="bg-amber-950/20 border border-amber-800/30 text-amber-300 text-xs px-4 py-3 rounded flex items-start gap-2"
+                  className="bg-status-progress/10 border border-status-progress/30 text-status-progress text-xs px-4 py-3 rounded flex items-start gap-2"
                 >
                   <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                   <span>{alert}</span>

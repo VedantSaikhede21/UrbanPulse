@@ -3,6 +3,31 @@ import { Check } from 'lucide-react';
 type ProgressVariant = 'determinate' | 'indeterminate' | 'steps';
 type ProgressSize = 'sm' | 'md' | 'lg';
 
+/**
+ * Fill tone. `brand` (lime) is the DESIGN default and is reserved for genuine
+ * progress/primary signals; the semantic tones exist so a *bad* value never
+ * renders in the brand colour.
+ */
+export type ProgressAccent = 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+
+const ACCENT_FILL: Record<ProgressAccent, string> = {
+  brand: 'bg-brand-lime',
+  success: 'bg-status-resolved',
+  warning: 'bg-status-progress',
+  danger: 'bg-status-escalated',
+  info: 'bg-status-new',
+  neutral: 'bg-text-tertiary',
+};
+
+const ACCENT_STROKE: Record<ProgressAccent, string> = {
+  brand: 'text-brand-lime',
+  success: 'text-status-resolved',
+  warning: 'text-status-progress',
+  danger: 'text-status-escalated',
+  info: 'text-status-new',
+  neutral: 'text-text-tertiary',
+};
+
 export interface ProgressBarProps {
   value?: number;
   max?: number;
@@ -11,6 +36,7 @@ export interface ProgressBarProps {
   className?: string;
   showLabel?: boolean;
   label?: string;
+  accent?: ProgressAccent;
   // For steps variant
   steps?: Array<{ label: string; completed?: boolean; active?: boolean }>;
 }
@@ -29,6 +55,7 @@ export function ProgressBar({
   className = '',
   showLabel = false,
   label,
+  accent = 'brand',
   steps,
 }: ProgressBarProps) {
   const { height, stepSize } = sizeStyles[size];
@@ -83,13 +110,13 @@ export function ProgressBar({
       <div className={`relative w-full ${height} bg-surface-elevated rounded-full overflow-hidden`}>
         {variant === 'indeterminate' ? (
           <div
-            className="absolute inset-0 bg-brand-lime animate-pulse"
+            className={`absolute inset-0 ${ACCENT_FILL[accent]} animate-pulse`}
             style={{ animation: 'shimmer 1.5s ease-in-out infinite' }}
             aria-hidden="true"
           />
         ) : (
           <div
-            className="absolute top-0 left-0 h-full bg-brand-lime rounded-full transition-all duration-300 ease-out"
+            className={`absolute top-0 left-0 h-full ${ACCENT_FILL[accent]} rounded-full transition-all duration-300 ease-out`}
             style={{ width: `${percentage}%` }}
             aria-hidden="true"
           />
@@ -106,6 +133,7 @@ export interface CircularProgressProps {
   strokeWidth?: number;
   className?: string;
   showLabel?: boolean;
+  accent?: ProgressAccent;
 }
 
 export function CircularProgress({
@@ -115,6 +143,7 @@ export function CircularProgress({
   strokeWidth = 4,
   className = '',
   showLabel = true,
+  accent = 'brand',
 }: CircularProgressProps) {
   const percentage = Math.max(0, Math.min(100, (value / max) * 100));
   const radius = (size - strokeWidth) / 2;
@@ -143,7 +172,7 @@ export function CircularProgress({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className="text-brand-lime transition-all duration-500 ease-out"
+          className={`${ACCENT_STROKE[accent]} transition-all duration-500 ease-out`}
           style={{ transition: 'stroke-dashoffset 0.5s ease-out' }}
         />
       </svg>

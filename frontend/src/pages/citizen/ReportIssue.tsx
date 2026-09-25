@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader, Mic } from 'lucide-react';
+import { CheckCircle2, Loader, Mic } from 'lucide-react';
 import { apiFetch, apiUpload } from '../../lib/api';
 import { MapPicker, type LocationData } from '../../components/ui/MapPicker';
 import { FileUpload, type FileData } from '../../components/ui/FileUpload';
@@ -10,6 +10,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { useMediaRecorder } from '../../hooks/useMediaRecorder';
 import { useBreadcrumbs } from '../../hooks/useBreadcrumbs';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
+import { CITY_CENTER } from '../../lib/city';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -25,12 +26,20 @@ export const ReportIssue: React.FC = () => {
   const [files, setFiles] = useState<FileData[]>([]);
   const [category, setCategory] = useState('Roads & Potholes');
   const [description, setDescription] = useState('');
-  const [latitude, setLatitude] = useState(12.9715);
-  const [longitude, setLongitude] = useState(77.5945);
+  const [latitude, setLatitude] = useState(CITY_CENTER.lat);
+  const [longitude, setLongitude] = useState(CITY_CENTER.lng);
+  const [address, setAddress] = useState<string | undefined>();
   const [locationConfirmed, setLocationConfirmed] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const voice = useMediaRecorder();
+
+  const handleLocationChange = useCallback((loc: LocationData) => {
+    setLatitude(loc.latitude);
+    setLongitude(loc.longitude);
+    setAddress(loc.address);
+    setLocationConfirmed(true);
+  }, []);
 
   const firstFileUrl = files.length > 0 ? files[0].preview : null;
 
@@ -111,7 +120,7 @@ export const ReportIssue: React.FC = () => {
       });
       if (res.ok) {
         const created = await res.json();
-        toast({ type: 'success', title: 'Report submitted', message: 'AI agents are analyzing your issue' });
+        toast({ type: 'success', title: 'Report submitted', message: 'We have it. You can follow every step from your dashboard.' });
         navigate(`/citizen/processing/${created.id}`);
       } else {
         const body = await res.text().catch(() => '');
@@ -139,8 +148,8 @@ export const ReportIssue: React.FC = () => {
       {/* Header */}
       <div className="border-b border-border-default pb-6">
         <div>
-          <h1 className="text-xl font-serif italic font-bold">Report New Infrastructure Issue</h1>
-          <p className="text-text-tertiary text-xs mt-1">Submit civic complaints with active geolocated triggers.</p>
+          <h1 className="text-xl font-serif italic font-bold">Report an issue</h1>
+          <p className="mt-1 text-body-sm text-text-secondary">Takes about a minute. Add a photo and a map pin so the right team finds it first time.</p>
         </div>
       </div>
 
@@ -167,7 +176,7 @@ export const ReportIssue: React.FC = () => {
               type="button"
               aria-label="Skip to details step"
               onClick={() => setStep(2)}
-              className="focus-ring text-xs text-text-tertiary hover:text-foreground font-mono"
+              className="focus-ring -my-2 inline-flex min-h-[44px] items-center rounded-md px-2 font-mono text-xs text-text-tertiary hover:text-foreground"
             >
               Skip Photo Attachment
             </button>
@@ -175,9 +184,9 @@ export const ReportIssue: React.FC = () => {
               type="button"
               aria-label="Next step: details"
               onClick={() => setStep(2)}
-              className="focus-ring bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs"
+              className="focus-ring inline-flex min-h-[44px] items-center justify-center rounded-lg bg-brand-lime px-6 font-semibold text-sm text-background hover:bg-brand-lime-hover"
             >
-              Next Step: Details →
+              Next: details →
             </button>
           </div>
         </div>
@@ -200,37 +209,53 @@ export const ReportIssue: React.FC = () => {
           )}
 
           <div className="space-y-2">
-            <label className="block text-xs font-mono uppercase tracking-wider text-text-tertiary">Issue Category</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <span className="block font-mono text-[10px] uppercase tracking-wider text-text-tertiary">
+              Issue category
+            </span>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" role="group" aria-label="Issue category">
               {categories.map(c => (
                 <button
                   key={c}
                   type="button"
-                  aria-label={`Category: ${c}`}
+                  aria-pressed={category === c}
                   onClick={() => setCategory(c)}
-                  className={`focus-ring p-3 rounded text-xs font-medium border text-left transition-all duration-150 ${category === c ? 'bg-brand-soft border-brand-lime text-brand-lime' : 'bg-panel-card border-border-default text-text-secondary'}`}
+                  className={`focus-ring flex min-h-[44px] items-center justify-between gap-2 rounded border p-3 text-left text-sm font-medium transition-all duration-150 ${category === c
+                    ? 'border-brand-lime bg-brand-soft text-brand-lime'
+                    : 'border-border-default bg-panel-card text-text-secondary hover:border-border-hover hover:text-foreground'
+                  }`}
                 >
                   {c}
+                  {category === c && <CheckCircle2 size={15} aria-hidden="true" />}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="block text-xs font-mono uppercase tracking-wider text-text-tertiary">
-              Detailed Description
-              <span className="ml-2 text-[10px] text-text-tertiary font-normal">{description.length}/2000</span>
+            {/* htmlFor/id pair: the visible label was previously unassociated,
+                so a screen reader only heard the aria-label. */}
+            <label htmlFor="issue-description" className="flex items-baseline justify-between gap-2 font-mono text-[10px] uppercase tracking-wider text-text-tertiary">
+              <span>Detailed description</span>
+              <span className={`text-[10px] font-normal ${description.length > 1800 ? 'text-status-progress' : ''}`}>
+                {description.length}/2000
+              </span>
             </label>
             <textarea
+              id="issue-description"
+              name="description"
               required
               rows={4}
               maxLength={2000}
-              aria-label="Detailed description of the issue"
-              placeholder="Describe the issue, landmarks, or details to assist municipal field officers..."
+              placeholder="Describe the issue, nearby landmarks, or anything that helps the field team find it."
               value={description}
               onChange={e => setDescription(e.target.value)}
-              className="focus-ring w-full bg-panel-card border border-border-default rounded p-3 text-xs text-foreground focus:outline-none focus:border-brand-lime"
+              aria-describedby="issue-description-hint"
+              // text-base (16px) prevents iOS Safari from zooming the page on focus
+              className="focus-ring w-full rounded border border-border-default bg-panel-card p-3 text-base text-foreground placeholder:text-text-quaternary sm:text-sm"
             />
+            <p id="issue-description-hint" className="text-caption text-text-quaternary">
+              A sentence or two is enough. Mention a landmark if it helps.
+            </p>
           </div>
 
           {/* Voice Note */}
@@ -305,7 +330,7 @@ export const ReportIssue: React.FC = () => {
               type="button"
               aria-label="Previous step: evidence"
               onClick={() => setStep(1)}
-              className="focus-ring text-xs text-text-tertiary hover:text-foreground font-mono"
+              className="focus-ring -my-2 inline-flex min-h-[44px] items-center rounded-md px-2 font-mono text-xs text-text-tertiary hover:text-foreground"
             >
               ← Back
             </button>
@@ -313,9 +338,9 @@ export const ReportIssue: React.FC = () => {
               type="button"
               aria-label="Next step: location"
               onClick={() => setStep(3)}
-              className="focus-ring bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2 rounded text-xs"
+              className="focus-ring inline-flex min-h-[44px] items-center justify-center rounded-lg bg-brand-lime px-6 font-semibold text-sm text-background hover:bg-brand-lime-hover"
             >
-              Next Step: Location →
+              Next: location →
             </button>
           </div>
         </div>
@@ -329,12 +354,8 @@ export const ReportIssue: React.FC = () => {
           </div>
 
           <MapPicker
-            value={locationConfirmed ? { latitude, longitude } : undefined}
-            onChange={(loc: LocationData) => {
-              setLatitude(loc.latitude);
-              setLongitude(loc.longitude);
-              setLocationConfirmed(true);
-            }}
+            value={locationConfirmed ? { latitude, longitude, address } : undefined}
+            onChange={handleLocationChange}
           />
 
           {!locationConfirmed && (
@@ -348,7 +369,7 @@ export const ReportIssue: React.FC = () => {
               type="button"
               aria-label="Previous step: details"
               onClick={() => setStep(2)}
-              className="focus-ring text-xs text-text-tertiary hover:text-foreground font-mono"
+              className="focus-ring -my-2 inline-flex min-h-[44px] items-center rounded-md px-2 font-mono text-xs text-text-tertiary hover:text-foreground"
             >
               ← Back
             </button>
@@ -357,22 +378,41 @@ export const ReportIssue: React.FC = () => {
               aria-label="Submit report"
               disabled={submitting}
               onClick={handleSubmit}
-              className={`focus-ring font-semibold px-6 py-2 rounded text-xs flex items-center gap-1.5 ${
+              className={`focus-ring inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-6 text-sm font-semibold ${
                 submitting
-                  ? 'bg-surface-elevated text-text-quaternary cursor-not-allowed'
+                  ? 'cursor-not-allowed bg-surface-elevated text-text-quaternary'
                   : 'bg-brand-lime text-background hover:bg-brand-lime-hover'
               }`}
             >
               {submitting ? (
                 <span role="status" aria-live="polite" className="flex items-center gap-1.5">
                   <Loader className="animate-spin" size={14} />
-                  <span>Submitting...</span>
+                  <span>Submitting…</span>
                 </span>
               ) : (
-                <span>Submit & Process with AI →</span>
+                <span>Submit report</span>
               )}
             </button>
           </div>
+
+          {/* The attachment warnings used to render only on step 2, but the
+              upload actually runs on step 3 — so a citizen who lost their photo
+              never saw the warning and believed it was attached. */}
+          {(mediaError || voiceError) && (
+            <div
+              role="alert"
+              className="mt-4 space-y-1.5 rounded-lg border border-status-progress/30 bg-status-progress/10 p-3"
+            >
+              <p className="text-body-sm font-medium text-status-progress">
+                Your report will be submitted without {mediaError ? 'the photo' : 'the voice note'}.
+              </p>
+              {mediaError && <p className="text-caption text-text-secondary">{mediaError}</p>}
+              {voiceError && <p className="text-caption text-text-secondary">{voiceError}</p>}
+              <p className="text-caption text-text-tertiary">
+                Go back and re-attach it if the attachment matters.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

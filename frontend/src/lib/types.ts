@@ -48,6 +48,8 @@ export interface Officer {
   id: string;
   name: string;
   department: string;
+  department_id?: string | null;
+  role: 'officer' | 'dept_head' | 'admin' | 'super_admin';
   is_active: boolean;
   created_at?: string | null;
 }

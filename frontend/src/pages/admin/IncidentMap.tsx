@@ -5,6 +5,8 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { apiFetch } from '../../lib/api';
 import { HeatmapLayer, type HeatPoint } from '../../components/map/HeatmapLayer';
 import type { Ticket } from '../../lib/types';
+import { mapTileAttribution, mapTileClassName, mapTileUrl } from '../../lib/mapTiles';
+import { CITY_CENTER } from '../../lib/city';
 
 
 const STATUS_COLORS: Record<string, string> = {
@@ -52,10 +54,10 @@ export const IncidentMap: React.FC = () => {
 
   const avgLat = tickets.length > 0
     ? tickets.reduce((s, t) => s + t.latitude, 0) / tickets.length
-    : 12.97;
+    : CITY_CENTER.lat;
   const avgLng = tickets.length > 0
     ? tickets.reduce((s, t) => s + t.longitude, 0) / tickets.length
-    : 77.59;
+    : CITY_CENTER.lng;
 
   const openCount = tickets.filter(t => !['resolved', 'verified'].includes(t.status)).length;
 
@@ -74,8 +76,8 @@ export const IncidentMap: React.FC = () => {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
         <div className="flex flex-col items-center justify-center py-24">
-          <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
-            <AlertTriangle size={24} className="text-red-400" />
+          <div className="w-14 h-14 rounded-full bg-status-escalated/10 border border-status-escalated/30 flex items-center justify-center mb-4">
+            <AlertTriangle size={24} className="text-status-escalated" />
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load incident data</h3>
           <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
@@ -119,8 +121,8 @@ export const IncidentMap: React.FC = () => {
           {/* Summary bar */}
           <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
             <span className="font-mono">{tickets.length} total incidents</span>
-            <span className="font-mono text-yellow-400">{openCount} open</span>
-            <span className="font-mono text-green-400">{tickets.length - openCount} resolved</span>
+            <span className="font-mono text-status-progress">{openCount} open</span>
+            <span className="font-mono text-status-resolved">{tickets.length - openCount} resolved</span>
             <button
               type="button"
               onClick={() => setShowHeatmap(v => !v)}
@@ -150,12 +152,12 @@ export const IncidentMap: React.FC = () => {
             <MapContainer
               center={[avgLat, avgLng]}
               zoom={13}
-              className="h-full w-full"
+              className={`h-full w-full ${mapTileClassName}`}
               scrollWheelZoom={true}
             >
               <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                attribution={mapTileAttribution}
+                url={mapTileUrl}
               />
               <HeatmapLayer points={heatPoints} visible={showHeatmap} />
               {tickets.map(t => (
@@ -178,7 +180,7 @@ export const IncidentMap: React.FC = () => {
                         {t.latitude.toFixed(4)}, {t.longitude.toFixed(4)}
                       </p>
                       <p className={`font-mono font-bold ${
-                        t.status === 'resolved' || t.status === 'verified' ? 'text-green-500' : 'text-yellow-500'
+                        t.status === 'resolved' || t.status === 'verified' ? 'text-status-resolved' : 'text-status-progress'
                       }`}>
                         {t.status.replace('_', ' ')}
                       </p>

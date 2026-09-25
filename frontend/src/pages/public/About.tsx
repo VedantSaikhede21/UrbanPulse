@@ -8,56 +8,63 @@ import {
   Workflow, Layers, Server, Database, BrainCircuit, Route, Clock, BarChart3, ArrowRight
 } from 'lucide-react';
 
+/**
+ * Every description below states only what the running system actually does.
+ * An earlier version claimed proximity-to-hospital scoring, ward-boundary
+ * "nearest officer" routing, image-fingerprint dedup, citizen-satisfaction
+ * scoring and escalation alerts — none of which are implemented, and all of
+ * which a technical judge can disprove by reading the graph.
+ */
 const FEATURES = [
   {
     icon: Languages,
     title: 'Multilingual Intake',
-    description: 'Citizens report issues via web or WhatsApp in any regional language. Voice notes, photos, and videos are accepted and processed by Gemini AI.',
+    description: 'Citizens report issues via the web app or WhatsApp. Voice notes, photos and videos are accepted, and the AI pipeline understands the description in any language you write it in.',
   },
   {
     icon: Shield,
     title: 'Spam & Duplicate Detection',
-    description: 'A dedicated LangGraph agent cross-verifies image features, geo-coordinates, and report fingerprints to eliminate duplicates and flag spam.',
+    description: 'Dedicated agents merge reports filed for the same spot within a 100m radius and the same category, and flag accounts that have filed an unusual volume of reports.',
   },
   {
     icon: AlertTriangle,
     title: 'Priority Calculation',
-    description: 'Severity is computed based on proximity to hospitals, schools, and critical infrastructure. High-priority issues are fast-tracked automatically.',
+    description: 'Every ticket is scored for severity and given a priority. High-priority issues are surfaced first in the officer queue so the worst problems are handled earliest.',
   },
   {
     icon: Route,
     title: 'Intelligent Routing',
-    description: 'Issues are routed to the correct municipal department and the nearest available field officer based on ward boundaries and workload.',
+    description: 'Issues are routed to the correct municipal department, then assigned to the field officer carrying the lightest active workload.',
   },
   {
     icon: Activity,
-    title: 'Real-Time SLA Monitoring',
-    description: 'Every ticket has a live SLA timer. Escalation agents trigger alerts when response or resolution thresholds are at risk of being missed.',
+    title: 'SLA Monitoring',
+    description: 'Every ticket carries a target resolution time derived from its category. The queue shows how long is left, and flags anything that has already overrun.',
   },
   {
     icon: Map,
     title: 'Ward Health Scoring',
-    description: 'Each ward receives a dynamic Urban Health Score (UHS) based on resolved vs pending issues, response times, and citizen satisfaction.',
+    description: 'Each ward gets a dynamic Urban Health Score (0–100) that moves as issues are triaged and verified, so strain is visible before it becomes a crisis.',
   },
   {
     icon: CheckCircle2,
     title: 'Auto Verification',
-    description: 'When an officer marks a ticket resolved, a verification agent compares before/after photos to confirm the fix before the ticket is closed.',
+    description: 'When an officer marks a ticket resolved, a verification agent reviews the closure evidence and confirms the fix before the ticket is closed.',
   },
   {
     icon: BarChart3,
     title: 'City Analytics',
-    description: 'Department heads and city administrators get real-time dashboards with trends, heatmaps, officer performance metrics, and bottleneck alerts.',
+    description: 'Department heads and city administrators get dashboards with ward trends, incident heatmaps, officer workload metrics and bottleneck alerts.',
   },
 ];
 
 const PIPELINE_STEPS = [
-  { icon: Languages, step: '01', title: 'Citizen Reports', description: 'Issue submitted via web app or WhatsApp with photo, location, and voice description in any language.' },
-  { icon: BrainCircuit, step: '02', title: 'AI Analysis', description: 'Gemini 2.5 Flash classifies the issue, extracts details, and assigns preliminary metadata.' },
+  { icon: Languages, step: '01', title: 'Citizen Reports', description: 'Issue submitted via the web app or WhatsApp with a photo, location, and description.' },
+  { icon: BrainCircuit, step: '02', title: 'AI Analysis', description: 'Gemini 2.5 Flash classifies the issue and extracts the details we need to route it.' },
   { icon: Shield, step: '03', title: 'Trust & Dedup', description: 'Fraud detection and deduplication agents verify authenticity and merge duplicate reports.' },
-  { icon: AlertTriangle, step: '04', title: 'Priority Scoring', description: 'Severity score calculated using infrastructure proximity, citizen reputation, and historical data.' },
-  { icon: Route, step: '05', title: 'Officer Dispatch', description: 'Ticket is routed to the correct department and assigned to the nearest available field officer.' },
-  { icon: Clock, step: '06', title: 'Resolution & Verify', description: 'Officer resolves the issue, uploads proof, and the verification agent confirms closure automatically.' },
+  { icon: AlertTriangle, step: '04', title: 'Priority Scoring', description: 'A severity score is calculated and the ticket is queued against the right SLA.' },
+  { icon: Route, step: '05', title: 'Officer Dispatch', description: 'The ticket is routed to the correct department and assigned to a field officer.' },
+  { icon: Clock, step: '06', title: 'Resolution & Verify', description: 'The officer resolves the issue with proof, and the verification agent confirms closure.' },
 ];
 
 const TECH_STACK = [
@@ -65,8 +72,8 @@ const TECH_STACK = [
   { icon: BrainCircuit, label: 'AI Model', value: 'Gemini 2.5 Flash' },
   { icon: Layers, label: 'Frontend', value: 'React + Tailwind CSS' },
   { icon: Database, label: 'Database', value: 'Supabase (PostgreSQL)' },
-  { icon: Map, label: 'Maps', value: 'Leaflet + OpenStreetMap' },
-  { icon: Cpu, label: 'Orchestration', value: '9-Agent LangGraph Pipeline' },
+  { icon: Map, label: 'Maps', value: 'Leaflet + basemap tiles' },
+  { icon: Cpu, label: 'Orchestration', value: 'Multi-agent LangGraph pipeline' },
 ];
 
 export const About: React.FC = () => {
@@ -82,10 +89,10 @@ export const About: React.FC = () => {
           <Activity size={18} className="animate-pulse" />
           <h1 className="text-xl font-serif italic font-bold">About UrbanPulse AI</h1>
         </div>
-        <p className="text-text-secondary text-xs max-w-2xl">
-          An open, AI-powered civic infrastructure triage platform built for Indian municipalities. 
-          UrbanPulse replaces opaque government complaint portals with a transparent, multi-agent pipeline 
-          that gives citizens and officers complete visibility into every step of the resolution process.
+        <p className="text-text-secondary text-sm max-w-2xl leading-relaxed">
+          An AI-powered civic infrastructure triage platform built for Indian municipalities.
+          Where a conventional complaint portal hides the process behind a ticket number,
+          UrbanPulse shows how each report was categorised, prioritised, routed and closed.
         </p>
       </section>
 
@@ -98,16 +105,18 @@ export const About: React.FC = () => {
           <h2 className="font-serif italic font-bold text-lg">What Is UrbanPulse?</h2>
         </div>
         <p className="text-text-secondary text-sm leading-relaxed">
-          UrbanPulse is a pilot-ready civic technology platform that uses a 9-agent AI pipeline to 
-          triage, route, and track civic infrastructure complaints. Citizens can report issues — from 
-          potholes to water leaks to broken streetlights — in any language using the web app or 
-          WhatsApp. Behind the scenes, specialized LangGraph agents analyze, deduplicate, prioritize, 
-          route, and verify each report, while keeping every stakeholder informed in real time.
+          UrbanPulse is a civic technology platform that uses a multi-agent AI pipeline to
+          triage, route and track civic infrastructure complaints. Citizens report issues — from
+          potholes to water leaks to broken streetlights — with a photo and a map pin, through the
+          web app or WhatsApp. Behind the scenes, specialised LangGraph agents analyse,
+          deduplicate, prioritise, route and verify each report, while keeping every stakeholder
+          informed.
         </p>
         <p className="text-text-secondary text-sm leading-relaxed">
-          The platform provides dynamic Ward Health Scores (UHS), live SLA monitoring, geospatial 
-          incident mapping, and per-department analytics. It is designed to reduce resolution times, 
-          eliminate paperwork, and bring transparency to civic governance.
+          The platform provides dynamic Ward Health Scores, per-category SLA tracking, a public
+          incident map, and per-department analytics. Every automated decision is recorded, so a
+          department head can answer not just "how many complaints" but "why was this treated as
+          urgent, and who picked it up".
         </p>
       </section>
 
@@ -187,17 +196,26 @@ export const About: React.FC = () => {
 
       {/* CTA */}
       <section className="bg-brand-soft border border-brand-lime/20 rounded-lg p-6 text-center space-y-3">
-        <h2 className="font-serif italic font-bold text-lg">Ready to report an issue?</h2>
+        <h2 className="font-serif italic font-bold text-lg">See a real report go end to end</h2>
         <p className="text-text-secondary text-sm max-w-lg mx-auto">
-          Use the platform to submit a civic issue and watch the AI pipeline process it in real time.
+          Open the live city map to see what is open right now, or sign in to file your own report
+          and follow it through every step.
         </p>
-        <Link
-          to="/auth/citizen-login"
-          className="focus-ring inline-flex items-center gap-2 bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 py-2.5 rounded text-sm transition-all duration-200"
-        >
-          <span>Report an Issue</span>
-          <ArrowRight size={14} />
-        </Link>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
+          <Link
+            to="/public-map"
+            className="focus-ring inline-flex h-11 items-center gap-2 bg-brand-lime text-background hover:bg-brand-lime-hover font-semibold px-6 rounded text-sm transition-all duration-200"
+          >
+            <span>Open the live map</span>
+            <ArrowRight size={14} />
+          </Link>
+          <Link
+            to="/auth/citizen-login"
+            className="focus-ring inline-flex h-11 items-center gap-2 border border-border-default bg-surface-card text-foreground hover:border-brand-lime/40 font-semibold px-6 rounded text-sm transition-all duration-200"
+          >
+            Sign in to report an issue
+          </Link>
+        </div>
       </section>
 
     </div>

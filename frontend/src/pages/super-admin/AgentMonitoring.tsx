@@ -95,8 +95,8 @@ export const AgentMonitoring: React.FC = () => {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
         <div role="alert" className="flex flex-col items-center justify-center py-24">
-          <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
-            <AlertTriangle size={24} className="text-red-400" />
+          <div className="w-14 h-14 rounded-full bg-status-escalated/10 border border-status-escalated/30 flex items-center justify-center mb-4">
+            <AlertTriangle size={24} className="text-status-escalated" />
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load agent data</h3>
           <p className="text-sm text-secondary max-w-xs mb-5">{error}</p>
@@ -148,8 +148,8 @@ export const AgentMonitoring: React.FC = () => {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-xs text-tertiary">
                 <span className="relative flex h-2 w-2">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${onlineCount === totalAgents ? 'bg-green-400' : 'bg-yellow-400'} opacity-75`} />
-                  <span className={`relative inline-flex rounded-full h-2 w-2 ${onlineCount === totalAgents ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${onlineCount === totalAgents ? 'bg-status-resolved' : 'bg-status-progress'} opacity-75`} />
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${onlineCount === totalAgents ? 'bg-status-resolved' : 'bg-status-progress'}`} />
                 </span>
                 <span className="font-mono">{onlineCount}/{totalAgents} agents online</span>
               </div>
@@ -184,11 +184,11 @@ export const AgentMonitoring: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-tertiary">
                     <div>
-                      <span className="block uppercase tracking-wider text-[9px]">Invocations</span>
+                      <span className="block uppercase tracking-wider text-[10px]">Invocations</span>
                       <span className="text-sm text-foreground">{agent.invocations.toLocaleString()}</span>
                     </div>
                     <div>
-                      <span className="block uppercase tracking-wider text-[9px]">Avg latency</span>
+                      <span className="block uppercase tracking-wider text-[10px]">Avg latency</span>
                       <span className="text-sm text-foreground">
                         {agent.avg_latency_ms != null ? `${Math.round(agent.avg_latency_ms)}ms` : '—'}
                       </span>
@@ -198,11 +198,11 @@ export const AgentMonitoring: React.FC = () => {
                     <div className="flex items-center gap-1.5">
                       <span className="relative flex h-2 w-2">
                         {agent.online && (
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-resolved opacity-75" />
                         )}
-                        <span className={`relative inline-flex rounded-full h-2 w-2 ${agent.online ? 'bg-green-500' : 'bg-gray-600'}`} />
+                        <span className={`relative inline-flex rounded-full h-2 w-2 ${agent.online ? 'bg-status-resolved' : 'bg-gray-600'}`} />
                       </span>
-                      <span className={`text-[10px] font-mono uppercase tracking-wider ${agent.online ? 'text-green-400' : 'text-tertiary'}`}>
+                      <span className={`text-[10px] font-mono uppercase tracking-wider ${agent.online ? 'text-status-resolved' : 'text-tertiary'}`}>
                         {agent.online ? 'Online' : 'Idle'}
                       </span>
                     </div>
@@ -227,7 +227,7 @@ export const AgentMonitoring: React.FC = () => {
                 </div>
                 <div className="bg-panel-bg border border-panel-border rounded p-3">
                   <span className="text-tertiary block font-mono text-[10px] uppercase tracking-wider mb-1">Critical Wards</span>
-                  <span className={`text-lg font-serif italic font-bold ${pulse.critical_wards > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  <span className={`text-lg font-serif italic font-bold ${pulse.critical_wards > 0 ? 'text-status-escalated' : 'text-status-resolved'}`}>
                     {pulse.critical_wards}
                   </span>
                 </div>
@@ -239,7 +239,7 @@ export const AgentMonitoring: React.FC = () => {
               {pulse.pulse_alerts.length > 0 && (
                 <div className="space-y-1.5 pt-1">
                   {pulse.pulse_alerts.map((alert, i) => (
-                    <div key={i} className="bg-amber-950/20 border border-amber-800/30 text-amber-300 text-xs px-3 py-2 rounded flex items-start gap-2">
+                    <div key={i} className="bg-status-progress/10 border border-status-progress/30 text-status-progress text-xs px-3 py-2 rounded flex items-start gap-2">
                       <AlertTriangle size={12} className="shrink-0 mt-0.5" />
                       <span>{alert}</span>
                     </div>

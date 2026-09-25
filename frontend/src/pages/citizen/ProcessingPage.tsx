@@ -63,6 +63,8 @@ export const ProcessingPage: React.FC = () => {
   const [aiDegraded, setAiDegraded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
+  const doneRef = useRef(false);
+  const stepsRef = useRef<AgentStep[]>([]);
 
   useEffect(() => {
     if (!ticketId) return;
@@ -73,6 +75,8 @@ export const ProcessingPage: React.FC = () => {
     setError(null);
     setParseErrors(0);
     setResult(null);
+    doneRef.current = false;
+    stepsRef.current = [];
 
     const es = new EventSource(apiUrl(`/api/tickets/${ticketId}/process`));
     esRef.current = es;
@@ -85,7 +89,8 @@ export const ProcessingPage: React.FC = () => {
       try {
         const data: AgentStep = JSON.parse(event.data);
 
-        if (data.status === 'done') {
+        if (data.status === 'done' && data.node === 'END') {
+          doneRef.current = true;
           setDone(true);
           setResult(data.result ?? null);
           es.close();
@@ -109,7 +114,11 @@ export const ProcessingPage: React.FC = () => {
           return;
         }
 
-        setSteps(prev => [...prev, data]);
+        setSteps(prev => {
+          const next = [...prev, data];
+          stepsRef.current = next;
+          return next;
+        });
       } catch {
         setParseErrors(prev => prev + 1);
       }
@@ -117,7 +126,7 @@ export const ProcessingPage: React.FC = () => {
 
     es.onerror = () => {
       setConnectionStatus('error');
-      if (!done && steps.length === 0) {
+      if (!doneRef.current && stepsRef.current.length === 0) {
         setError('Connection to the AI pipeline was lost. Please check your network and try again.');
       }
       es.close();
@@ -156,9 +165,9 @@ export const ProcessingPage: React.FC = () => {
               : `Running 8-agent LangGraph pipeline for ticket ${ticketId?.slice(0, 8)}...`}
           </p>
           {!done && (
-            <span className={`flex items-center gap-1 text-[9px] font-mono ${
-              connectionStatus === 'connected' ? 'text-green-400' :
-              connectionStatus === 'error' ? 'text-red-400' : 'text-yellow-400'
+            <span className={`flex items-center gap-1 text-[10px] font-mono ${
+              connectionStatus === 'connected' ? 'text-status-resolved' :
+              connectionStatus === 'error' ? 'text-status-escalated' : 'text-status-progress'
             }`}>
             {connectionStatus === 'connected' && <Wifi size={10} />}
             {connectionStatus === 'connecting' && <Loader size={10} className="animate-spin" />}
@@ -177,7 +186,7 @@ export const ProcessingPage: React.FC = () => {
         aria-label="Pipeline processing status"
       >
         <div className="flex items-center gap-2 px-5 py-3 border-b border-panel-border bg-panel-bg">
-          <Activity size={14} className={`${!done ? 'text-brand-lime animate-pulse' : 'text-green-400'}`} />
+          <Activity size={14} className={`${!done ? 'text-brand-lime animate-pulse' : 'text-status-resolved'}`} />
           <span className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
             {done ? 'Pipeline Complete' : error ? 'Error' : 'Processing...'}
           </span>
@@ -219,7 +228,7 @@ export const ProcessingPage: React.FC = () => {
                   <Loader size={16} className="animate-spin text-brand-lime" />
                   <span className="text-xs font-mono">AI agents analyzing your report...</span>
                   {parseErrors > 0 && (
-                    <span className="text-[9px] text-yellow-500 font-mono ml-auto">{parseErrors} parse warnings</span>
+                    <span className="text-[10px] text-status-progress font-mono ml-auto">{parseErrors} parse warnings</span>
                   )}
                 </div>
               )}
@@ -236,23 +245,23 @@ export const ProcessingPage: React.FC = () => {
             <div
               role="status"
               data-testid="ai-degraded-banner"
-              className="flex items-start gap-3 bg-yellow-950/40 border border-yellow-700/40 rounded-lg p-3 text-left"
+              className="flex items-start gap-3 bg-status-progress/10 border border-status-progress/30 rounded-lg p-3 text-left"
             >
-              <AlertTriangle size={16} className="text-yellow-400 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-yellow-300 leading-relaxed">
+              <AlertTriangle size={16} className="text-status-progress mt-0.5 shrink-0" />
+              <p className="text-[11px] text-status-progress leading-relaxed">
                 AI reasoning unavailable, using basic triage. An officer will review.
               </p>
             </div>
           )}
-          <CheckCircle2 size={28} className="text-brand-lime mx-auto" />
-          <p className="text-sm font-serif italic text-brand-lime font-bold">Report Processed Successfully!</p>
+          <CheckCircle2 size={28} className="text-status-resolved mx-auto" />
+          <p className="text-sm font-serif italic text-status-resolved font-bold">Report Processed Successfully!</p>
           <div className="bg-background/50 border border-panel-border rounded px-4 py-3 inline-flex items-center gap-4 text-xs">
             <span className="text-gray-400">
               Ticket ID: <span className="font-mono text-foreground">{ticketId?.slice(0, 8)}</span>
             </span>
             <span className="w-px h-4 bg-panel-border" />
             <span className="text-gray-400">
-              Status: <span className="text-brand-lime font-semibold capitalize">
+              Status: <span className="text-status-new font-semibold capitalize">
                 {result?.status ? String(result.status).replace('_', ' ') : 'Reported'}
               </span>
             </span>
@@ -268,9 +277,9 @@ export const ProcessingPage: React.FC = () => {
       )}
 
       {error && (
-        <div className="bg-red-950/40 border border-red-800/40 rounded-lg p-5 text-center space-y-3">
-          <AlertCircle size={24} className="text-red-400 mx-auto" />
-          <p className="text-sm text-red-400">{error}</p>
+        <div className="bg-status-escalated/10 border border-status-escalated/30 rounded-lg p-5 text-center space-y-3">
+          <AlertCircle size={24} className="text-status-escalated mx-auto" />
+          <p className="text-sm text-status-escalated">{error}</p>
           <button
             onClick={() => navigate(`/citizen/report/${ticketId}`)}
             className="bg-panel-card border border-panel-border text-gray-300 hover:text-foreground px-5 py-2 rounded text-xs"

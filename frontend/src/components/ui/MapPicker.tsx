@@ -4,6 +4,8 @@ import { divIcon, LatLng } from 'leaflet';
 import { Crosshair, Loader, MapPin } from 'lucide-react';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { reverseGeocode, formatCoordinates } from '../../utils/location';
+import { mapTileAttribution, mapTileClassName, mapTileUrl } from '../../lib/mapTiles';
+import { CITY_CENTER } from '../../lib/city';
 
 export interface LocationData {
   latitude: number;
@@ -23,7 +25,12 @@ const CUSTOM_MARKER = divIcon({
   iconAnchor: [16, 32],
 });
 
-const DEFAULT_CENTER: [number, number] = [19.076, 72.8777];
+/**
+ * The picker opened on Kurla West, Mumbai (19.076, 72.878) while the whole
+ * product is scoped to Navi Mumbai — a citizen could (and would) pin a report
+ * in the wrong city. Sourced from the shared constant so it can never drift.
+ */
+const DEFAULT_CENTER: [number, number] = [CITY_CENTER.lat, CITY_CENTER.lng];
 const DEFAULT_ZOOM = 12;
 
 function ClickHandler({ onMapClick }: { onMapClick: (latlng: LatLng) => void }) {
@@ -108,12 +115,12 @@ export const MapPicker: React.FC<MapPickerProps> = ({ value, onChange }) => {
         <MapContainer
           center={[lat, lng]}
           zoom={DEFAULT_ZOOM}
-          className="w-full h-full"
+          className={`w-full h-full ${mapTileClassName}`}
           zoomControl={false}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution={mapTileAttribution}
+            url={mapTileUrl}
           />
           <ClickHandler onMapClick={handleMapClick} />
           <FlyToLocation lat={lat} lng={lng} />
@@ -143,7 +150,7 @@ export const MapPicker: React.FC<MapPickerProps> = ({ value, onChange }) => {
         </button>
       </div>
 
-      <div className="flex items-start gap-2 text-xs font-mono text-gray-400">
+      <div className="flex items-start gap-2 text-xs font-mono text-gray-400" role="status" aria-live="polite">
         <MapPin size={14} className="mt-0.5 shrink-0 text-brand-lime" />
         <div className="space-y-0.5 min-w-0">
           {value ? (

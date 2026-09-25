@@ -90,8 +90,8 @@ export const EscalationMonitor: React.FC = () => {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
         <div role="alert" className="flex flex-col items-center justify-center py-24">
-          <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
-            <AlertTriangle size={24} className="text-red-400" />
+          <div className="w-14 h-14 rounded-full bg-status-escalated/10 border border-status-escalated/30 flex items-center justify-center mb-4">
+            <AlertTriangle size={24} className="text-status-escalated" />
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load escalation data</h3>
           <p className="text-sm text-secondary max-w-xs mb-5">{error}</p>
@@ -134,27 +134,27 @@ export const EscalationMonitor: React.FC = () => {
             <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-tertiary block">Breached SLA</span>
-                <span className="text-2xl font-serif italic font-bold text-red-400 block">{breached.length}</span>
+                <span className="text-2xl font-serif italic font-bold text-status-escalated block">{breached.length}</span>
               </div>
-              <div className="w-10 h-10 rounded bg-red-950/40 flex items-center justify-center text-red-400 border border-red-800/30">
+              <div className="w-10 h-10 rounded bg-status-escalated/10 flex items-center justify-center text-status-escalated border border-status-escalated/30">
                 <AlertTriangle size={18} />
               </div>
             </div>
             <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-tertiary block">At Risk</span>
-                <span className="text-2xl font-serif italic font-bold text-yellow-400 block">{atRisk.length}</span>
+                <span className="text-2xl font-serif italic font-bold text-status-progress block">{atRisk.length}</span>
               </div>
-              <div className="w-10 h-10 rounded bg-yellow-950/40 flex items-center justify-center text-yellow-400 border border-yellow-800/30">
+              <div className="w-10 h-10 rounded bg-status-progress/10 flex items-center justify-center text-status-progress border border-status-progress/30">
                 <Clock size={18} />
               </div>
             </div>
             <div className="bg-panel-card border border-panel-border p-5 rounded flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-tertiary block">Within SLA</span>
-                <span className="text-2xl font-serif italic font-bold text-green-400 block">{withinSLA.length}</span>
+                <span className="text-2xl font-serif italic font-bold text-status-resolved block">{withinSLA.length}</span>
               </div>
-              <div className="w-10 h-10 rounded bg-green-950/40 flex items-center justify-center text-green-400 border border-green-800/30">
+              <div className="w-10 h-10 rounded bg-status-resolved/10 flex items-center justify-center text-status-resolved border border-status-resolved/30">
                 <CheckCircle2 size={18} />
               </div>
             </div>
@@ -174,9 +174,9 @@ export const EscalationMonitor: React.FC = () => {
                   key={b.ticket.id}
                   className={`bg-panel-card border rounded-lg p-5 space-y-3 ${
                     b.breached
-                      ? 'border-red-800/40'
+                      ? 'border-status-escalated/30'
                       : b.ageHours > b.slaHours * 0.75
-                        ? 'border-yellow-800/30'
+                        ? 'border-status-progress/30'
                         : 'border-panel-border'
                   }`}
                 >
@@ -185,7 +185,7 @@ export const EscalationMonitor: React.FC = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-mono text-tertiary">#{b.ticket.id.slice(0, 8)}</span>
                         {b.breached && (
-                          <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-red-950/40 text-red-400 border border-red-800/40 flex items-center gap-1">
+                          <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-status-escalated/10 text-status-escalated border border-status-escalated/30 flex items-center gap-1">
                             <AlertTriangle size={10} />
                             SLA BREACHED
                           </span>
@@ -202,7 +202,7 @@ export const EscalationMonitor: React.FC = () => {
                         <span className="flex items-center gap-1">
                           <Calendar size={12} /> {b.ticket.created_at ? new Date(b.ticket.created_at).toLocaleDateString() : 'N/A'}
                         </span>
-                        <span className={`flex items-center gap-1 ${b.breached ? 'text-red-400' : b.ageHours > b.slaHours * 0.75 ? 'text-yellow-400' : 'text-green-400'}`}>
+                        <span className={`flex items-center gap-1 ${b.breached ? 'text-status-escalated' : b.ageHours > b.slaHours * 0.75 ? 'text-status-progress' : 'text-status-resolved'}`}>
                           <Clock size={12} />
                           {b.ageHours < 1
                             ? '< 1h'
@@ -216,14 +216,14 @@ export const EscalationMonitor: React.FC = () => {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] font-mono">
                       <span className="text-tertiary">SLA</span>
-                      <span className={b.breached ? 'text-red-400' : 'text-secondary'}>
+                      <span className={b.breached ? 'text-status-escalated' : 'text-secondary'}>
                         {breachPct(b)}%
                       </span>
                     </div>
                     <div className="h-2 bg-border-default rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          b.breached ? 'bg-red-500' : b.ageHours > b.slaHours * 0.75 ? 'bg-yellow-500' : 'bg-green-500'
+                          b.breached ? 'bg-status-escalated' : b.ageHours > b.slaHours * 0.75 ? 'bg-status-progress' : 'bg-status-resolved'
                         }`}
                         style={{ width: `${Math.min(100, breachPct(b))}%` }}
                       />
@@ -240,9 +240,9 @@ export const EscalationMonitor: React.FC = () => {
               <Shield size={14} className="text-brand-lime" />
               <span className="font-semibold text-foreground">SLA Policy</span>
             </div>
-            <p>P1 Critical (priority 3): <span className="text-red-400 font-mono">4h</span> response time</p>
-            <p>P2 Medium (priority 2): <span className="text-yellow-400 font-mono">8h</span> response time</p>
-            <p>P3 Low (priority 1): <span className="text-green-400 font-mono">24h</span> response time</p>
+            <p>P1 Critical (priority 3): <span className="text-status-escalated font-mono">4h</span> response time</p>
+            <p>P2 Medium (priority 2): <span className="text-status-progress font-mono">8h</span> response time</p>
+            <p>P3 Low (priority 1): <span className="text-status-resolved font-mono">24h</span> response time</p>
           </div>
         </>
       )}

@@ -65,15 +65,23 @@ export const AdminDashboard: React.FC = () => {
   const totalTickets = tickets.length;
   const openTickets = tickets.filter(t => OPEN_STATUSES.includes(t.status)).length;
   const resolvedTickets = tickets.filter(t => RESOLVED_STATUSES.includes(t.status)).length;
-  const activeOfficers = officers.filter(o => o.is_active).length;
-  const recentTickets = tickets.slice(-5).reverse();
+  // Count field officers only. DepartmentDashboard filters the same way, so
+  // the two dashboards can no longer report different headcounts for the same
+  // roster pulled from /api/officers.
+  const activeOfficers = officers.filter(o => o.is_active && o.role === 'officer').length;
+  // Sort by created_at descending before slicing. The old `slice(-5).reverse()`
+  // assumed the API always returns oldest-first; when it returns newest-first
+  // that silently surfaced the 5 OLDEST tickets as "Recent Tickets".
+  const recentTickets = [...tickets]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5);
 
   if (error) {
     return (
       <div className="p-6 max-w-6xl mx-auto min-h-screen">
         <div role="alert" className="flex flex-col items-center justify-center py-24">
-          <div className="w-14 h-14 rounded-full bg-red-950/40 border border-red-800/30 flex items-center justify-center mb-4">
-            <AlertTriangle size={24} className="text-red-400" />
+          <div className="w-14 h-14 rounded-full bg-status-escalated/10 border border-status-escalated/30 flex items-center justify-center mb-4">
+            <AlertTriangle size={24} className="text-status-escalated" />
           </div>
           <h3 className="text-base font-semibold mb-1.5">Failed to load dashboard</h3>
           <p className="text-sm text-gray-400 max-w-xs mb-5">{error}</p>
