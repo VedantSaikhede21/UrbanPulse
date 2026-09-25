@@ -282,14 +282,12 @@ def validate_file_signature_bytes(content: bytes, ext: str) -> bool:
     return False
 
 
-@app.post("/api/upload", response_model=UploadResponse)
-@limiter.limit("10/minute")
-async def upload_file(
-    request: Request,
-    file: UploadFile = File(...),
-    current_user: AuthUser = Depends(get_current_user),
-):
-    # MIME type validation
+async def read_validated_upload(file: UploadFile) -> tuple[bytes, str, str]:
+    """Validate an uploaded file and return (content, ext, content_type).
+
+    Shared by every upload route so a new endpoint cannot accidentally skip the
+    magic-byte check or the size cap.
+    """
     content_type = file.content_type or ""
     if content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(status_code=400, detail=f"MIME type {content_type} not allowed")
@@ -326,12 +324,60 @@ async def upload_file(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
 
+    return content, ext, content_type
+
+
+@app.post("/api/upload", response_model=UploadResponse)
+@limiter.limit("10/minute")
+async def upload_file(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    content, ext, content_type = await read_validated_upload(file)
+
     storage = get_storage()
     # Save the validated bytes through the configured backend. The
     # returned key is what gets stored in the database; main.py
     # never sees a real URL — that is the storage backend's job.
     key = storage.save_bytes(content, ext, content_type, prefix="uploads")
     return {"url": storage.public_url(key), "key": key}
+
+
+@app.post("/api/tickets/{ticket_id}/closure-media")
+@limiter.limit("10/minute")
+async def upload_closure_media(
+    request: Request,
+    ticket_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Store an officer's closure photo and return the URL to submit.
+
+    The officer queue has always offered "Take / upload closure photo" as the
+    primary way to close a ticket, but this endpoint did not exist, so that
+    button returned 404 and only the secondary paste-a-link field worked. The
+    photo is stored here but NOT attached to the ticket: the resolve endpoint
+    owns that transition, because resolving is irreversible and starts the
+    verification agents.
+    """
+    if current_user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Only staff can upload closure evidence")
+
+    ticket = db.query(Ticket).filter(Ticket.id == uuid.UUID(ticket_id)).first()
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    # A field officer may only attach evidence to their own queue. Department
+    # heads and above oversee the whole city.
+    if current_user.role == "officer" and ticket.assigned_officer_id != uuid.UUID(current_user.id):
+        raise HTTPException(status_code=403, detail="Ticket is not assigned to you")
+
+    content, ext, content_type = await read_validated_upload(file)
+    storage = get_storage()
+    key = storage.save_bytes(content, ext, content_type, prefix=f"closures/{ticket_id}")
+    url = storage.public_url(key)
+    return {"closure_media_url": url, "url": url, "media_url": url, "key": key}
 
 
 # ── Notifications ─────────────────────────────────────────
