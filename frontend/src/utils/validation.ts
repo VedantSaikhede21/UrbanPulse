@@ -69,7 +69,7 @@ export const validators = {
 
   phone: (value: string): ValidationResult => {
     if (!value) return { valid: false, error: 'Phone number is required' };
-    const cleaned = value.replace(/[\s\-\(\)]/g, '');
+    const cleaned = value.replace(/[\s\-()]/g, '');
     if (!/^\+?\d{7,15}$/.test(cleaned)) return { valid: false, error: 'Invalid phone number' };
     return { valid: true };
   },

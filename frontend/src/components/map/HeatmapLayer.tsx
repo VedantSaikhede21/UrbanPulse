@@ -65,7 +65,6 @@ export const HeatmapLayer: React.FC<HeatmapLayerProps> = ({
         layerRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, points, radius, blur, max, visible]);
 
   return null;

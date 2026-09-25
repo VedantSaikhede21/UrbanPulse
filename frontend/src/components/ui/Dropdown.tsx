@@ -61,16 +61,18 @@ export function Dropdown({
     const currentIndex = Array.from(items).findIndex(el => el === document.activeElement);
 
     switch (e.key) {
-      case 'ArrowDown':
+      case 'ArrowDown': {
         e.preventDefault();
         const nextIndex = Math.min(currentIndex + 1, items.length - 1);
         items[nextIndex >= 0 ? nextIndex : 0].focus();
         break;
-      case 'ArrowUp':
+      }
+      case 'ArrowUp': {
         e.preventDefault();
         const prevIndex = Math.max(currentIndex - 1, 0);
         items[prevIndex].focus();
         break;
+      }
       case 'Home':
         e.preventDefault();
         items[0].focus();
