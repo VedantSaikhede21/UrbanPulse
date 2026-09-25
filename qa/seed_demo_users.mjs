@@ -40,7 +40,7 @@ const FIXED_PW = process.env.QA_DEMO_PASSWORD || 'UrbanPulse@2026';
 // role is written into user_metadata; app/auth/deps.py reads the staff role
 // from the officers table, so the citizen's metadata only needs to say citizen.
 const USERS = [
-  { email: 'citizen@urbanpulse.demo', name: 'Aarav Citizen', role: 'citizen' },
+  { email: 'resident@urbanpulse.demo', name: 'Aarav Kulkarni', role: 'citizen' },
   { email: 'officer@urbanpulse.demo', name: 'Dave Kumar', role: 'officer' },
   { email: 'dept@urbanpulse.demo', name: 'Anita Desai', role: 'dept_head' },
   { email: 'admin@urbanpulse.demo', name: 'Meera Iyer', role: 'admin' },
@@ -70,7 +70,7 @@ for (const u of USERS) {
 
   if (res.ok && (body?.id || body?.user?.id)) {
     status = 'created';
-  } else if (/already been registered|already exists/i.test(JSON.stringify(body))) {
+  } else if (/already been registered|already registered|already exists|user_already_exists/i.test(JSON.stringify(body))) {
     status = 'exists';
   } else {
     console.log(`  FAILED   ${u.role.padEnd(11)} ${u.email} -> ${res.status} ${JSON.stringify(body).slice(0, 140)}`);
