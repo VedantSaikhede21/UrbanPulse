@@ -93,3 +93,5 @@ UrbanPulse_AI_Project_Proposal.pdf
 # Local QA artifacts / data snapshots — never commit
 .playwright-mcp/
 qa/backups/
+# QA-generated demo credentials â€” never commit
+.env.qa-users

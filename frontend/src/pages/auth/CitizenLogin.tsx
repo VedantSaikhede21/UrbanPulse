@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { signInWithGoogle } from '../../lib/auth';
+import { signInWithGoogle, signInWithPassword } from '../../lib/auth';
 import { Button } from '../../components/ui/Button';
-import { AuthAlert, AuthLayout } from '../../components/layout/AuthLayout';
+import { AuthAlert, AuthLayout, PasswordField, TextField } from '../../components/layout/AuthLayout';
 import { CheckCircle2, FileText, MapPin, ShieldCheck } from 'lucide-react';
 
 const CITIZEN_STEPS = [
@@ -14,6 +14,9 @@ const CITIZEN_STEPS = [
 
 export default function CitizenLogin() {
   useDocumentTitle('Citizen Login');
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,12 +30,25 @@ export default function CitizenLogin() {
     }
   }
 
+  async function handleEmailLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const { user, error } = await signInWithPassword(email.trim(), password);
+    setLoading(false);
+    if (error || !user) {
+      setError(error ?? 'Login failed. Please verify your email and password.');
+      return;
+    }
+    navigate('/auth/post-login');
+  }
+
   return (
     <AuthLayout
       variant="citizen"
       eyebrow="Citizen Portal"
       title="Sign in to report and track issues"
-      subtitle="One Google account. No municipal paperwork, no forms to download."
+      subtitle="Use Google, or sign in with the email and password you registered with."
       footer={
         <>
           Municipal staff?{' '}
@@ -70,6 +86,45 @@ export default function CitizenLogin() {
       >
         {loading ? 'Connecting…' : 'Continue with Google'}
       </Button>
+
+      <div className="my-4 flex items-center gap-3" aria-hidden="true">
+        <span className="h-px flex-1 bg-border-subtle" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-text-quaternary">
+          or
+        </span>
+        <span className="h-px flex-1 bg-border-subtle" />
+      </div>
+
+      <form onSubmit={handleEmailLogin} noValidate={false}>
+        <TextField
+          id="citizen-email"
+          label="Email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={setEmail}
+        />
+        <PasswordField
+          id="citizen-password"
+          label="Password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={setPassword}
+        />
+        <Button
+          id="citizen-login-btn"
+          type="submit"
+          disabled={loading}
+          fullWidth
+          size="lg"
+          variant="secondary"
+          loading={loading}
+        >
+          {loading ? 'Signing in…' : 'Sign in with email'}
+        </Button>
+      </form>
 
       {/* Onboarding: tell first-time users what happens after sign-in */}
       <div className="mt-6 pt-5 border-t border-border-subtle">
